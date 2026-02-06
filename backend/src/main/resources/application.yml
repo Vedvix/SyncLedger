@@ -1,0 +1,116 @@
+# =============================================================================
+# SYNCLEDGER - APPLICATION CONFIGURATION
+# by vedvix
+# =============================================================================
+# This file contains all settings for the application.
+# Values in ${...} come from environment variables for security.
+# =============================================================================
+
+# Server Configuration
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+# Spring Configuration
+spring:
+  application:
+    name: syncledger
+
+  # Database Configuration (H2 for development, PostgreSQL for production)
+  datasource:
+    url: jdbc:h2:mem:syncledger;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+  
+  # H2 Console (development only)
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: create-drop  # Use 'validate' in production
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+
+  # Jackson JSON Configuration
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+# =============================================================================
+# MICROSOFT GRAPH API CONFIGURATION (Email Integration)
+# =============================================================================
+microsoft:
+  graph:
+    client-id: ${AZURE_CLIENT_ID:your-client-id}
+    client-secret: ${AZURE_CLIENT_SECRET:your-client-secret}
+    tenant-id: ${AZURE_TENANT_ID:your-tenant-id}
+    mailbox: ${INVOICE_MAILBOX:invoices@vedvix.com}
+    poll-interval: 300000  # 5 minutes in milliseconds
+    scope: https://graph.microsoft.com/.default
+
+# =============================================================================
+# AWS CONFIGURATION
+# =============================================================================
+aws:
+  region: ${AWS_REGION:us-east-1}
+  s3:
+    bucket-name: ${S3_BUCKET_NAME:syncledger-invoices}
+  sqs:
+    queue-url: ${SQS_QUEUE_URL:}
+
+# =============================================================================
+# PDF MICROSERVICE CONFIGURATION
+# =============================================================================
+pdf-service:
+  url: ${PDF_SERVICE_URL:http://localhost:8000}
+  timeout: 30000  # 30 seconds
+
+# =============================================================================
+# JWT CONFIGURATION
+# =============================================================================
+jwt:
+  secret: ${JWT_SECRET:syncledger-secret-key-change-in-production-min-256-bits}
+  expiration: 3600000  # 1 hour in milliseconds
+  refresh-expiration: 604800000  # 7 days in milliseconds
+
+# =============================================================================
+# SAGE API CONFIGURATION
+# =============================================================================
+sage:
+  api:
+    base-url: ${SAGE_API_URL:https://api.sage.com}
+    client-id: ${SAGE_CLIENT_ID:}
+    client-secret: ${SAGE_CLIENT_SECRET:}
+
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+logging:
+  level:
+    root: INFO
+    com.vedvix.syncledger: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# =============================================================================
+# SPRINGDOC OPENAPI (SWAGGER) CONFIGURATION
+# =============================================================================
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha

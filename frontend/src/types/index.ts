@@ -1,0 +1,308 @@
+/**
+ * TypeScript types for SyncLedger frontend
+ * 
+ * @author vedvix
+ */
+
+// ==================== User Types ====================
+
+export type UserRole = 'ADMIN' | 'APPROVER' | 'VIEWER'
+
+export interface User {
+  id: number
+  firstName: string
+  lastName: string
+  email: string
+  role: UserRole
+  isActive: boolean
+  profilePictureUrl?: string
+  phone?: string
+  department?: string
+  jobTitle?: string
+  lastLoginAt?: string
+  createdAt: string
+}
+
+export interface CreateUserRequest {
+  firstName: string
+  lastName: string
+  email: string
+  password: string
+  role: UserRole
+  phone?: string
+  department?: string
+  jobTitle?: string
+}
+
+export interface UpdateUserRequest {
+  firstName?: string
+  lastName?: string
+  role?: UserRole
+  isActive?: boolean
+  phone?: string
+  department?: string
+  jobTitle?: string
+}
+
+// ==================== Invoice Types ====================
+
+export type InvoiceStatus = 
+  | 'PENDING'
+  | 'UNDER_REVIEW'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'SYNCED'
+  | 'SYNC_FAILED'
+  | 'ARCHIVED'
+
+export type SyncStatus = 
+  | 'PENDING'
+  | 'IN_PROGRESS'
+  | 'SUCCESS'
+  | 'FAILED'
+  | 'RETRYING'
+
+export interface InvoiceLineItem {
+  id?: number
+  lineNumber: number
+  description?: string
+  itemCode?: string
+  unit?: string
+  quantity?: number
+  unitPrice?: number
+  taxRate?: number
+  taxAmount?: number
+  discountAmount?: number
+  lineTotal: number
+  glAccountCode?: string
+  costCenter?: string
+}
+
+export interface Invoice {
+  id: number
+  invoiceNumber: string
+  poNumber?: string
+  
+  // Vendor
+  vendorName: string
+  vendorAddress?: string
+  vendorEmail?: string
+  vendorPhone?: string
+  vendorTaxId?: string
+  
+  // Financial
+  subtotal: number
+  taxAmount: number
+  discountAmount: number
+  shippingAmount: number
+  totalAmount: number
+  currency: string
+  
+  // Dates
+  invoiceDate: string
+  dueDate?: string
+  receivedDate?: string
+  
+  // Status
+  status: InvoiceStatus
+  confidenceScore?: number
+  requiresManualReview: boolean
+  reviewNotes?: string
+  
+  // File
+  originalFileName: string
+  s3Url?: string
+  fileSizeBytes?: number
+  pageCount?: number
+  
+  // Email source
+  sourceEmailFrom?: string
+  sourceEmailSubject?: string
+  sourceEmailReceivedAt?: string
+  
+  // Extraction
+  extractionMethod?: string
+  extractedAt?: string
+  
+  // Sage
+  sageInvoiceId?: string
+  syncStatus?: SyncStatus
+  lastSyncAttempt?: string
+  syncErrorMessage?: string
+  
+  // Line items
+  lineItems: InvoiceLineItem[]
+  
+  // Assignment
+  assignedToId?: number
+  assignedToName?: string
+  
+  // Audit
+  createdAt: string
+  updatedAt: string
+  
+  // Computed
+  daysUntilDue?: number
+  isOverdue?: boolean
+  isEditable?: boolean
+}
+
+export interface UpdateInvoiceRequest {
+  invoiceNumber?: string
+  poNumber?: string
+  vendorName?: string
+  vendorAddress?: string
+  vendorEmail?: string
+  vendorPhone?: string
+  subtotal?: number
+  taxAmount?: number
+  discountAmount?: number
+  shippingAmount?: number
+  totalAmount?: number
+  invoiceDate?: string
+  dueDate?: string
+  reviewNotes?: string
+  lineItems?: InvoiceLineItem[]
+}
+
+// ==================== Approval Types ====================
+
+export type ApprovalAction = 'APPROVED' | 'REJECTED' | 'ESCALATED' | 'RETURNED_FOR_REVIEW'
+
+export interface Approval {
+  id: number
+  invoiceId: number
+  invoiceNumber: string
+  approverId: number
+  approverName: string
+  approverEmail: string
+  action: ApprovalAction
+  comments?: string
+  rejectionReason?: string
+  approvalLevel?: number
+  createdAt: string
+}
+
+export interface ApprovalRequest {
+  action: ApprovalAction
+  comments?: string
+  rejectionReason?: string
+}
+
+// ==================== Dashboard Types ====================
+
+export interface MonthlyStats {
+  year: number
+  month: number
+  monthName: string
+  invoiceCount: number
+  totalAmount: number
+}
+
+export interface VendorStats {
+  vendorName: string
+  invoiceCount: number
+  totalAmount: number
+}
+
+export interface DashboardStats {
+  // Counts
+  totalInvoices: number
+  pendingInvoices: number
+  underReviewInvoices: number
+  approvedInvoices: number
+  rejectedInvoices: number
+  syncedInvoices: number
+  overdueInvoices: number
+  
+  // Amounts
+  totalAmount: number
+  pendingAmount: number
+  approvedAmount: number
+  syncedAmount: number
+  
+  // Processing
+  invoicesProcessedToday: number
+  invoicesProcessedThisWeek: number
+  invoicesProcessedThisMonth: number
+  averageProcessingTimeMs: number
+  
+  // Email
+  emailsProcessedToday: number
+  unprocessedEmails: number
+  emailsWithErrors: number
+  
+  // Sync
+  pendingSyncs: number
+  failedSyncs: number
+  successfulSyncsToday: number
+  syncSuccessRate: number
+  
+  // Users
+  activeUsers: number
+  totalUsers: number
+  
+  // Charts
+  monthlyTrends: MonthlyStats[]
+  topVendors: VendorStats[]
+  invoicesByStatus: Record<string, number>
+}
+
+// ==================== API Response Types ====================
+
+export interface ApiResponse<T> {
+  success: boolean
+  message?: string
+  data?: T
+  errors?: string[]
+  timestamp: string
+  path?: string
+}
+
+export interface PagedResponse<T> {
+  content: T[]
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+  first: boolean
+  last: boolean
+  hasNext: boolean
+  hasPrevious: boolean
+}
+
+// ==================== Auth Types ====================
+
+export interface LoginRequest {
+  email: string
+  password: string
+}
+
+export interface AuthResponse {
+  accessToken: string
+  refreshToken: string
+  tokenType: string
+  expiresIn: number
+  user: User
+}
+
+// ==================== Filter Types ====================
+
+export interface InvoiceFilters {
+  search?: string
+  status?: InvoiceStatus[]
+  vendorName?: string
+  dateFrom?: string
+  dateTo?: string
+  minAmount?: number
+  maxAmount?: number
+  assignedToId?: number
+  requiresManualReview?: boolean
+}
+
+export interface PaginationParams {
+  page: number
+  size: number
+  sort?: string
+  direction?: 'asc' | 'desc'
+}
