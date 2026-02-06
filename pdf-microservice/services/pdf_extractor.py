@@ -1,5 +1,5 @@
 """
-PDF text extraction service using PyMuPDF.
+PDF text extraction service using pdfplumber.
 
 Author: vedvix
 """
@@ -7,7 +7,7 @@ Author: vedvix
 import time
 from typing import Optional
 
-import fitz  # PyMuPDF
+import pdfplumber
 import structlog
 
 from models.invoice_data import ExtractionResult
@@ -17,7 +17,7 @@ logger = structlog.get_logger(__name__)
 
 class PDFExtractor:
     """
-    PDF text extraction using PyMuPDF (fitz).
+    PDF text extraction using pdfplumber.
     
     This is the primary extraction method for digital PDFs.
     Falls back to OCR for scanned documents.
@@ -42,19 +42,16 @@ class PDFExtractor:
         start_time = time.time()
         
         try:
-            doc = fitz.open(pdf_path)
-            page_count = len(doc)
-            
-            logger.info("Extracting text from PDF", pages=page_count)
-            
-            # Extract text from all pages
-            all_text = []
-            for page_num in range(page_count):
-                page = doc[page_num]
-                text = page.get_text("text")
-                all_text.append(text)
-            
-            doc.close()
+            with pdfplumber.open(pdf_path) as pdf:
+                page_count = len(pdf.pages)
+                
+                logger.info("Extracting text from PDF", pages=page_count)
+                
+                # Extract text from all pages
+                all_text = []
+                for page in pdf.pages:
+                    text = page.extract_text() or ""
+                    all_text.append(text)
             
             full_text = "\n\n".join(all_text)
             text_length = len(full_text.strip())
@@ -74,7 +71,7 @@ class PDFExtractor:
             
             return ExtractionResult(
                 text=full_text,
-                method="pymupdf",
+                method="pdfplumber",
                 page_count=page_count,
                 needs_ocr=needs_ocr,
                 processing_time_ms=processing_time

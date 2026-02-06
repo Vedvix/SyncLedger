@@ -1,0 +1,40 @@
+# =============================================================================
+# SYNCLEDGER - LOCAL H2 PROFILE CONFIGURATION
+# by vedvix
+# =============================================================================
+# This profile uses H2 in-memory database for quick testing without Docker
+# Activate with: mvn spring-boot:run -Dspring-boot.run.profiles=local
+# =============================================================================
+
+spring:
+  # H2 In-Memory Database
+  datasource:
+    url: jdbc:h2:mem:syncledger;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+  
+  # Enable H2 Console
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  
+  # JPA for H2
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  
+  # Disable Flyway for H2 (use Hibernate auto-ddl instead)
+  flyway:
+    enabled: false
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.vedvix.syncledger: DEBUG
+    org.hibernate.SQL: DEBUG

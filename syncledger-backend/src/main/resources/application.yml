@@ -5,6 +5,15 @@
 # This file contains all settings for the application.
 # Values in ${...} come from environment variables for security.
 # =============================================================================
+# Profiles:
+#   - default (no profile): Uses H2 in-memory database (for quick testing)
+#   - docker: Uses PostgreSQL via Docker Compose (recommended for development)
+#   - prod: Production configuration
+# =============================================================================
+# Quick Start:
+#   1. Run: docker-compose up -d
+#   2. Run: mvn spring-boot:run -Dspring-boot.run.profiles=docker
+# =============================================================================
 
 # Server Configuration
 server:
@@ -16,29 +25,40 @@ server:
 spring:
   application:
     name: syncledger
+  
+  # Active profile (override with SPRING_PROFILES_ACTIVE env var)
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:docker}
 
-  # Database Configuration (H2 for development, PostgreSQL for production)
+  # Default Database Configuration (H2 for quick testing without Docker)
   datasource:
     url: jdbc:h2:mem:syncledger;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     username: sa
     password: 
     driver-class-name: org.h2.Driver
   
-  # H2 Console (development only)
+  # H2 Console (available in default profile)
   h2:
     console:
-      enabled: true
+      enabled: false
       path: /h2-console
 
   # JPA Configuration
   jpa:
     hibernate:
-      ddl-auto: create-drop  # Use 'validate' in production
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.H2Dialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  
+  # Flyway Configuration
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
 
   # Jackson JSON Configuration
   jackson:

@@ -97,6 +97,50 @@ class ExtractionResponse(BaseModel):
     page_count: int = Field(..., description="Number of pages in PDF")
     processing_time_ms: int = Field(..., description="Total processing time")
     error: Optional[str] = Field(None, description="Error message if failed")
+    invoice_id: Optional[int] = Field(None, description="Database ID if saved")
+
+
+class SaveInvoiceRequest(BaseModel):
+    """Request to save extracted invoice to database."""
+    
+    invoice_data: InvoiceData = Field(..., description="Extracted invoice data")
+    original_filename: str = Field(..., description="Original PDF filename")
+    s3_key: str = Field(..., description="S3 storage key")
+    s3_url: Optional[str] = Field(None, description="S3 presigned URL")
+    file_size: Optional[int] = Field(None, description="File size in bytes")
+    page_count: Optional[int] = Field(None, description="Number of pages")
+    extraction_method: str = Field(default="pymupdf", description="Extraction method")
+    extraction_duration_ms: Optional[int] = Field(None, description="Processing time")
+    source_email_id: Optional[str] = Field(None, description="Source email ID")
+    source_email_from: Optional[str] = Field(None, description="Source email sender")
+    source_email_subject: Optional[str] = Field(None, description="Source email subject")
+
+
+class SaveInvoiceResponse(BaseModel):
+    """Response after saving invoice."""
+    
+    success: bool = Field(..., description="Whether save succeeded")
+    invoice_id: Optional[int] = Field(None, description="Created invoice ID")
+    invoice_number: Optional[str] = Field(None, description="Invoice number")
+    error: Optional[str] = Field(None, description="Error message if failed")
+
+
+class BatchProcessRequest(BaseModel):
+    """Request to process multiple PDF files."""
+    
+    files: List[str] = Field(..., description="List of file paths or S3 URLs")
+    save_to_db: bool = Field(default=True, description="Whether to save to database")
+    source_email_id: Optional[str] = Field(None, description="Common source email ID")
+
+
+class BatchProcessResponse(BaseModel):
+    """Response from batch processing."""
+    
+    success: bool = Field(..., description="Overall success status")
+    total_files: int = Field(..., description="Total files processed")
+    successful: int = Field(..., description="Successfully processed count")
+    failed: int = Field(..., description="Failed count")
+    results: List[ExtractionResponse] = Field(..., description="Individual results")
 
 
 class HealthResponse(BaseModel):
@@ -105,3 +149,4 @@ class HealthResponse(BaseModel):
     status: str = Field(..., description="Service status")
     service: str = Field(..., description="Service name")
     version: str = Field(..., description="Service version")
+    database: str = Field(default="unknown", description="Database connection status")

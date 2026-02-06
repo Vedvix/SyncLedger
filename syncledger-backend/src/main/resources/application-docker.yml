@@ -1,0 +1,47 @@
+# =============================================================================
+# SYNCLEDGER - DOCKER PROFILE CONFIGURATION
+# by vedvix
+# =============================================================================
+# This profile is used when running with Docker Compose PostgreSQL
+# Activate with: mvn spring-boot:run -Dspring-boot.run.profiles=docker
+# Or set environment variable: SPRING_PROFILES_ACTIVE=docker
+# =============================================================================
+
+spring:
+  # PostgreSQL Configuration (Docker Compose)
+  datasource:
+    url: jdbc:postgresql://localhost:5432/syncledger
+    username: syncledger
+    password: syncledger123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  
+  # Disable H2 Console
+  h2:
+    console:
+      enabled: false
+  
+  # JPA for PostgreSQL
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  
+  # Flyway enabled
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+# Logging - less verbose for development
+logging:
+  level:
+    root: INFO
+    com.vedvix.syncledger: DEBUG
+    org.flywaydb: INFO

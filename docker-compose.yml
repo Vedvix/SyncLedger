@@ -1,0 +1,92 @@
+# =============================================================================
+# SYNCLEDGER - DOCKER COMPOSE CONFIGURATION
+# by vedvix
+# =============================================================================
+# This file sets up all required services for local development.
+# Run: docker-compose up -d
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # ===========================================================================
+  # PostgreSQL Database
+  # ===========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: syncledger-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: syncledger
+      POSTGRES_USER: syncledger
+      POSTGRES_PASSWORD: syncledger123
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U syncledger -d syncledger"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
+  # pgAdmin - PostgreSQL Web UI (Optional)
+  # ===========================================================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: syncledger-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@syncledger.local
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - tools
+
+  # ===========================================================================
+  # LocalStack - AWS Services Mock (S3, SQS)
+  # ===========================================================================
+  localstack:
+    image: localstack/localstack:latest
+    container_name: syncledger-localstack
+    restart: unless-stopped
+    environment:
+      SERVICES: s3,sqs
+      DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      DATA_DIR: /var/lib/localstack/data
+    ports:
+      - "4566:4566"
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - ./scripts/localstack-init.sh:/etc/localstack/init/ready.d/init.sh:ro
+    profiles:
+      - aws
+
+# ===========================================================================
+# Volumes
+# ===========================================================================
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  localstack_data:
+    driver: local
+
+# ===========================================================================
+# Networks (optional - uses default bridge network)
+# ===========================================================================
+networks:
+  default:
+    name: syncledger-network
