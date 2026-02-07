@@ -18,6 +18,7 @@ import java.util.List;
  */
 @Entity
 @Table(name = "invoices", indexes = {
+    @Index(name = "idx_invoice_org_id", columnList = "organization_id"),
     @Index(name = "idx_invoice_number", columnList = "invoiceNumber"),
     @Index(name = "idx_invoice_status", columnList = "status"),
     @Index(name = "idx_invoice_vendor", columnList = "vendorName"),
@@ -34,6 +35,12 @@ public class Invoice {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    // ==================== Organization (Multi-Tenant) ====================
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     // ==================== Invoice Identification ====================
     
@@ -266,5 +273,19 @@ public class Invoice {
     public boolean isOverdue() {
         return dueDate != null && LocalDate.now().isAfter(dueDate) 
                && status != InvoiceStatus.SYNCED;
+    }
+
+    /**
+     * Check if invoice belongs to given organization.
+     */
+    public boolean belongsToOrganization(Long orgId) {
+        return organization != null && organization.getId().equals(orgId);
+    }
+
+    /**
+     * Get organization ID safely.
+     */
+    public Long getOrganizationId() {
+        return organization != null ? organization.getId() : null;
     }
 }

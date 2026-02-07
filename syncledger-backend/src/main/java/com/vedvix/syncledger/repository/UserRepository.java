@@ -16,6 +16,7 @@ import java.util.Optional;
 
 /**
  * Repository for User entity operations.
+ * Supports multi-tenant queries with organization filtering.
  * 
  * @author vedvix
  */
@@ -47,15 +48,80 @@ public interface UserRepository extends JpaRepository<User, Long> {
      */
     List<User> findByIsActiveTrue();
 
+    // ==================== Organization-scoped queries ====================
+
+    /**
+     * Find users by organization ID.
+     */
+    List<User> findByOrganization_Id(Long organizationId);
+
+    /**
+     * Find users by organization ID with pagination.
+     */
+    Page<User> findByOrganization_Id(Long organizationId, Pageable pageable);
+
+    /**
+     * Find active users by organization.
+     */
+    List<User> findByOrganization_IdAndIsActiveTrue(Long organizationId);
+
+    /**
+     * Find users by organization and role.
+     */
+    List<User> findByOrganization_IdAndRole(Long organizationId, UserRole role);
+
+    /**
+     * Count users by organization.
+     */
+    long countByOrganization_Id(Long organizationId);
+
+    /**
+     * Count active users by organization.
+     */
+    long countByOrganization_IdAndIsActiveTrue(Long organizationId);
+
+    /**
+     * Search users within organization.
+     */
+    @Query("SELECT u FROM User u WHERE u.organization.id = :orgId AND (" +
+           "LOWER(u.firstName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(u.lastName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%')))")
+    Page<User> searchUsersInOrganization(@Param("orgId") Long orgId, 
+                                          @Param("query") String query, 
+                                          Pageable pageable);
+
+    /**
+     * Find admins in organization.
+     */
+    @Query("SELECT u FROM User u WHERE u.organization.id = :orgId AND u.role = 'ADMIN' AND u.isActive = true")
+    List<User> findOrganizationAdmins(@Param("orgId") Long orgId);
+
+    /**
+     * Check if user email exists in organization.
+     */
+    boolean existsByOrganization_IdAndEmailIgnoreCase(Long organizationId, String email);
+
+    // ==================== Super Admin queries ====================
+
+    /**
+     * Find all Super Admins.
+     */
+    @Query("SELECT u FROM User u WHERE u.role = 'SUPER_ADMIN'")
+    List<User> findAllSuperAdmins();
+
+    /**
+     * Count Super Admins.
+     */
+    @Query("SELECT COUNT(u) FROM User u WHERE u.role = 'SUPER_ADMIN'")
+    long countSuperAdmins();
+
+    // ==================== General queries ====================
+
     /**
      * Find active users by role.
      */
     List<User> findByRoleAndIsActiveTrue(UserRole role);
-
-    /**
-     * Find users by department.
-     */
-    List<User> findByDepartmentIgnoreCase(String department);
 
     /**
      * Search users by name or email.

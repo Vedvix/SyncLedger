@@ -1,12 +1,11 @@
 package com.vedvix.syncledger.dto;
 
-import com.vedvix.syncledger.model.UserRole;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
 /**
  * Request DTO for creating a new user.
- * Super Admin creates users - no self-registration.
+ * Supports multi-tenant user creation.
  * 
  * @author vedvix
  */
@@ -31,12 +30,13 @@ public class CreateUserRequest {
 
     @NotBlank(message = "Password is required")
     @Size(min = 8, max = 100, message = "Password must be between 8 and 100 characters")
-    @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]+$",
-             message = "Password must contain uppercase, lowercase, number, and special character")
     private String password;
 
-    @NotNull(message = "Role is required")
-    private UserRole role;
+    @NotBlank(message = "Role is required")
+    private String role;
+
+    // Organization ID - required for non-Super Admin users
+    private Long organizationId;
 
     @Size(max = 20, message = "Phone must be less than 20 characters")
     private String phone;

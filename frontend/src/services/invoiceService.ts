@@ -38,7 +38,7 @@ export const invoiceService = {
       if (filters.maxAmount) params.set('maxAmount', String(filters.maxAmount))
     }
     
-    const response = await apiClient.get<ApiResponse<PagedResponse<Invoice>>>(`/invoices?${params}`)
+    const response = await apiClient.get<ApiResponse<PagedResponse<Invoice>>>(`/v1/invoices?${params}`)
     return response.data.data!
   },
   
@@ -46,7 +46,7 @@ export const invoiceService = {
    * Get invoice by ID
    */
   async getInvoice(id: number): Promise<Invoice> {
-    const response = await apiClient.get<ApiResponse<Invoice>>(`/invoices/${id}`)
+    const response = await apiClient.get<ApiResponse<Invoice>>(`/v1/invoices/${id}`)
     return response.data.data!
   },
   
@@ -54,7 +54,7 @@ export const invoiceService = {
    * Update invoice
    */
   async updateInvoice(id: number, data: UpdateInvoiceRequest): Promise<Invoice> {
-    const response = await apiClient.put<ApiResponse<Invoice>>(`/invoices/${id}`, data)
+    const response = await apiClient.put<ApiResponse<Invoice>>(`/v1/invoices/${id}`, data)
     return response.data.data!
   },
   
@@ -62,14 +62,14 @@ export const invoiceService = {
    * Delete invoice
    */
   async deleteInvoice(id: number): Promise<void> {
-    await apiClient.delete(`/invoices/${id}`)
+    await apiClient.delete(`/v1/invoices/${id}`)
   },
   
   /**
    * Approve or reject invoice
    */
   async submitApproval(id: number, approval: ApprovalRequest): Promise<Approval> {
-    const response = await apiClient.post<ApiResponse<Approval>>(`/invoices/${id}/approve`, approval)
+    const response = await apiClient.post<ApiResponse<Approval>>(`/v1/invoices/${id}/approve`, approval)
     return response.data.data!
   },
   
@@ -77,7 +77,7 @@ export const invoiceService = {
    * Get approval history for invoice
    */
   async getApprovalHistory(id: number): Promise<Approval[]> {
-    const response = await apiClient.get<ApiResponse<Approval[]>>(`/invoices/${id}/approvals`)
+    const response = await apiClient.get<ApiResponse<Approval[]>>(`/v1/invoices/${id}/approvals`)
     return response.data.data!
   },
   
@@ -85,14 +85,14 @@ export const invoiceService = {
    * Sync invoice to Sage
    */
   async syncToSage(id: number): Promise<void> {
-    await apiClient.post(`/invoices/${id}/sync`)
+    await apiClient.post(`/v1/invoices/${id}/sync`)
   },
   
   /**
    * Download invoice PDF
    */
   async downloadPdf(id: number): Promise<Blob> {
-    const response = await apiClient.get(`/invoices/${id}/download`, {
+    const response = await apiClient.get(`/v1/invoices/${id}/download`, {
       responseType: 'blob',
     })
     return response.data
@@ -102,7 +102,7 @@ export const invoiceService = {
    * Assign invoice to user
    */
   async assignInvoice(id: number, userId: number): Promise<Invoice> {
-    const response = await apiClient.post<ApiResponse<Invoice>>(`/invoices/${id}/assign`, { userId })
+    const response = await apiClient.post<ApiResponse<Invoice>>(`/v1/invoices/${id}/assign`, { userId })
     return response.data.data!
   },
 }

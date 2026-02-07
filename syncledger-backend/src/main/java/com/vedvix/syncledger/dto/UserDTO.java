@@ -1,12 +1,12 @@
 package com.vedvix.syncledger.dto;
 
-import com.vedvix.syncledger.model.UserRole;
 import lombok.*;
 
 import java.time.LocalDateTime;
 
 /**
  * Data Transfer Object for User entity.
+ * Includes organization context for multi-tenant support.
  * 
  * @author vedvix
  */
@@ -20,7 +20,7 @@ public class UserDTO {
     private String firstName;
     private String lastName;
     private String email;
-    private UserRole role;
+    private String role;
     private Boolean isActive;
     private String profilePictureUrl;
     private String phone;
@@ -29,6 +29,11 @@ public class UserDTO {
     private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
     private String createdByEmail;
+    
+    // Organization context
+    private Long organizationId;
+    private String organizationSlug;
+    private String organizationName;
 
     /**
      * Get full name.

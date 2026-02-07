@@ -9,14 +9,16 @@ import java.time.LocalDateTime;
 
 /**
  * User entity for SyncLedger application.
- * Users are created by Super Admin only - no self-registration.
+ * Multi-tenant: Users belong to an organization (except SUPER_ADMIN).
+ * Users are created by Super Admin (for ADMIN) or Org Admin (for others).
  * 
  * @author vedvix
  */
 @Entity
 @Table(name = "users", indexes = {
     @Index(name = "idx_user_email", columnList = "email"),
-    @Index(name = "idx_user_role", columnList = "role")
+    @Index(name = "idx_user_role", columnList = "role"),
+    @Index(name = "idx_user_org", columnList = "organization_id")
 })
 @Getter
 @Setter
@@ -28,6 +30,14 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /**
+     * Organization this user belongs to.
+     * NULL for SUPER_ADMIN users (platform-level access).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
 
     @Column(nullable = false, length = 100)
     private String firstName;
@@ -65,7 +75,8 @@ public class User {
     private LocalDateTime lastLoginAt;
 
     @Column
-    private Integer failedLoginAttempts;
+    @Builder.Default
+    private Integer failedLoginAttempts = 0;
 
     @Column
     private LocalDateTime lockedUntil;
@@ -96,6 +107,20 @@ public class User {
     }
 
     /**
+     * Get organization ID (null for SUPER_ADMIN).
+     */
+    public Long getOrganizationId() {
+        return organization != null ? organization.getId() : null;
+    }
+
+    /**
+     * Get organization name (null for SUPER_ADMIN).
+     */
+    public String getOrganizationName() {
+        return organization != null ? organization.getName() : null;
+    }
+
+    /**
      * Check if account is locked.
      */
     public boolean isAccountLocked() {
@@ -103,16 +128,53 @@ public class User {
     }
 
     /**
-     * Check if user has admin privileges.
+     * Check if user is a Super Admin (platform-level access).
+     */
+    public boolean isSuperAdmin() {
+        return role == UserRole.SUPER_ADMIN;
+    }
+
+    /**
+     * Check if user is an Organization Admin.
+     */
+    public boolean isOrgAdmin() {
+        return role == UserRole.ADMIN;
+    }
+
+    /**
+     * Check if user has admin privileges (Super Admin or Org Admin).
      */
     public boolean isAdmin() {
-        return role == UserRole.ADMIN;
+        return role == UserRole.SUPER_ADMIN || role == UserRole.ADMIN;
     }
 
     /**
      * Check if user can approve invoices.
      */
     public boolean canApprove() {
-        return role == UserRole.ADMIN || role == UserRole.APPROVER;
+        return role == UserRole.SUPER_ADMIN || role == UserRole.ADMIN || role == UserRole.APPROVER;
+    }
+
+    /**
+     * Check if user can manage users.
+     * SUPER_ADMIN can manage all users.
+     * ADMIN can manage users within their organization.
+     */
+    public boolean canManageUsers() {
+        return role == UserRole.SUPER_ADMIN || role == UserRole.ADMIN;
+    }
+
+    /**
+     * Check if user can create another user with the given role.
+     */
+    public boolean canCreateUserWithRole(UserRole targetRole) {
+        if (role == UserRole.SUPER_ADMIN) {
+            return true; // Super Admin can create any role
+        }
+        if (role == UserRole.ADMIN) {
+            // Org Admin can only create APPROVER and VIEWER
+            return targetRole == UserRole.APPROVER || targetRole == UserRole.VIEWER;
+        }
+        return false;
     }
 }

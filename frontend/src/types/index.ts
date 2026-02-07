@@ -4,9 +4,59 @@
  * @author vedvix
  */
 
+// ==================== Organization Types (Multi-Tenant) ====================
+
+export type OrganizationStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'ONBOARDING'
+
+export interface Organization {
+  id: number
+  name: string
+  slug: string
+  emailAddress?: string
+  status: OrganizationStatus
+  sageApiEndpoint?: string
+  s3FolderPath?: string
+  sqsQueueName?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateOrganizationRequest {
+  name: string
+  slug: string
+  emailAddress?: string
+  sageApiEndpoint?: string
+  sageApiKey?: string
+}
+
+export interface UpdateOrganizationRequest {
+  name?: string
+  emailAddress?: string
+  status?: OrganizationStatus
+  sageApiEndpoint?: string
+  sageApiKey?: string
+}
+
+export interface OrganizationStats {
+  organizationId: number
+  organizationName: string
+  totalUsers: number
+  activeUsers: number
+  totalInvoices: number
+  status: string
+  createdAt: string
+}
+
+export interface PlatformStats {
+  totalOrganizations: number
+  activeOrganizations: number
+  totalUsers: number
+  totalInvoices: number
+}
+
 // ==================== User Types ====================
 
-export type UserRole = 'ADMIN' | 'APPROVER' | 'VIEWER'
+export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'APPROVER' | 'VIEWER'
 
 export interface User {
   id: number
@@ -21,6 +71,10 @@ export interface User {
   jobTitle?: string
   lastLoginAt?: string
   createdAt: string
+  // Organization context
+  organizationId?: number
+  organizationSlug?: string
+  organizationName?: string
 }
 
 export interface CreateUserRequest {
@@ -29,6 +83,7 @@ export interface CreateUserRequest {
   email: string
   password: string
   role: UserRole
+  organizationId?: number
   phone?: string
   department?: string
   jobTitle?: string
@@ -80,6 +135,7 @@ export interface InvoiceLineItem {
 
 export interface Invoice {
   id: number
+  organizationId: number
   invoiceNumber: string
   poNumber?: string
   

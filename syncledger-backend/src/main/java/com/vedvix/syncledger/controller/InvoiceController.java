@@ -1,0 +1,271 @@
+package com.vedvix.syncledger.controller;
+
+import com.vedvix.syncledger.dto.*;
+import com.vedvix.syncledger.model.InvoiceStatus;
+import com.vedvix.syncledger.security.UserPrincipal;
+import com.vedvix.syncledger.service.InvoiceService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+/**
+ * Invoice Controller with multi-tenant support.
+ * Organization-scoped access is enforced at service layer.
+ * 
+ * @author vedvix
+ */
+@RestController
+@RequestMapping("/api/v1/invoices")
+@RequiredArgsConstructor
+@Tag(name = "Invoices", description = "API endpoints for invoice management, processing, and approval workflows")
+public class InvoiceController {
+
+    private final InvoiceService invoiceService;
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'APPROVER', 'VIEWER')")
+    @Operation(
+        summary = "Get invoices",
+        description = "Retrieves a paginated list of invoices from the authenticated user's organization. Supports filtering by search term and status. All users can view invoices."
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Invoices retrieved successfully",
+            content = @Content(schema = @Schema(implementation = com.vedvix.syncledger.dto.ApiResponseDto.class))
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - user not authenticated"
+        ),
+        @ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - insufficient permissions"
+        )
+    })
+    public ResponseEntity<ApiResponseDto<PagedResponse<InvoiceDTO>>> getInvoices(
+            @Parameter(description = "Pagination information (page, size, sort)", required = false)
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @Parameter(description = "Search query to filter invoices by invoice number, vendor, or amount")
+            @RequestParam(required = false) String search,
+            @Parameter(description = "Filter by invoice status (DRAFT, PENDING_APPROVAL, APPROVED, REJECTED, PAID)")
+            @RequestParam(required = false) String status,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        
+        InvoiceStatus statusEnum = status != null ? InvoiceStatus.valueOf(status.toUpperCase()) : null;
+        PagedResponse<InvoiceDTO> invoices = invoiceService.getInvoices(pageable, search, statusEnum, currentUser);
+        return ResponseEntity.ok(ApiResponseDto.success(invoices));
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'APPROVER', 'VIEWER')")
+    @Operation(
+        summary = "Get invoice by ID",
+        description = "Retrieves detailed information about a specific invoice including all line items and approval history"
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Invoice retrieved successfully"
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - user not authenticated"
+        ),
+        @ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - invoice not in your organization"
+        ),
+        @ApiResponse(
+            responseCode = "404",
+            description = "Invoice not found"
+        )
+    })
+    public ResponseEntity<ApiResponseDto<InvoiceDTO>> getInvoice(
+            @Parameter(description = "Invoice ID", required = true)
+            @PathVariable Long id,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        InvoiceDTO invoice = invoiceService.getInvoiceById(id, currentUser);
+        return ResponseEntity.ok(ApiResponseDto.success(invoice));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
+    @Operation(
+        summary = "Update invoice",
+        description = "Updates invoice details such as vendor information, amounts, and line items. Only SUPER_ADMIN and ADMIN can update invoices."
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Invoice updated successfully"
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "Invalid update request or invoice cannot be updated in current status"
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - user not authenticated"
+        ),
+        @ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - insufficient permissions or invoice not in your organization"
+        ),
+        @ApiResponse(
+            responseCode = "404",
+            description = "Invoice not found"
+        )
+    })
+    public ResponseEntity<ApiResponseDto<InvoiceDTO>> updateInvoice(
+            @Parameter(description = "Invoice ID to update", required = true)
+            @PathVariable Long id,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Invoice update details",
+                required = true,
+                content = @Content(schema = @Schema(implementation = UpdateInvoiceRequest.class))
+            )
+            @Valid @RequestBody UpdateInvoiceRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        InvoiceDTO invoice = invoiceService.updateInvoice(id, request, currentUser);
+        return ResponseEntity.ok(ApiResponseDto.success("Invoice updated", invoice));
+    }
+
+    @PostMapping("/{id}/approve")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'APPROVER')")
+    @Operation(
+        summary = "Approve invoice",
+        description = "Approves an invoice and moves it to APPROVED status. Only SUPER_ADMIN, ADMIN, and APPROVER roles can approve invoices."
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Invoice approved successfully"
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "Invoice cannot be approved in current status"
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - user not authenticated"
+        ),
+        @ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - insufficient permissions"
+        ),
+        @ApiResponse(
+            responseCode = "404",
+            description = "Invoice not found"
+        )
+    })
+    public ResponseEntity<ApiResponseDto<InvoiceDTO>> approveInvoice(
+            @Parameter(description = "Invoice ID to approve", required = true)
+            @PathVariable Long id,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Optional approval comments (notes)",
+                required = false,
+                content = @Content(schema = @Schema(implementation = ApprovalRequest.class))
+            )
+            @RequestBody(required = false) ApprovalRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        String notes = request != null ? request.getComments() : null;
+        InvoiceDTO invoice = invoiceService.approveInvoice(id, notes, currentUser);
+        return ResponseEntity.ok(ApiResponseDto.success("Invoice approved", invoice));
+    }
+
+    @PostMapping("/{id}/reject")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'APPROVER')")
+    @Operation(
+        summary = "Reject invoice",
+        description = "Rejects an invoice with a required rejection reason. Invoice goes back to DRAFT status for corrections."
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Invoice rejected successfully"
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "Invoice cannot be rejected in current status or rejection reason is missing"
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - user not authenticated"
+        ),
+        @ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - insufficient permissions"
+        ),
+        @ApiResponse(
+            responseCode = "404",
+            description = "Invoice not found"
+        )
+    })
+    public ResponseEntity<ApiResponseDto<InvoiceDTO>> rejectInvoice(
+            @Parameter(description = "Invoice ID to reject", required = true)
+            @PathVariable Long id,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Rejection details with required reason",
+                required = true,
+                content = @Content(schema = @Schema(implementation = ApprovalRequest.class))
+            )
+            @Valid @RequestBody ApprovalRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        InvoiceDTO invoice = invoiceService.rejectInvoice(id, request.getRejectionReason(), currentUser);
+        return ResponseEntity.ok(ApiResponseDto.success("Invoice rejected", invoice));
+    }
+
+    @GetMapping("/dashboard/stats")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'APPROVER', 'VIEWER')")
+    @Operation(
+        summary = "Get dashboard statistics",
+        description = "Retrieves invoice statistics for the dashboard including counts by status, total amounts, and approval metrics"
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Dashboard statistics retrieved successfully"
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - user not authenticated"
+        ),
+        @ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - insufficient permissions"
+        )
+    })
+    public ResponseEntity<ApiResponseDto<DashboardStatsDTO>> getDashboardStats(
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        DashboardStatsDTO stats = invoiceService.getDashboardStats(currentUser);
+        return ResponseEntity.ok(ApiResponseDto.success(stats));
+    }
+}
+

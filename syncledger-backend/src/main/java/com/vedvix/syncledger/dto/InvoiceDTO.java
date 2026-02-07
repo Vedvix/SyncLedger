@@ -1,7 +1,5 @@
 package com.vedvix.syncledger.dto;
 
-import com.vedvix.syncledger.model.InvoiceStatus;
-import com.vedvix.syncledger.model.SyncStatus;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -21,6 +19,9 @@ import java.util.List;
 public class InvoiceDTO {
 
     private Long id;
+    
+    // Organization (Multi-Tenant)
+    private Long organizationId;
     
     // Invoice Identification
     private String invoiceNumber;
@@ -47,7 +48,7 @@ public class InvoiceDTO {
     private LocalDate receivedDate;
     
     // Status & Processing
-    private InvoiceStatus status;
+    private String status;
     private BigDecimal confidenceScore;
     private Boolean requiresManualReview;
     private String reviewNotes;
@@ -69,7 +70,7 @@ public class InvoiceDTO {
     
     // Sage Integration
     private String sageInvoiceId;
-    private SyncStatus syncStatus;
+    private String syncStatus;
     private LocalDateTime lastSyncAttempt;
     private String syncErrorMessage;
     

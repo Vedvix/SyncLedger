@@ -16,7 +16,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ApiResponse<T> {
+public class ApiResponseDto<T> {
 
     private boolean success;
     private String message;
@@ -28,8 +28,8 @@ public class ApiResponse<T> {
     /**
      * Create success response with data.
      */
-    public static <T> ApiResponse<T> success(T data) {
-        return ApiResponse.<T>builder()
+    public static <T> ApiResponseDto<T> success(T data) {
+        return ApiResponseDto.<T>builder()
                 .success(true)
                 .data(data)
                 .timestamp(LocalDateTime.now())
@@ -39,8 +39,8 @@ public class ApiResponse<T> {
     /**
      * Create success response with message.
      */
-    public static <T> ApiResponse<T> success(String message, T data) {
-        return ApiResponse.<T>builder()
+    public static <T> ApiResponseDto<T> success(String message, T data) {
+        return ApiResponseDto.<T>builder()
                 .success(true)
                 .message(message)
                 .data(data)
@@ -51,8 +51,8 @@ public class ApiResponse<T> {
     /**
      * Create success response with message only.
      */
-    public static <T> ApiResponse<T> success(String message) {
-        return ApiResponse.<T>builder()
+    public static <T> ApiResponseDto<T> success(String message) {
+        return ApiResponseDto.<T>builder()
                 .success(true)
                 .message(message)
                 .timestamp(LocalDateTime.now())
@@ -62,8 +62,8 @@ public class ApiResponse<T> {
     /**
      * Create error response.
      */
-    public static <T> ApiResponse<T> error(String message) {
-        return ApiResponse.<T>builder()
+    public static <T> ApiResponseDto<T> error(String message) {
+        return ApiResponseDto.<T>builder()
                 .success(false)
                 .message(message)
                 .timestamp(LocalDateTime.now())
@@ -73,11 +73,24 @@ public class ApiResponse<T> {
     /**
      * Create error response with multiple errors.
      */
-    public static <T> ApiResponse<T> error(String message, List<String> errors) {
-        return ApiResponse.<T>builder()
+    public static <T> ApiResponseDto<T> error(String message, List<String> errors) {
+        return ApiResponseDto.<T>builder()
                 .success(false)
                 .message(message)
                 .errors(errors)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    /**
+     * Create error response with validation errors map.
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> ApiResponseDto<T> error(String message, Object validationErrors) {
+        return ApiResponseDto.<T>builder()
+                .success(false)
+                .message(message)
+                .data((T) validationErrors)
                 .timestamp(LocalDateTime.now())
                 .build();
     }

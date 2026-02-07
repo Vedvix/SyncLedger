@@ -143,6 +143,15 @@ class BatchProcessResponse(BaseModel):
     results: List[ExtractionResponse] = Field(..., description="Individual results")
 
 
+class ExtractFromUrlRequest(BaseModel):
+    """Request to extract invoice from URL (multi-tenant)."""
+    
+    file_url: str = Field(..., description="Presigned URL to download PDF")
+    file_name: str = Field(..., description="Original filename")
+    organization_id: int = Field(..., description="Organization ID for multi-tenant context")
+    invoice_id: Optional[int] = Field(None, description="Existing invoice ID to update")
+
+
 class HealthResponse(BaseModel):
     """Health check response."""
     

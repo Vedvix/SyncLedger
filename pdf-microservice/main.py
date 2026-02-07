@@ -19,7 +19,8 @@ from fastapi.responses import ORJSONResponse
 from models.invoice_data import (
     ExtractionResponse, HealthResponse, InvoiceData,
     SaveInvoiceRequest, SaveInvoiceResponse,
-    BatchProcessRequest, BatchProcessResponse
+    BatchProcessRequest, BatchProcessResponse,
+    ExtractFromUrlRequest
 )
 from services.pdf_extractor import PDFExtractor
 from services.ocr_service import OCRService
@@ -236,6 +237,7 @@ async def extract_invoice_data(
 async def extract_from_url(url: str):
     """
     Extract invoice data from a PDF at the given URL (e.g., S3 presigned URL).
+    Simple endpoint for quick extraction without organization context.
     """
     import httpx
     
@@ -279,6 +281,94 @@ async def extract_from_url(url: str):
         )
     except Exception as e:
         logger.exception("Error extracting from URL", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing PDF: {str(e)}"
+        )
+
+
+@app.post("/api/v1/extract", response_model=ExtractionResponse, tags=["Extraction"])
+async def extract_invoice_from_url(request: ExtractFromUrlRequest):
+    """
+    Extract invoice data from URL with organization context.
+    This is the primary endpoint called by the Java backend.
+    
+    Args:
+        request: Contains file_url, file_name, organization_id, and optional invoice_id
+    
+    Returns:
+        ExtractionResponse with extracted invoice data
+    """
+    import httpx
+    
+    logger.info(
+        "Extracting invoice for organization",
+        organization_id=request.organization_id,
+        invoice_id=request.invoice_id,
+        filename=request.file_name
+    )
+    
+    start_time = time.time()
+    
+    try:
+        # Download PDF from URL
+        async with httpx.AsyncClient() as client:
+            response = await client.get(request.file_url, timeout=60.0)
+            response.raise_for_status()
+            content = response.content
+        
+        # Save to temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+            tmp_file.write(content)
+            tmp_path = tmp_file.name
+        
+        try:
+            # Extract text from PDF
+            extraction_result = await pdf_extractor.extract(tmp_path)
+            
+            # Use OCR if needed
+            if extraction_result.needs_ocr:
+                logger.info("Using OCR for scanned document", filename=request.file_name)
+                extraction_result = await ocr_service.extract(tmp_path)
+            
+            # Parse extracted text into structured data
+            invoice_data = await field_parser.parse(extraction_result.text)
+            
+            processing_time = int((time.time() - start_time) * 1000)
+            
+            logger.info(
+                "Extraction completed",
+                organization_id=request.organization_id,
+                invoice_id=request.invoice_id,
+                confidence=invoice_data.confidence_score,
+                method=extraction_result.method,
+                processing_time_ms=processing_time
+            )
+            
+            return ExtractionResponse(
+                success=True,
+                data=invoice_data,
+                extraction_method=extraction_result.method,
+                page_count=extraction_result.page_count,
+                processing_time_ms=processing_time
+            )
+            
+        finally:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+                
+    except httpx.HTTPError as e:
+        logger.error("Failed to download PDF", error=str(e), url=request.file_url[:100])
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to download PDF from URL: {str(e)}"
+        )
+    except Exception as e:
+        logger.exception(
+            "Error extracting invoice",
+            organization_id=request.organization_id,
+            error=str(e)
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing PDF: {str(e)}"

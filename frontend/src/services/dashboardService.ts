@@ -6,7 +6,7 @@ export const dashboardService = {
    * Get dashboard statistics
    */
   async getStats(): Promise<DashboardStats> {
-    const response = await apiClient.get<ApiResponse<DashboardStats>>('/dashboard/stats')
+    const response = await apiClient.get<ApiResponse<DashboardStats>>('/v1/dashboard/stats')
     return response.data.data!
   },
   
@@ -14,7 +14,7 @@ export const dashboardService = {
    * Get recent activity
    */
   async getRecentActivity(): Promise<unknown[]> {
-    const response = await apiClient.get<ApiResponse<unknown[]>>('/dashboard/activity')
+    const response = await apiClient.get<ApiResponse<unknown[]>>('/v1/dashboard/activity')
     return response.data.data!
   },
 }

@@ -30,7 +30,7 @@ export const userService = {
       params.set('search', search)
     }
     
-    const response = await apiClient.get<ApiResponse<PagedResponse<User>>>(`/users?${params}`)
+    const response = await apiClient.get<ApiResponse<PagedResponse<User>>>(`/v1/users?${params}`)
     return response.data.data!
   },
   
@@ -38,7 +38,7 @@ export const userService = {
    * Get user by ID
    */
   async getUser(id: number): Promise<User> {
-    const response = await apiClient.get<ApiResponse<User>>(`/users/${id}`)
+    const response = await apiClient.get<ApiResponse<User>>(`/v1/users/${id}`)
     return response.data.data!
   },
   
@@ -46,7 +46,7 @@ export const userService = {
    * Create new user (Admin only)
    */
   async createUser(data: CreateUserRequest): Promise<User> {
-    const response = await apiClient.post<ApiResponse<User>>('/users', data)
+    const response = await apiClient.post<ApiResponse<User>>('/v1/users', data)
     return response.data.data!
   },
   
@@ -54,7 +54,7 @@ export const userService = {
    * Update user
    */
   async updateUser(id: number, data: UpdateUserRequest): Promise<User> {
-    const response = await apiClient.put<ApiResponse<User>>(`/users/${id}`, data)
+    const response = await apiClient.put<ApiResponse<User>>(`/v1/users/${id}`, data)
     return response.data.data!
   },
   
@@ -62,14 +62,14 @@ export const userService = {
    * Delete/deactivate user (Admin only)
    */
   async deleteUser(id: number): Promise<void> {
-    await apiClient.delete(`/users/${id}`)
+    await apiClient.delete(`/v1/users/${id}`)
   },
   
   /**
    * Get current user profile
    */
   async getCurrentUser(): Promise<User> {
-    const response = await apiClient.get<ApiResponse<User>>('/users/me')
+    const response = await apiClient.get<ApiResponse<User>>('/v1/users/me')
     return response.data.data!
   },
   
@@ -77,7 +77,7 @@ export const userService = {
    * Update current user profile
    */
   async updateProfile(data: Partial<User>): Promise<User> {
-    const response = await apiClient.put<ApiResponse<User>>('/users/me', data)
+    const response = await apiClient.put<ApiResponse<User>>('/v1/users/me', data)
     return response.data.data!
   },
   
@@ -85,7 +85,7 @@ export const userService = {
    * Get all approvers (for assignment dropdown)
    */
   async getApprovers(): Promise<User[]> {
-    const response = await apiClient.get<ApiResponse<User[]>>('/users/approvers')
+    const response = await apiClient.get<ApiResponse<User[]>>('/v1/users/approvers')
     return response.data.data!
   },
 }
