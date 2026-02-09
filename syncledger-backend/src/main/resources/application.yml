@@ -69,7 +69,7 @@ microsoft:
     client-secret: ${AZURE_CLIENT_SECRET:your-client-secret}
     tenant-id: ${AZURE_TENANT_ID:your-tenant-id}
     mailbox: ${INVOICE_MAILBOX:invoices@vedvix.com}
-    poll-interval: 300000  # 5 minutes in milliseconds
+    poll-interval: 60000  # 5 minutes in milliseconds
     scope: https://graph.microsoft.com/.default
 
 # =============================================================================
@@ -90,8 +90,9 @@ aws:
 # =============================================================================
 email:
   polling:
-    enabled: ${EMAIL_POLLING_ENABLED:true}
-    interval: 300000  # 5 minutes in milliseconds
+    enabled: ${EMAIL_POLLING_ENABLED:false}
+    interval: ${EMAIL_POLLING_INTERVAL:300000}  # 5 minutes in milliseconds
+    max-emails-per-batch: ${EMAIL_MAX_BATCH:50}
 
 # =============================================================================
 # PDF MICROSERVICE CONFIGURATION

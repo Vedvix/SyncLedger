@@ -8,12 +8,14 @@ import java.time.LocalDateTime;
 
 /**
  * Email log entity for tracking email processing.
+ * Each email is associated with an organization (multi-tenant isolation).
  * 
  * @author vedvix
  */
 @Entity
 @Table(name = "email_logs", indexes = {
     @Index(name = "idx_email_log_message_id", columnList = "messageId"),
+    @Index(name = "idx_email_log_org_id", columnList = "organization_id"),
     @Index(name = "idx_email_log_from", columnList = "fromAddress"),
     @Index(name = "idx_email_log_processed", columnList = "isProcessed"),
     @Index(name = "idx_email_log_received", columnList = "receivedAt")
@@ -28,6 +30,11 @@ public class EmailLog {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    // Multi-tenant: Associate email log with organization
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     @Column(nullable = false, unique = true, length = 500)
     private String messageId;

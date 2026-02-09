@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
  * @author vedvix
  */
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping("/v1/auth")
 @RequiredArgsConstructor
 @Tag(name = "Authentication", description = "API endpoints for authentication, registration, and token management")
 public class AuthController {

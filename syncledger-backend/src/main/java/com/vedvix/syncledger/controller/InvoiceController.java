@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.*;
  * @author vedvix
  */
 @RestController
-@RequestMapping("/api/v1/invoices")
+@RequestMapping("/v1/invoices")
 @RequiredArgsConstructor
 @Tag(name = "Invoices", description = "API endpoints for invoice management, processing, and approval workflows")
 public class InvoiceController {

@@ -54,34 +54,34 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints
-                .requestMatchers("/api/v1/auth/**").permitAll()
-                .requestMatchers("/api/v1/health").permitAll()
+                .requestMatchers("/v1/auth/**").permitAll()
+                .requestMatchers("/v1/health").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 
                 // Super Admin only endpoints
-                .requestMatchers("/api/v1/super-admin/**").hasRole("SUPER_ADMIN")
-                .requestMatchers("/api/v1/organizations/**").hasRole("SUPER_ADMIN")
+                .requestMatchers("/v1/super-admin/**").hasRole("SUPER_ADMIN")
+                .requestMatchers("/v1/organizations/**").hasRole("SUPER_ADMIN")
                 
                 // Admin endpoints (organization-scoped)
-                .requestMatchers("/api/v1/admin/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
-                .requestMatchers(HttpMethod.POST, "/api/v1/users/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/api/v1/users/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/api/v1/users/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
+                .requestMatchers("/v1/admin/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
+                .requestMatchers(HttpMethod.POST, "/v1/users/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/v1/users/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/v1/users/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
                 
                 // Approval endpoints
-                .requestMatchers("/api/v1/approvals/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "APPROVER")
-                .requestMatchers(HttpMethod.POST, "/api/v1/invoices/*/approve").hasAnyRole("SUPER_ADMIN", "ADMIN", "APPROVER")
-                .requestMatchers(HttpMethod.POST, "/api/v1/invoices/*/reject").hasAnyRole("SUPER_ADMIN", "ADMIN", "APPROVER")
+                .requestMatchers("/v1/approvals/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "APPROVER")
+                .requestMatchers(HttpMethod.POST, "/v1/invoices/*/approve").hasAnyRole("SUPER_ADMIN", "ADMIN", "APPROVER")
+                .requestMatchers(HttpMethod.POST, "/v1/invoices/*/reject").hasAnyRole("SUPER_ADMIN", "ADMIN", "APPROVER")
                 
                 // Invoice management
-                .requestMatchers(HttpMethod.GET, "/api/v1/invoices/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "APPROVER", "VIEWER")
-                .requestMatchers(HttpMethod.POST, "/api/v1/invoices/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/api/v1/invoices/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/api/v1/invoices/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
+                .requestMatchers(HttpMethod.GET, "/v1/invoices/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "APPROVER", "VIEWER")
+                .requestMatchers(HttpMethod.POST, "/v1/invoices/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/v1/invoices/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/v1/invoices/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
                 
                 // Dashboard - accessible by all authenticated users
-                .requestMatchers("/api/v1/dashboard/**").authenticated()
+                .requestMatchers("/v1/dashboard/**").authenticated()
                 
                 // All other requests require authentication
                 .anyRequest().authenticated()

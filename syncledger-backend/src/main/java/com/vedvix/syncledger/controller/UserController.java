@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.*;
  * @author vedvix
  */
 @RestController
-@RequestMapping("/api/v1/users")
+@RequestMapping("/v1/users")
 @RequiredArgsConstructor
 @Tag(name = "Users", description = "API endpoints for user management within organization")
 public class UserController {

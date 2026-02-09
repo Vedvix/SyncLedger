@@ -1,6 +1,7 @@
 package com.vedvix.syncledger.repository;
 
 import com.vedvix.syncledger.model.EmailLog;
+import com.vedvix.syncledger.model.Organization;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,6 +15,7 @@ import java.util.Optional;
 
 /**
  * Repository for EmailLog entity operations.
+ * Supports multi-tenant queries scoped to organization.
  * 
  * @author vedvix
  */
@@ -31,9 +33,19 @@ public interface EmailLogRepository extends JpaRepository<EmailLog, Long> {
     boolean existsByMessageId(String messageId);
 
     /**
-     * Find unprocessed emails.
+     * Find unprocessed emails for an organization.
+     */
+    List<EmailLog> findByOrganizationAndIsProcessedFalseOrderByReceivedAtAsc(Organization organization);
+
+    /**
+     * Find unprocessed emails (all organizations).
      */
     List<EmailLog> findByIsProcessedFalseOrderByReceivedAtAsc();
+
+    /**
+     * Find emails with errors for an organization.
+     */
+    Page<EmailLog> findByOrganizationAndHasErrorTrue(Organization organization, Pageable pageable);
 
     /**
      * Find emails with errors.
@@ -41,14 +53,35 @@ public interface EmailLogRepository extends JpaRepository<EmailLog, Long> {
     Page<EmailLog> findByHasErrorTrue(Pageable pageable);
 
     /**
+     * Find processed emails for an organization.
+     */
+    Page<EmailLog> findByOrganizationAndIsProcessedTrue(Organization organization, Pageable pageable);
+
+    /**
      * Find processed emails.
      */
     Page<EmailLog> findByIsProcessedTrue(Pageable pageable);
 
     /**
+     * Find emails by sender for an organization.
+     */
+    Page<EmailLog> findByOrganizationAndFromAddressContainingIgnoreCase(
+            Organization organization, String fromAddress, Pageable pageable);
+
+    /**
      * Find emails by sender.
      */
     Page<EmailLog> findByFromAddressContainingIgnoreCase(String fromAddress, Pageable pageable);
+
+    /**
+     * Find emails in date range for an organization.
+     */
+    @Query("SELECT e FROM EmailLog e WHERE e.organization = :org AND e.receivedAt BETWEEN :start AND :end")
+    Page<EmailLog> findByOrganizationAndReceivedBetween(
+            @Param("org") Organization organization,
+            @Param("start") LocalDateTime start, 
+            @Param("end") LocalDateTime end, 
+            Pageable pageable);
 
     /**
      * Find emails in date range.
@@ -59,14 +92,35 @@ public interface EmailLogRepository extends JpaRepository<EmailLog, Long> {
                                               Pageable pageable);
 
     /**
+     * Count unprocessed emails for an organization.
+     */
+    long countByOrganizationAndIsProcessedFalse(Organization organization);
+
+    /**
      * Count unprocessed emails.
      */
     long countByIsProcessedFalse();
 
     /**
+     * Count emails with errors for an organization.
+     */
+    long countByOrganizationAndHasErrorTrue(Organization organization);
+
+    /**
      * Count emails with errors.
      */
     long countByHasErrorTrue();
+
+    /**
+     * Get email processing statistics for an organization.
+     */
+    @Query("SELECT " +
+           "COUNT(e), " +
+           "SUM(CASE WHEN e.isProcessed = true THEN 1 ELSE 0 END), " +
+           "SUM(CASE WHEN e.hasError = true THEN 1 ELSE 0 END), " +
+           "SUM(COALESCE(e.invoicesExtracted, 0)) " +
+           "FROM EmailLog e WHERE e.organization = :org")
+    Object[] getEmailProcessingStatsByOrganization(@Param("org") Organization organization);
 
     /**
      * Get email processing statistics.
@@ -80,12 +134,27 @@ public interface EmailLogRepository extends JpaRepository<EmailLog, Long> {
     Object[] getEmailProcessingStats();
 
     /**
+     * Find recent emails for an organization.
+     */
+    List<EmailLog> findTop20ByOrganizationOrderByReceivedAtDesc(Organization organization);
+
+    /**
      * Find recent emails.
      */
     List<EmailLog> findTop20ByOrderByReceivedAtDesc();
 
     /**
+     * Find emails with attachments for an organization.
+     */
+    Page<EmailLog> findByOrganizationAndHasAttachmentsTrue(Organization organization, Pageable pageable);
+
+    /**
      * Find emails with attachments.
      */
     Page<EmailLog> findByHasAttachmentsTrue(Pageable pageable);
+
+    /**
+     * Find all emails for an organization with pagination.
+     */
+    Page<EmailLog> findByOrganization(Organization organization, Pageable pageable);
 }

@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.*;
  * @author vedvix
  */
 @RestController
-@RequestMapping("/api/v1/super-admin")
+@RequestMapping("/v1/super-admin")
 @PreAuthorize("hasRole('SUPER_ADMIN')")
 @RequiredArgsConstructor
 @Tag(name = "Super Admin", description = "API endpoints for platform-wide administration including organization and statistics management")

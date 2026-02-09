@@ -7,7 +7,8 @@ import {
   Settings, 
   LogOut,
   Menu,
-  X
+  X,
+  Shield
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -21,10 +22,15 @@ export function DashboardLayout() {
     navigate('/login')
   }
   
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  const isAdmin = user?.role === 'ADMIN' || isSuperAdmin
+  
   const navItems = [
+    // Super Admin sees platform management first
+    ...(isSuperAdmin ? [{ to: '/super-admin', icon: Shield, label: 'Platform Admin' }] : []),
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/invoices', icon: FileText, label: 'Invoices' },
-    ...(user?.role === 'ADMIN' ? [{ to: '/users', icon: Users, label: 'Users' }] : []),
+    ...(isAdmin ? [{ to: '/users', icon: Users, label: 'Users' }] : []),
     { to: '/settings', icon: Settings, label: 'Settings' },
   ]
   
