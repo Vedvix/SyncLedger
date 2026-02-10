@@ -66,7 +66,7 @@ public class Organization {
     private Boolean sageAutoSync = true;
 
     // AWS Resource References
-    @Column(length = 500)
+    @Column(name = "s3_folder_path", length = 500)
     private String s3FolderPath;
 
     @Column(length = 255)

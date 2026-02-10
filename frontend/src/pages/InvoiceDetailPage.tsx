@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { invoiceService } from '@/services/invoiceService'
@@ -13,7 +14,13 @@ import {
   FileText,
   Calendar,
   Building,
-  DollarSign
+  DollarSign,
+  Eye,
+  EyeOff,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  AlertTriangle
 } from 'lucide-react'
 
 const STATUS_COLORS: Record<InvoiceStatus, string> = {
@@ -26,11 +33,29 @@ const STATUS_COLORS: Record<InvoiceStatus, string> = {
   ARCHIVED: 'bg-gray-100 text-gray-800 border-gray-300',
 }
 
+// Confidence level indicators
+const getConfidenceColor = (score?: number) => {
+  if (!score) return 'text-gray-400'
+  if (score >= 0.9) return 'text-green-600'
+  if (score >= 0.7) return 'text-yellow-600'
+  return 'text-red-600'
+}
+
+const getConfidenceLabel = (score?: number) => {
+  if (!score) return 'Unknown'
+  if (score >= 0.9) return 'High'
+  if (score >= 0.7) return 'Medium'
+  return 'Low'
+}
+
 export function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
+  const [pdfZoom, setPdfZoom] = useState(100)
+  const [showPdf, setShowPdf] = useState(true)
+  const [pdfFullscreen, setPdfFullscreen] = useState(false)
   
   const { data: invoice, isLoading, error } = useQuery({
     queryKey: ['invoice', id],
@@ -55,6 +80,22 @@ export function InvoiceDetailPage() {
   
   const canApprove = user?.role === 'ADMIN' || user?.role === 'APPROVER'
   const canSync = user?.role === 'ADMIN' && invoice?.status === 'APPROVED'
+  
+  // Build PDF URL - the s3Url from backend uses internal Docker hostname,
+  // we need to use the frontend's API proxy
+  const getPdfUrl = () => {
+    if (!invoice?.s3Url) return null
+    // Extract the path from s3Url and build URL through our API
+    // s3Url format: http://backend:8080/api/files/{key}
+    const match = invoice.s3Url.match(/\/api\/files\/(.+)$/)
+    if (match) {
+      const apiBase = import.meta.env.VITE_API_URL || '/api'
+      return `${apiBase}/files/${match[1]}`
+    }
+    return invoice.s3Url
+  }
+  
+  const pdfUrl = getPdfUrl()
   
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -89,11 +130,35 @@ export function InvoiceDetailPage() {
       </div>
     )
   }
+
+  // Fullscreen PDF viewer
+  if (pdfFullscreen && pdfUrl) {
+    return (
+      <div className="fixed inset-0 z-50 bg-gray-900 flex flex-col">
+        <div className="flex items-center justify-between p-4 bg-gray-800 text-white">
+          <h2 className="font-semibold">Invoice #{invoice.invoiceNumber}</h2>
+          <button 
+            onClick={() => setPdfFullscreen(false)}
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg"
+          >
+            Exit Fullscreen
+          </button>
+        </div>
+        <div className="flex-1">
+          <iframe
+            src={`${pdfUrl}#toolbar=1&navpanes=0`}
+            className="w-full h-full"
+            title="Invoice PDF"
+          />
+        </div>
+      </div>
+    )
+  }
   
   return (
-    <div className="space-y-6">
+    <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
           <button
             onClick={() => navigate('/invoices')}
@@ -108,203 +173,318 @@ export function InvoiceDetailPage() {
             <p className="text-gray-500">{invoice.vendorName}</p>
           </div>
         </div>
-        <span className={`px-4 py-2 rounded-lg border ${STATUS_COLORS[invoice.status]}`}>
-          {invoice.status.replace('_', ' ')}
-        </span>
+        <div className="flex items-center gap-4">
+          <span className={`px-4 py-2 rounded-lg border ${STATUS_COLORS[invoice.status]}`}>
+            {invoice.status.replace('_', ' ')}
+          </span>
+          {invoice.confidenceScore !== undefined && (
+            <div className={`flex items-center gap-1 ${getConfidenceColor(invoice.confidenceScore)}`}>
+              <AlertTriangle className="w-4 h-4" />
+              <span className="text-sm font-medium">
+                {getConfidenceLabel(invoice.confidenceScore)} confidence
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex gap-4 mb-4">
+        {canApprove && (invoice.status === 'PENDING' || invoice.status === 'UNDER_REVIEW') && (
+          <>
+            <button
+              onClick={() => approveMutation.mutate('APPROVED')}
+              disabled={approveMutation.isPending}
+              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+            >
+              <CheckCircle className="w-5 h-5 mr-2" />
+              Approve
+            </button>
+            <button
+              onClick={() => approveMutation.mutate('REJECTED')}
+              disabled={approveMutation.isPending}
+              className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+            >
+              <XCircle className="w-5 h-5 mr-2" />
+              Reject
+            </button>
+          </>
+        )}
+        {canSync && (
+          <button
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+          >
+            <Send className="w-5 h-5 mr-2" />
+            Sync to Sage
+          </button>
+        )}
+        <button
+          onClick={async () => {
+            const blob = await invoiceService.downloadPdf(Number(id))
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = invoice.originalFileName || `invoice-${invoice.invoiceNumber}.pdf`
+            a.click()
+            window.URL.revokeObjectURL(url)
+          }}
+          className="flex items-center px-4 py-2 border rounded-lg hover:bg-gray-50"
+        >
+          <Download className="w-5 h-5 mr-2" />
+          Download
+        </button>
+        <button
+          onClick={() => setShowPdf(!showPdf)}
+          className="flex items-center px-4 py-2 border rounded-lg hover:bg-gray-50"
+        >
+          {showPdf ? <EyeOff className="w-5 h-5 mr-2" /> : <Eye className="w-5 h-5 mr-2" />}
+          {showPdf ? 'Hide PDF' : 'Show PDF'}
+        </button>
       </div>
       
-      {/* Action Buttons */}
-      {(canApprove || canSync) && invoice.isEditable && (
-        <div className="flex gap-4">
-          {canApprove && invoice.status === 'PENDING' && (
-            <>
-              <button
-                onClick={() => approveMutation.mutate('APPROVED')}
-                disabled={approveMutation.isPending}
-                className="flex items-center px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-              >
-                <CheckCircle className="w-5 h-5 mr-2" />
-                Approve
-              </button>
-              <button
-                onClick={() => approveMutation.mutate('REJECTED')}
-                disabled={approveMutation.isPending}
-                className="flex items-center px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-              >
-                <XCircle className="w-5 h-5 mr-2" />
-                Reject
-              </button>
-            </>
+      {/* Split View: PDF | Extracted Data */}
+      <div className={`flex-1 grid gap-6 ${showPdf ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`} style={{ minHeight: 0 }}>
+        
+        {/* Left Side: PDF Viewer */}
+        {showPdf && (
+          <div className="bg-white rounded-xl shadow-sm flex flex-col overflow-hidden" style={{ minHeight: '600px' }}>
+            <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+              <h2 className="font-semibold text-gray-700 flex items-center">
+                <FileText className="w-5 h-5 mr-2" />
+                Original Invoice
+              </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPdfZoom(Math.max(50, pdfZoom - 25))}
+                  className="p-1 hover:bg-gray-200 rounded"
+                  title="Zoom Out"
+                >
+                  <ZoomOut className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-gray-500 w-12 text-center">{pdfZoom}%</span>
+                <button
+                  onClick={() => setPdfZoom(Math.min(200, pdfZoom + 25))}
+                  className="p-1 hover:bg-gray-200 rounded"
+                  title="Zoom In"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+                {pdfUrl && (
+                  <button
+                    onClick={() => setPdfFullscreen(true)}
+                    className="p-1 hover:bg-gray-200 rounded ml-2"
+                    title="Fullscreen"
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto bg-gray-100 p-4">
+              {pdfUrl ? (
+                <iframe
+                  src={`${pdfUrl}#toolbar=0&navpanes=0&view=FitH`}
+                  className="w-full bg-white shadow-lg rounded"
+                  style={{ 
+                    height: `${600 * (pdfZoom / 100)}px`,
+                    minHeight: '500px',
+                    transform: `scale(${pdfZoom / 100})`,
+                    transformOrigin: 'top left',
+                    width: `${100 / (pdfZoom / 100)}%`
+                  }}
+                  title="Invoice PDF"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                  <FileText className="w-16 h-16 mb-4 opacity-30" />
+                  <p>PDF not available</p>
+                  <p className="text-sm text-gray-400 mt-1">The invoice file could not be loaded</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {/* Right Side: Extracted Values */}
+        <div className="space-y-4 overflow-auto" style={{ minHeight: showPdf ? '600px' : 'auto' }}>
+          {/* Confidence Banner */}
+          {invoice.requiresManualReview && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-yellow-800">Manual Review Required</p>
+                <p className="text-sm text-yellow-700 mt-1">
+                  Some fields may have low confidence scores. Please verify the extracted data against the PDF.
+                </p>
+              </div>
+            </div>
           )}
-          {canSync && (
-            <button
-              onClick={() => syncMutation.mutate()}
-              disabled={syncMutation.isPending}
-              className="flex items-center px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
-            >
-              <Send className="w-5 h-5 mr-2" />
-              Sync to Sage
-            </button>
-          )}
-          <button
-            onClick={() => invoiceService.downloadPdf(Number(id))}
-            className="flex items-center px-6 py-2 border rounded-lg hover:bg-gray-50"
-          >
-            <Download className="w-5 h-5 mr-2" />
-            Download PDF
-          </button>
-        </div>
-      )}
-      
-      {/* Invoice Details */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Info */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Basic Info */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
+
+          {/* Invoice Details */}
+          <div className="bg-white rounded-xl shadow-sm p-5">
             <h2 className="text-lg font-semibold mb-4 flex items-center">
               <FileText className="w-5 h-5 mr-2 text-primary-500" />
               Invoice Details
             </h2>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-500">Invoice Number</p>
-                <p className="font-medium">{invoice.invoiceNumber}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">PO Number</p>
-                <p className="font-medium">{invoice.poNumber || '-'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Invoice Date</p>
-                <p className="font-medium">{formatDate(invoice.invoiceDate)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Due Date</p>
-                <p className="font-medium">{formatDate(invoice.dueDate)}</p>
-              </div>
+              <ExtractedField label="Invoice Number" value={invoice.invoiceNumber} />
+              <ExtractedField label="PO Number" value={invoice.poNumber} />
+              <ExtractedField label="Invoice Date" value={formatDate(invoice.invoiceDate)} />
+              <ExtractedField label="Due Date" value={formatDate(invoice.dueDate)} />
             </div>
           </div>
           
-          {/* Vendor Info */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
+          {/* Vendor Information */}
+          <div className="bg-white rounded-xl shadow-sm p-5">
             <h2 className="text-lg font-semibold mb-4 flex items-center">
               <Building className="w-5 h-5 mr-2 text-primary-500" />
               Vendor Information
             </h2>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-500">Name</p>
-                <p className="font-medium">{invoice.vendorName}</p>
+              <ExtractedField label="Name" value={invoice.vendorName} highlight />
+              <ExtractedField label="Email" value={invoice.vendorEmail} />
+              <ExtractedField label="Phone" value={invoice.vendorPhone} />
+              <ExtractedField label="Tax ID" value={invoice.vendorTaxId} />
+              <div className="col-span-2">
+                <ExtractedField label="Address" value={invoice.vendorAddress} />
               </div>
-              <div>
-                <p className="text-sm text-gray-500">Email</p>
-                <p className="font-medium">{invoice.vendorEmail || '-'}</p>
+            </div>
+          </div>
+          
+          {/* Financial Summary */}
+          <div className="bg-white rounded-xl shadow-sm p-5">
+            <h2 className="text-lg font-semibold mb-4 flex items-center">
+              <DollarSign className="w-5 h-5 mr-2 text-green-500" />
+              Financial Summary
+            </h2>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center py-2 border-b">
+                <span className="text-gray-600">Subtotal</span>
+                <span className="font-medium">{formatCurrency(invoice.subtotal)}</span>
               </div>
-              <div>
-                <p className="text-sm text-gray-500">Phone</p>
-                <p className="font-medium">{invoice.vendorPhone || '-'}</p>
+              <div className="flex justify-between items-center py-2 border-b">
+                <span className="text-gray-600">Tax Amount</span>
+                <span className="font-medium">{formatCurrency(invoice.taxAmount)}</span>
               </div>
-              <div>
-                <p className="text-sm text-gray-500">Address</p>
-                <p className="font-medium">{invoice.vendorAddress || '-'}</p>
+              {invoice.discountAmount > 0 && (
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-gray-600">Discount</span>
+                  <span className="font-medium text-green-600">-{formatCurrency(invoice.discountAmount)}</span>
+                </div>
+              )}
+              {invoice.shippingAmount > 0 && (
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-gray-600">Shipping</span>
+                  <span className="font-medium">{formatCurrency(invoice.shippingAmount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center py-3 bg-gray-50 -mx-5 px-5 mt-4 rounded-b-xl">
+                <span className="text-lg font-semibold">Total Amount</span>
+                <span className="text-xl font-bold text-primary-600">{formatCurrency(invoice.totalAmount)}</span>
               </div>
             </div>
           </div>
           
           {/* Line Items */}
           {invoice.lineItems.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-lg font-semibold mb-4">Line Items</h2>
-              <table className="w-full">
-                <thead className="border-b">
-                  <tr>
-                    <th className="text-left py-2 text-sm text-gray-500">#</th>
-                    <th className="text-left py-2 text-sm text-gray-500">Description</th>
-                    <th className="text-right py-2 text-sm text-gray-500">Qty</th>
-                    <th className="text-right py-2 text-sm text-gray-500">Unit Price</th>
-                    <th className="text-right py-2 text-sm text-gray-500">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoice.lineItems.map((item) => (
-                    <tr key={item.lineNumber} className="border-b">
-                      <td className="py-3">{item.lineNumber}</td>
-                      <td className="py-3">{item.description}</td>
-                      <td className="py-3 text-right">{item.quantity}</td>
-                      <td className="py-3 text-right">{formatCurrency(item.unitPrice || 0)}</td>
-                      <td className="py-3 text-right font-medium">{formatCurrency(item.lineTotal)}</td>
+            <div className="bg-white rounded-xl shadow-sm p-5">
+              <h2 className="text-lg font-semibold mb-4">Line Items ({invoice.lineItems.length})</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="border-b bg-gray-50">
+                    <tr>
+                      <th className="text-left py-2 px-2 text-sm text-gray-500">#</th>
+                      <th className="text-left py-2 px-2 text-sm text-gray-500">Description</th>
+                      <th className="text-right py-2 px-2 text-sm text-gray-500">Qty</th>
+                      <th className="text-right py-2 px-2 text-sm text-gray-500">Unit Price</th>
+                      <th className="text-right py-2 px-2 text-sm text-gray-500">Total</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {invoice.lineItems.map((item) => (
+                      <tr key={item.lineNumber} className="border-b hover:bg-gray-50">
+                        <td className="py-2 px-2 text-sm">{item.lineNumber}</td>
+                        <td className="py-2 px-2 text-sm">{item.description || '-'}</td>
+                        <td className="py-2 px-2 text-sm text-right">{item.quantity || '-'}</td>
+                        <td className="py-2 px-2 text-sm text-right">{item.unitPrice ? formatCurrency(item.unitPrice) : '-'}</td>
+                        <td className="py-2 px-2 text-sm text-right font-medium">{formatCurrency(item.lineTotal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
-        </div>
-        
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Financial Summary */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center">
-              <DollarSign className="w-5 h-5 mr-2 text-green-500" />
-              Financial Summary
-            </h2>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Subtotal</span>
-                <span>{formatCurrency(invoice.subtotal)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Tax</span>
-                <span>{formatCurrency(invoice.taxAmount)}</span>
-              </div>
-              {invoice.discountAmount > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Discount</span>
-                  <span className="text-green-600">-{formatCurrency(invoice.discountAmount)}</span>
-                </div>
-              )}
-              {invoice.shippingAmount > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Shipping</span>
-                  <span>{formatCurrency(invoice.shippingAmount)}</span>
-                </div>
-              )}
-              <div className="flex justify-between pt-3 border-t font-semibold text-lg">
-                <span>Total</span>
-                <span>{formatCurrency(invoice.totalAmount)}</span>
-              </div>
-            </div>
-          </div>
           
-          {/* Metadata */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
+          {/* Source & Metadata */}
+          <div className="bg-white rounded-xl shadow-sm p-5">
             <h2 className="text-lg font-semibold mb-4 flex items-center">
               <Calendar className="w-5 h-5 mr-2 text-primary-500" />
-              Metadata
+              Source & Metadata
             </h2>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Extraction Method</span>
-                <span>{invoice.extractionMethod || '-'}</span>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-gray-500">Extraction Method</p>
+                <p className="font-medium capitalize">{invoice.extractionMethod || '-'}</p>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Confidence Score</span>
-                <span>{invoice.confidenceScore ? `${(invoice.confidenceScore * 100).toFixed(0)}%` : '-'}</span>
+              <div>
+                <p className="text-gray-500">Confidence Score</p>
+                <p className={`font-medium ${getConfidenceColor(invoice.confidenceScore)}`}>
+                  {invoice.confidenceScore ? `${(invoice.confidenceScore * 100).toFixed(0)}%` : '-'}
+                </p>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Created</span>
-                <span>{formatDate(invoice.createdAt)}</span>
+              <div>
+                <p className="text-gray-500">Source Email</p>
+                <p className="font-medium truncate">{invoice.sourceEmailFrom || '-'}</p>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Last Updated</span>
-                <span>{formatDate(invoice.updatedAt)}</span>
+              <div>
+                <p className="text-gray-500">Email Subject</p>
+                <p className="font-medium truncate">{invoice.sourceEmailSubject || '-'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Original File</p>
+                <p className="font-medium truncate">{invoice.originalFileName}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Pages</p>
+                <p className="font-medium">{invoice.pageCount || '-'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Created</p>
+                <p className="font-medium">{formatDate(invoice.createdAt)}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Last Updated</p>
+                <p className="font-medium">{formatDate(invoice.updatedAt)}</p>
               </div>
             </div>
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// Helper component for extracted fields with visual treatment
+function ExtractedField({ 
+  label, 
+  value, 
+  highlight = false 
+}: { 
+  label: string
+  value?: string | null
+  highlight?: boolean 
+}) {
+  const hasValue = value && value !== '-'
+  
+  return (
+    <div className={`${highlight ? 'bg-primary-50 -mx-2 px-2 py-1 rounded' : ''}`}>
+      <p className="text-sm text-gray-500">{label}</p>
+      <p className={`font-medium ${!hasValue ? 'text-gray-400 italic' : ''} ${highlight ? 'text-primary-700' : ''}`}>
+        {hasValue ? value : 'Not extracted'}
+      </p>
     </div>
   )
 }

@@ -88,8 +88,8 @@ public class EmailLog {
     @Column(length = 1000)
     private String errorMessage;
 
-    @Column
-    private Integer processingDurationMs;
+    @Column(name = "processing_duration_ms")
+    private Long processingDurationMs;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)

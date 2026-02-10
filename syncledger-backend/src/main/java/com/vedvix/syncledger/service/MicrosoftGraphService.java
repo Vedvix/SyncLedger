@@ -88,8 +88,10 @@ public class MicrosoftGraphService {
         log.info("Fetching unread emails from mailbox: {}", mailboxEmail);
         
         try {
+            // Note: Removed $orderby to avoid "InefficientFilter" error on some mailboxes
+            // The results will be sorted in memory if needed
             String url = String.format(
-                "%s/users/%s/mailFolders/inbox/messages?$filter=isRead eq false and hasAttachments eq true&$top=%d&$orderby=receivedDateTime desc&$select=id,internetMessageId,from,toRecipients,subject,bodyPreview,receivedDateTime,hasAttachments,isRead",
+                "%s/users/%s/mailFolders/inbox/messages?$filter=isRead eq false&$top=%d&$select=id,internetMessageId,from,toRecipients,subject,bodyPreview,receivedDateTime,hasAttachments,isRead",
                 GRAPH_API_BASE, mailboxEmail, maxResults
             );
 
@@ -105,14 +107,25 @@ public class MicrosoftGraphService {
             JsonNode messages = root.get("value");
             
             if (messages == null || !messages.isArray()) {
-                log.info("No unread emails with attachments found in {}", mailboxEmail);
+                log.info("No unread emails found in {}", mailboxEmail);
                 return new ArrayList<>();
             }
 
             List<EmailMessageDTO> result = new ArrayList<>();
             for (JsonNode message : messages) {
-                result.add(convertToDTO(message));
+                // Filter for messages with attachments in memory (to avoid complex OData filter)
+                boolean hasAttachments = message.has("hasAttachments") && message.get("hasAttachments").asBoolean();
+                if (hasAttachments) {
+                    result.add(convertToDTO(message));
+                }
             }
+            
+            // Sort by received date descending (newest first)
+            result.sort((a, b) -> {
+                if (a.getReceivedAt() == null) return 1;
+                if (b.getReceivedAt() == null) return -1;
+                return b.getReceivedAt().compareTo(a.getReceivedAt());
+            });
 
             log.info("Found {} unread emails with attachments in {}", result.size(), mailboxEmail);
             return result;
@@ -152,13 +165,18 @@ public class MicrosoftGraphService {
             JsonNode attachments = root.get("value");
             
             if (attachments == null || !attachments.isArray()) {
+                log.info("No attachments array in response for message {}", messageId);
                 return new ArrayList<>();
             }
 
+            log.debug("Found {} attachment entries in message {}", attachments.size(), messageId);
+            
             List<EmailAttachmentDTO> result = new ArrayList<>();
             
             for (JsonNode attachment : attachments) {
                 String type = attachment.has("@odata.type") ? attachment.get("@odata.type").asText() : "";
+                String name = attachment.has("name") ? attachment.get("name").asText() : "unknown";
+                log.debug("Processing attachment: name={}, type={}", name, type);
                 
                 // Only process file attachments
                 if (type.contains("fileAttachment")) {

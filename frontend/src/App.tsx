@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { Toaster } from '@/components/ui/Toaster'
+import { Toaster, ToastProvider } from '@/components/ui/Toaster'
 
 // Layout
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
@@ -60,6 +60,7 @@ function SuperAdminRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
+    <ToastProvider>
     <BrowserRouter>
       <Routes>
         {/* Public Routes */}
@@ -131,6 +132,7 @@ function App() {
       
       <Toaster />
     </BrowserRouter>
+  </ToastProvider>
   )
 }
 

@@ -29,7 +29,9 @@ spring:
   # JPA for PostgreSQL
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -39,9 +41,24 @@ spring:
     enabled: true
     baseline-on-migrate: true
 
+# =============================================================================
+# Storage Configuration - Use local file storage for development
+# Set storage.type=s3 and configure aws.* for production
+# =============================================================================
+storage:
+  type: ${STORAGE_TYPE:local}
+  local:
+    base-path: ${STORAGE_LOCAL_BASE_PATH:/app/uploads}
+    # Use Docker network hostname so PDF service can reach backend
+    base-url: ${STORAGE_LOCAL_BASE_URL:http://backend:8080}
+
 # Logging - less verbose for development
 logging:
   level:
     root: INFO
     com.vedvix.syncledger: DEBUG
     org.flywaydb: INFO
+
+email:
+  polling:
+    enabled: true

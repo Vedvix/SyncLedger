@@ -362,3 +362,34 @@ export interface PaginationParams {
   sort?: string
   direction?: 'asc' | 'desc'
 }
+
+// ==================== Email Polling Types ====================
+
+export interface EmailPollingStatus {
+  enabled: boolean
+  lastPollTime?: string
+  totalEmailsProcessed: number
+  activeOrganizations: number
+  pollingIntervalMinutes: number
+}
+
+export interface EmailLogDTO {
+  id: number
+  messageId: string
+  subject: string
+  fromEmail: string
+  receivedAt: string
+  isProcessed: boolean
+  hasError: boolean
+  errorMessage?: string
+  attachmentCount: number
+  organizationId?: number
+  organizationName?: string
+}
+
+export interface EmailStatsDTO {
+  totalEmails: number
+  processedEmails: number
+  failedEmails: number
+  pendingEmails: number
+}

@@ -29,8 +29,8 @@ RUN addgroup -g 1001 syncledger && \
 # Copy JAR from builder
 COPY --from=builder /app/target/*.jar app.jar
 
-# Set ownership
-RUN chown -R syncledger:syncledger /app
+# Create uploads directory and set ownership
+RUN mkdir -p /app/uploads && chown -R syncledger:syncledger /app
 
 USER syncledger
 

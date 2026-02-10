@@ -32,6 +32,15 @@ spring:
   flyway:
     enabled: false
 
+# =============================================================================
+# Storage Configuration - Use local file storage for development
+# =============================================================================
+storage:
+  type: local
+  local:
+    base-path: ./uploads
+    base-url: http://localhost:8080
+
 # Logging
 logging:
   level:

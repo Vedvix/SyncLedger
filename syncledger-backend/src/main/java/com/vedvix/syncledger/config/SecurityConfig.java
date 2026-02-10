@@ -57,8 +57,14 @@ public class SecurityConfig {
                 .requestMatchers("/v1/auth/**").permitAll()
                 .requestMatchers("/v1/health").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
-                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                
+                // Allow file access for local storage (PDF service needs this)
+                // Note: context-path /api is already stripped by Spring Security
+                .requestMatchers("/files/**").permitAll()
+                // Allow Swagger/OpenAPI (explicit html and index paths)
+                .requestMatchers("/swagger-ui.html", "/swagger-ui/index.html", "/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**").permitAll()
+                // Also permit context-path prefixed variants (/api/...)
+                .requestMatchers("/api/swagger-ui.html", "/api/swagger-ui/index.html", "/api/swagger-ui/**", "/api/v3/api-docs", "/api/v3/api-docs/**").permitAll()
+
                 // Super Admin only endpoints
                 .requestMatchers("/v1/super-admin/**").hasRole("SUPER_ADMIN")
                 .requestMatchers("/v1/organizations/**").hasRole("SUPER_ADMIN")

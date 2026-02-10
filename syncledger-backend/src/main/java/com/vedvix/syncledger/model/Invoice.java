@@ -121,22 +121,22 @@ public class Invoice {
 
     // ==================== File Storage ====================
     
-    @Column(nullable = false, length = 500)
+    @Column(name = "original_file_name", nullable = false, length = 500)
     private String originalFileName;
 
-    @Column(nullable = false, length = 500)
+    @Column(name = "s3_key", nullable = false, length = 500)
     private String s3Key;
 
-    @Column(length = 500)
+    @Column(name = "s3_url", length = 500)
     private String s3Url;
 
-    @Column
+    @Column(name = "file_size_bytes")
     private Long fileSizeBytes;
 
-    @Column(length = 50)
+    @Column(name = "mime_type", length = 50)
     private String mimeType;
 
-    @Column
+    @Column(name = "page_count")
     private Integer pageCount;
 
     // ==================== Email Source ====================

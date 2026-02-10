@@ -60,6 +60,7 @@ services:
       AZURE_CLIENT_ID: ${AZURE_CLIENT_ID:-}
       AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET:-}
       AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
+      STORAGE_TYPE: ${STORAGE_TYPE:-local}
       AWS_ACCESS_KEY: ${AWS_ACCESS_KEY:-test}
       AWS_SECRET_KEY: ${AWS_SECRET_KEY:-test}
       AWS_REGION: ${AWS_REGION:-us-east-1}
@@ -69,6 +70,8 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:8080,http://frontend}
     ports:
       - "8080:8080"
+    volumes:
+      - uploads_data:/app/uploads
     networks:
       - syncledger-network
     profiles:
@@ -175,6 +178,8 @@ volumes:
   localstack_data:
     driver: local
   pdf_temp:
+    driver: local
+  uploads_data:
     driver: local
 
 # ===========================================================================

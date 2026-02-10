@@ -4,6 +4,7 @@ import com.vedvix.syncledger.model.Organization;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -21,12 +22,15 @@ import java.util.UUID;
  * AWS S3 service for file storage.
  * Manages invoice file uploads with organization-specific paths.
  * 
+ * Activated when: storage.type=s3
+ * 
  * @author vedvix
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class S3Service {
+@ConditionalOnProperty(name = "storage.type", havingValue = "s3")
+public class S3Service implements StorageService {
 
     private final S3Client s3Client;
     private final S3Presigner s3Presigner;
@@ -40,6 +44,7 @@ public class S3Service {
     /**
      * Upload invoice file to S3 with organization-specific path.
      */
+    @Override
     public String uploadInvoiceFile(Organization org, String fileName, 
                                      InputStream inputStream, String contentType, long size) {
         String s3Key = generateS3Key(org, fileName);
@@ -71,6 +76,7 @@ public class S3Service {
     /**
      * Generate presigned URL for file download.
      */
+    @Override
     public String generatePresignedUrl(String s3Key) {
         try {
             GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
@@ -91,6 +97,7 @@ public class S3Service {
     /**
      * Download file from S3.
      */
+    @Override
     public InputStream downloadFile(String s3Key) {
         try {
             GetObjectRequest request = GetObjectRequest.builder()
@@ -108,6 +115,7 @@ public class S3Service {
     /**
      * Delete file from S3.
      */
+    @Override
     public void deleteFile(String s3Key) {
         try {
             DeleteObjectRequest request = DeleteObjectRequest.builder()
@@ -126,6 +134,7 @@ public class S3Service {
     /**
      * Check if file exists in S3.
      */
+    @Override
     public boolean fileExists(String s3Key) {
         try {
             HeadObjectRequest request = HeadObjectRequest.builder()
@@ -142,14 +151,23 @@ public class S3Service {
 
     /**
      * Generate organization-specific S3 key.
+     * Format: {org-slug}/files/{yyyy}/{MM}/{dd}/{uuid}_{filename}
+     * Example: evolotek/files/2026/02/09/abc12345_invoice.pdf
+     * 
+     * Falls back to org.s3FolderPath if set (for custom bucket structures)
      */
     private String generateS3Key(Organization org, String fileName) {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
         String uuid = UUID.randomUUID().toString().substring(0, 8);
         String sanitizedFileName = sanitizeFileName(fileName);
         
+        // Use s3FolderPath if set, otherwise use standard format
+        String basePath = (org.getS3FolderPath() != null && !org.getS3FolderPath().isBlank()) 
+                ? org.getS3FolderPath() 
+                : org.getSlug() + "/files";
+        
         return String.format("%s/%s/%s_%s", 
-            org.getS3FolderPath(),
+            basePath,
             timestamp,
             uuid,
             sanitizedFileName

@@ -1,5 +1,6 @@
 package com.vedvix.syncledger.service;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vedvix.syncledger.model.*;
@@ -31,7 +32,7 @@ public class InvoiceProcessingService {
 
     private final InvoiceRepository invoiceRepository;
     private final OrganizationRepository organizationRepository;
-    private final S3Service s3Service;
+    private final StorageService storageService;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
@@ -44,6 +45,9 @@ public class InvoiceProcessingService {
     public Invoice queueForProcessing(Organization org, String s3Key, String fileName,
                                        String emailId, String emailFrom, String emailSubject,
                                        LocalDateTime emailReceivedAt) {
+        // Generate the URL for serving this file
+        String s3Url = storageService.generatePresignedUrl(s3Key);
+        
         // Create invoice record in PENDING state
         Invoice invoice = Invoice.builder()
                 .organization(org)
@@ -55,6 +59,7 @@ public class InvoiceProcessingService {
                 .status(InvoiceStatus.PENDING)
                 .originalFileName(fileName)
                 .s3Key(s3Key)
+                .s3Url(s3Url)
                 .sourceEmailId(emailId)
                 .sourceEmailFrom(emailFrom)
                 .sourceEmailSubject(emailSubject)
@@ -79,21 +84,27 @@ public class InvoiceProcessingService {
             Invoice invoice = invoiceRepository.findById(invoiceId)
                     .orElseThrow(() -> new RuntimeException("Invoice not found: " + invoiceId));
 
-            // Get presigned URL for PDF service to download
-            String presignedUrl = s3Service.generatePresignedUrl(invoice.getS3Key());
+            log.info("Processing invoice {} through PDF service, s3Key: {}", invoiceId, invoice.getS3Key());
+            
+            // Get URL for PDF service to download (presigned for S3, direct for local)
+            String fileUrl = storageService.generatePresignedUrl(invoice.getS3Key());
+            log.debug("Generated file URL for PDF service: {}", fileUrl);
             
             // Call PDF extraction service
             String extractionUrl = pdfServiceUrl + "/api/v1/extract";
+            log.info("Calling PDF service at: {}", extractionUrl);
             
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             
             String requestBody = objectMapper.writeValueAsString(new ExtractionRequest(
-                presignedUrl,
+                fileUrl,
                 invoice.getOriginalFileName(),
                 invoice.getOrganization().getId(),
                 invoiceId
             ));
+            
+            log.debug("PDF service request body: {}", requestBody);
             
             HttpEntity<String> request = new HttpEntity<>(requestBody, headers);
             
@@ -104,17 +115,20 @@ public class InvoiceProcessingService {
                 String.class
             );
             
+            log.info("PDF service response status: {}", response.getStatusCode());
+            
             if (response.getStatusCode() == HttpStatus.OK) {
                 // Parse response and update invoice
                 JsonNode result = objectMapper.readTree(response.getBody());
                 updateInvoiceFromExtraction(invoice, result);
                 log.info("Successfully processed invoice: {}", invoiceId);
             } else {
+                log.error("PDF service returned error: {}, body: {}", response.getStatusCode(), response.getBody());
                 markInvoiceAsFailedExtraction(invoice, "Extraction service returned: " + response.getStatusCode());
             }
             
         } catch (Exception e) {
-            log.error("Error processing invoice {}: {}", invoiceId, e.getMessage());
+            log.error("Error processing invoice {}: {}", invoiceId, e.getMessage(), e);
             invoiceRepository.findById(invoiceId).ifPresent(inv -> 
                 markInvoiceAsFailedExtraction(inv, e.getMessage())
             );
@@ -202,13 +216,20 @@ public class InvoiceProcessingService {
         invoiceRepository.save(invoice);
     }
 
-    // Inner class for extraction request
+    // Inner class for extraction request - uses snake_case for Python API
     @lombok.Data
     @lombok.AllArgsConstructor
     private static class ExtractionRequest {
+        @JsonProperty("file_url")
         private String fileUrl;
+        
+        @JsonProperty("file_name")
         private String fileName;
+        
+        @JsonProperty("organization_id")
         private Long organizationId;
+        
+        @JsonProperty("invoice_id")
         private Long invoiceId;
     }
 }

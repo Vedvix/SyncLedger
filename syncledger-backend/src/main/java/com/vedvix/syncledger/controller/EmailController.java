@@ -296,7 +296,7 @@ public class EmailController {
         private Integer invoicesExtracted;
         private Boolean hasError;
         private String errorMessage;
-        private Integer processingDurationMs;
+        private Long processingDurationMs;
         private java.time.LocalDateTime createdAt;
     }
 

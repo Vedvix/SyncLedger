@@ -48,7 +48,7 @@ public class EmailPollingService {
     private final MicrosoftGraphService graphService;
     private final OrganizationRepository organizationRepository;
     private final EmailLogRepository emailLogRepository;
-    private final S3Service s3Service;
+    private final StorageService storageService;
     private final InvoiceProcessingService invoiceProcessingService;
 
     @Value("${email.polling.max-emails-per-batch:50}")
@@ -206,6 +206,13 @@ public class EmailPollingService {
         try {
             // Get attachments
             List<EmailAttachmentDTO> attachments = graphService.getEmailAttachments(mailbox, messageId);
+            log.debug("Retrieved {} total attachments from email", attachments.size());
+            
+            // Log all attachments for debugging
+            for (EmailAttachmentDTO att : attachments) {
+                log.debug("Attachment: name={}, contentType={}, size={}, isProcessable={}", 
+                    att.getName(), att.getContentType(), att.getSize(), att.isProcessable());
+            }
             
             // Filter to processable attachments (PDFs, images)
             List<EmailAttachmentDTO> pdfAttachments = attachments.stream()
@@ -213,14 +220,16 @@ public class EmailPollingService {
                     .collect(Collectors.toList());
             
             if (pdfAttachments.isEmpty()) {
-                log.info("No processable attachments in email: {}", email.getSubject());
+                log.info("No processable attachments in email: {} (total attachments: {})", 
+                    email.getSubject(), attachments.size());
                 emailLog.markProcessed(0);
                 emailLogRepository.save(emailLog);
                 graphService.markAsRead(mailbox, messageId);
                 return true;
             }
 
-            log.info("Found {} processable attachments in email", pdfAttachments.size());
+            log.info("Found {} processable attachments in email (out of {} total)", 
+                pdfAttachments.size(), attachments.size());
             
             // Update email log with attachment info
             emailLog.setAttachmentCount(pdfAttachments.size());
@@ -243,7 +252,7 @@ public class EmailPollingService {
 
             // Update email log
             long duration = System.currentTimeMillis() - startTime;
-            emailLog.setProcessingDurationMs((int) duration);
+            emailLog.setProcessingDurationMs(duration);
             emailLog.markProcessed(invoicesCreated);
             emailLogRepository.save(emailLog);
 
@@ -282,8 +291,8 @@ public class EmailPollingService {
         }
 
         try {
-            // Upload to S3 with organization-specific path
-            String s3Key = s3Service.uploadInvoiceFile(
+            // Upload to storage with organization-specific path
+            String storageKey = storageService.uploadInvoiceFile(
                     organization,
                     attachment.getName(),
                     new ByteArrayInputStream(attachment.getContentBytes()),
@@ -291,12 +300,12 @@ public class EmailPollingService {
                     attachment.getContentBytes().length
             );
 
-            log.info("Uploaded attachment to S3: {}", s3Key);
+            log.info("Uploaded attachment to storage: {}", storageKey);
 
             // Queue for processing through PDF service
             Invoice invoice = invoiceProcessingService.queueForProcessing(
                     organization,
-                    s3Key,
+                    storageKey,
                     attachment.getName(),
                     email.getMessageId(),
                     email.getFromAddress(),
@@ -385,13 +394,24 @@ public class EmailPollingService {
      * Get email polling status.
      */
     public EmailPollingStatus getStatus() {
+        // Build list of organizations that are configured for email sync
+        List<Organization> orgsForEmail = organizationRepository.findOrganizationsForEmailSync();
+        List<EmailPollingStatus.PolledOrganization> polledOrgs = orgsForEmail.stream()
+                .map(o -> EmailPollingStatus.PolledOrganization.builder()
+                        .id(o.getId())
+                        .slug(o.getSlug())
+                        .email(o.getEmailAddress())
+                        .build())
+                .collect(Collectors.toList());
+
         return EmailPollingStatus.builder()
                 .enabled(pollingEnabled)
                 .currentlyPolling(isPolling.get())
                 .totalOrganizations(organizationRepository.countByStatus(OrganizationStatus.ACTIVE))
-                .organizationsWithEmail(organizationRepository.findOrganizationsForEmailSync().size())
+                .organizationsWithEmail(orgsForEmail.size())
                 .pendingEmails(emailLogRepository.countByIsProcessedFalse())
                 .failedEmails(emailLogRepository.countByHasErrorTrue())
+                .polledOrganizations(polledOrgs)
                 .build();
     }
 
@@ -407,5 +427,16 @@ public class EmailPollingService {
         private int organizationsWithEmail;
         private long pendingEmails;
         private long failedEmails;
+
+        // List of organizations (id, slug, email) that are configured for email polling
+        private List<PolledOrganization> polledOrganizations;
+
+        @lombok.Data
+        @lombok.Builder
+        public static class PolledOrganization {
+            private Long id;
+            private String slug;
+            private String email;
+        }
     }
 }
