@@ -24,6 +24,8 @@ class LineItem(BaseModel):
     tax_amount: Optional[Decimal] = Field(None, description="Tax amount")
     discount_amount: Optional[Decimal] = Field(None, description="Discount amount")
     line_total: Optional[Decimal] = Field(None, description="Total for this line")
+    gl_account_code: Optional[str] = Field(None, description="GL account code")
+    cost_center: Optional[str] = Field(None, description="Cost center code")
 
 
 class VendorInfo(BaseModel):
@@ -66,6 +68,14 @@ class InvoiceData(BaseModel):
     payment_terms: Optional[str] = Field(None, description="Payment terms")
     bank_details: Optional[str] = Field(None, description="Bank account details")
     
+    # Mapped fields (populated by mapping engine)
+    gl_account: Optional[str] = Field(None, description="GL account code from mapping")
+    project: Optional[str] = Field(None, description="Project/opportunity number from mapping")
+    item_category: Optional[str] = Field(None, description="Item/product category from mapping")
+    location: Optional[str] = Field(None, description="Location/address from mapping")
+    cost_center: Optional[str] = Field(None, description="Cost center from mapping")
+    mapping_profile_id: Optional[str] = Field(None, description="ID of mapping profile used")
+    
     # Extraction metadata
     confidence_score: float = Field(default=0.0, ge=0.0, le=1.0, description="Extraction confidence 0-1")
     requires_manual_review: bool = Field(default=False, description="Needs human review")
@@ -98,6 +108,7 @@ class ExtractionResponse(BaseModel):
     processing_time_ms: int = Field(..., description="Total processing time")
     error: Optional[str] = Field(None, description="Error message if failed")
     invoice_id: Optional[int] = Field(None, description="Database ID if saved")
+    mapping_info: Optional[dict] = Field(None, description="Mapping profile info and results")
 
 
 class SaveInvoiceRequest(BaseModel):

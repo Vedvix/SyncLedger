@@ -14,13 +14,23 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.io.InputStream;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Invoice Controller with multi-tenant support.
@@ -63,13 +73,20 @@ public class InvoiceController {
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
             @Parameter(description = "Search query to filter invoices by invoice number, vendor, or amount")
             @RequestParam(required = false) String search,
-            @Parameter(description = "Filter by invoice status (DRAFT, PENDING_APPROVAL, APPROVED, REJECTED, PAID)")
+            @Parameter(description = "Filter by invoice status (comma-separated, e.g. PENDING,UNDER_REVIEW)")
             @RequestParam(required = false) String status,
             @Parameter(hidden = true)
             @AuthenticationPrincipal UserPrincipal currentUser) {
         
-        InvoiceStatus statusEnum = status != null ? InvoiceStatus.valueOf(status.toUpperCase()) : null;
-        PagedResponse<InvoiceDTO> invoices = invoiceService.getInvoices(pageable, search, statusEnum, currentUser);
+        List<InvoiceStatus> statuses = null;
+        if (status != null && !status.isBlank()) {
+            statuses = Arrays.stream(status.split(","))
+                    .map(String::trim)
+                    .map(String::toUpperCase)
+                    .map(InvoiceStatus::valueOf)
+                    .collect(Collectors.toList());
+        }
+        PagedResponse<InvoiceDTO> invoices = invoiceService.getInvoices(pageable, search, statuses, currentUser);
         return ResponseEntity.ok(ApiResponseDto.success(invoices));
     }
 
@@ -238,6 +255,77 @@ public class InvoiceController {
             @AuthenticationPrincipal UserPrincipal currentUser) {
         InvoiceDTO invoice = invoiceService.rejectInvoice(id, request.getRejectionReason(), currentUser);
         return ResponseEntity.ok(ApiResponseDto.success("Invoice rejected", invoice));
+    }
+
+    @GetMapping("/{id}/download")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'APPROVER', 'VIEWER')")
+    @Operation(
+        summary = "Download invoice PDF",
+        description = "Downloads the original invoice PDF file"
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "File downloaded successfully"),
+        @ApiResponse(responseCode = "404", description = "Invoice or file not found")
+    })
+    public ResponseEntity<InputStreamResource> downloadInvoice(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        InputStream fileStream = invoiceService.downloadInvoiceFile(id, currentUser);
+        String fileName = invoiceService.getInvoiceFileName(id, currentUser);
+        
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, 
+                        "attachment; filename=\"" + (fileName != null ? fileName : "invoice.pdf") + "\"")
+                .body(new InputStreamResource(fileStream));
+    }
+
+    @GetMapping("/{id}/preview")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'APPROVER', 'VIEWER')")
+    @Operation(
+        summary = "Preview invoice PDF",
+        description = "Serves the invoice PDF inline for browser preview (iframe/embed)"
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "File served for preview"),
+        @ApiResponse(responseCode = "404", description = "Invoice or file not found")
+    })
+    public ResponseEntity<InputStreamResource> previewInvoice(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        InputStream fileStream = invoiceService.downloadInvoiceFile(id, currentUser);
+        String fileName = invoiceService.getInvoiceFileName(id, currentUser);
+        
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, 
+                        "inline; filename=\"" + (fileName != null ? fileName : "invoice.pdf") + "\"")
+                .body(new InputStreamResource(fileStream));
+    }
+
+    // ── Upload Invoice PDF ───────────────────────────────────────────────
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
+    @Operation(
+        summary = "Upload invoice PDF",
+        description = "Upload a PDF file, store it (S3 or local), create an invoice record, and trigger extraction through the PDF microservice"
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Invoice uploaded and processing started"),
+        @ApiResponse(responseCode = "400", description = "Invalid file type or empty file")
+    })
+    public ResponseEntity<ApiResponseDto<InvoiceDTO>> uploadInvoice(
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        if (file.isEmpty() || !"application/pdf".equals(file.getContentType())) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponseDto.error("Only non-empty PDF files are accepted"));
+        }
+        InvoiceDTO invoice = invoiceService.uploadInvoice(file, currentUser);
+        return ResponseEntity.ok(ApiResponseDto.success("Invoice uploaded and processing started", invoice));
     }
 
     @GetMapping("/dashboard/stats")

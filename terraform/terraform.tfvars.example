@@ -1,0 +1,27 @@
+# =============================================================================
+# SYNCLEDGER - PRODUCTION TERRAFORM VALUES
+# Cheapest viable production configuration
+# =============================================================================
+
+aws_region    = "us-east-1"
+environment   = "prod"
+project_name  = "syncledger"
+
+# EC2 - t3.small gives 2 vCPU, 2GB RAM (enough for all Docker services)
+# Switch to t3.micro ($8/mo) if traffic is very low
+instance_type = "t3.small"
+
+# SSH key pair name - create one in AWS console first
+# ec2_key_name = "syncledger-key"
+
+# Storage
+storage_type = "s3"
+
+# Email polling - enable when Azure credentials are configured
+email_polling_enabled = false
+
+# SSH access - restrict to your IP for security
+# allowed_ssh_cidrs = ["YOUR_IP/32"]
+
+# Domain - leave empty to use Elastic IP directly
+# domain_name = "syncledger.yourdomain.com"

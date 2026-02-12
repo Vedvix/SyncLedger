@@ -105,4 +105,16 @@ export const invoiceService = {
     const response = await apiClient.post<ApiResponse<Invoice>>(`/v1/invoices/${id}/assign`, { userId })
     return response.data.data!
   },
+
+  /**
+   * Upload a PDF invoice for extraction and processing
+   */
+  async uploadInvoice(file: File): Promise<Invoice> {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await apiClient.post<ApiResponse<Invoice>>('/v1/invoices/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data.data!
+  },
 }

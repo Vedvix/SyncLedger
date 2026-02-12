@@ -147,7 +147,14 @@ class DatabaseService:
                 extraction_method=extraction_method,
                 extracted_at=datetime.now(),
                 extraction_duration_ms=extraction_duration_ms,
-                raw_extracted_data=invoice_data.raw_text
+                raw_extracted_data=invoice_data.raw_text,
+                # Mapped fields
+                gl_account=invoice_data.gl_account,
+                project=invoice_data.project,
+                item_category=invoice_data.item_category,
+                location=invoice_data.location,
+                cost_center=invoice_data.cost_center,
+                mapping_profile_id=invoice_data.mapping_profile_id,
             )
             
             session.add(invoice)
@@ -166,7 +173,9 @@ class DatabaseService:
                     tax_rate=item.tax_rate,
                     tax_amount=item.tax_amount,
                     discount_amount=item.discount_amount,
-                    line_total=item.line_total or Decimal("0")
+                    line_total=item.line_total or Decimal("0"),
+                    gl_account_code=item.gl_account_code,
+                    cost_center=item.cost_center,
                 )
                 session.add(line_item)
             

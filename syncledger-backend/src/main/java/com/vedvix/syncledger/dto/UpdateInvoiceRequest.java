@@ -60,4 +60,20 @@ public class UpdateInvoiceRequest {
     private String reviewNotes;
 
     private List<InvoiceLineItemDTO> lineItems;
+
+    // Mapping Fields
+    @Size(max = 50, message = "GL account must be less than 50 characters")
+    private String glAccount;
+
+    @Size(max = 255, message = "Project must be less than 255 characters")
+    private String project;
+
+    @Size(max = 100, message = "Item category must be less than 100 characters")
+    private String itemCategory;
+
+    @Size(max = 500, message = "Location must be less than 500 characters")
+    private String location;
+
+    @Size(max = 100, message = "Cost center must be less than 100 characters")
+    private String costCenter;
 }

@@ -33,10 +33,11 @@ spring:
     enabled: false
 
 # =============================================================================
-# Storage Configuration - Use local file storage for development
+# Storage Configuration - Configurable via STORAGE_TYPE env var
+# Set STORAGE_TYPE=s3 in .env to use AWS S3
 # =============================================================================
 storage:
-  type: local
+  type: ${STORAGE_TYPE:local}
   local:
     base-path: ./uploads
     base-url: http://localhost:8080

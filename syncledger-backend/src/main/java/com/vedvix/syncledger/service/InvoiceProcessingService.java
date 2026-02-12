@@ -12,11 +12,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -33,11 +36,15 @@ public class InvoiceProcessingService {
     private final InvoiceRepository invoiceRepository;
     private final OrganizationRepository organizationRepository;
     private final StorageService storageService;
+    private final VendorService vendorService;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
     @Value("${pdf-service.url:http://localhost:8001}")
     private String pdfServiceUrl;
+
+    @Value("${invoice.auto-approval.confidence-threshold:0.87}")
+    private BigDecimal autoApprovalConfidenceThreshold;
 
     /**
      * Queue invoice for processing.
@@ -71,6 +78,43 @@ public class InvoiceProcessingService {
         log.info("Created pending invoice record: {}", invoice.getId());
         
         // Trigger async extraction
+        processInvoiceAsync(invoice.getId());
+        
+        return invoice;
+    }
+
+    /**
+     * Upload a PDF, store it, create invoice record, and trigger extraction.
+     */
+    public Invoice uploadAndProcess(Organization org, MultipartFile file) throws IOException {
+        String fileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload.pdf";
+        
+        // Upload to storage (S3 or local)
+        String s3Key = storageService.uploadInvoiceFile(
+                org, fileName, file.getInputStream(), file.getContentType(), file.getSize());
+        String s3Url = storageService.generatePresignedUrl(s3Key);
+        
+        // Create invoice record in PENDING state
+        Invoice invoice = Invoice.builder()
+                .organization(org)
+                .invoiceNumber("PENDING-" + System.currentTimeMillis())
+                .vendorName("Pending Extraction")
+                .subtotal(BigDecimal.ZERO)
+                .totalAmount(BigDecimal.ZERO)
+                .invoiceDate(LocalDate.now())
+                .status(InvoiceStatus.PENDING)
+                .originalFileName(fileName)
+                .s3Key(s3Key)
+                .s3Url(s3Url)
+                .fileSizeBytes(file.getSize())
+                .mimeType(file.getContentType())
+                .receivedDate(LocalDate.now())
+                .build();
+        
+        invoiceRepository.save(invoice);
+        log.info("Created invoice from upload: {}, s3Key: {}", invoice.getId(), s3Key);
+        
+        // Trigger extraction
         processInvoiceAsync(invoice.getId());
         
         return invoice;
@@ -137,73 +181,195 @@ public class InvoiceProcessingService {
 
     /**
      * Update invoice with extraction results.
+     * 
+     * Python microservice response format:
+     * {
+     *   "data": {
+     *     "invoice_number": "...",
+     *     "po_number": "...",
+     *     "vendor": { "name": "...", "address": "...", "email": "...", "phone": "..." },
+     *     "invoice_date": "2025-11-24",
+     *     "due_date": "2025-11-28",
+     *     "subtotal": 3654.60,
+     *     "tax_amount": 0,
+     *     "total_amount": 3654.60,
+     *     "gl_account": "5100",
+     *     "project": "O049425",
+     *     "item_category": "Roofing",
+     *     "location": "...",
+     *     "cost_center": "...",
+     *     "mapping_profile_id": "default-subcontractor",
+     *     "confidence_score": 1.0,
+     *     "line_items": [ { "line_number": 1, "description": "...", "quantity": 13.16, ... } ]
+     *   },
+     *   "extraction_method": "pdfplumber",
+     *   "page_count": 2,
+     *   "mapping_info": { "gl_account": "5100", "project": "O049425", "item": "Roofing", ... }
+     * }
      */
     private void updateInvoiceFromExtraction(Invoice invoice, JsonNode result) {
         try {
             JsonNode data = result.get("data");
             
-            // Update invoice fields from extraction
-            if (data.has("invoice_number") && !data.get("invoice_number").isNull()) {
-                invoice.setInvoiceNumber(data.get("invoice_number").asText());
-            }
-            if (data.has("vendor_name") && !data.get("vendor_name").isNull()) {
-                invoice.setVendorName(data.get("vendor_name").asText());
-            }
-            if (data.has("vendor_address") && !data.get("vendor_address").isNull()) {
-                invoice.setVendorAddress(data.get("vendor_address").asText());
-            }
-            if (data.has("subtotal") && !data.get("subtotal").isNull()) {
-                invoice.setSubtotal(new BigDecimal(data.get("subtotal").asText()));
-            }
-            if (data.has("tax_amount") && !data.get("tax_amount").isNull()) {
-                invoice.setTaxAmount(new BigDecimal(data.get("tax_amount").asText()));
-            }
-            if (data.has("total_amount") && !data.get("total_amount").isNull()) {
-                invoice.setTotalAmount(new BigDecimal(data.get("total_amount").asText()));
-            }
-            if (data.has("invoice_date") && !data.get("invoice_date").isNull()) {
-                invoice.setInvoiceDate(LocalDate.parse(data.get("invoice_date").asText()));
-            }
-            if (data.has("due_date") && !data.get("due_date").isNull()) {
-                invoice.setDueDate(LocalDate.parse(data.get("due_date").asText()));
-            }
-            if (data.has("po_number") && !data.get("po_number").isNull()) {
-                invoice.setPoNumber(data.get("po_number").asText());
-            }
-            if (data.has("currency") && !data.get("currency").isNull()) {
-                invoice.setCurrency(data.get("currency").asText());
+            // ── Invoice identification ────────────────────────────────────
+            setIfPresent(data, "invoice_number", v -> invoice.setInvoiceNumber(v.asText()));
+            setIfPresent(data, "po_number", v -> invoice.setPoNumber(v.asText()));
+            
+            // ── Vendor info (nested under data.vendor) ────────────────────
+            JsonNode vendor = data.get("vendor");
+            if (vendor != null && !vendor.isNull()) {
+                setIfPresent(vendor, "name", v -> invoice.setVendorName(v.asText()));
+                setIfPresent(vendor, "address", v -> invoice.setVendorAddress(v.asText()));
+                setIfPresent(vendor, "email", v -> invoice.setVendorEmail(v.asText()));
+                setIfPresent(vendor, "phone", v -> invoice.setVendorPhone(v.asText()));
+                setIfPresent(vendor, "tax_id", v -> invoice.setVendorTaxId(v.asText()));
             }
             
-            // Confidence and review flags
+            // ── Auto-link to Vendor entity ────────────────────────────────
+            try {
+                com.vedvix.syncledger.model.Vendor matchedVendor = vendorService.findOrCreateVendor(
+                        invoice.getOrganizationId(),
+                        invoice.getVendorName(),
+                        invoice.getVendorAddress(),
+                        invoice.getVendorEmail(),
+                        invoice.getVendorPhone(),
+                        invoice.getVendorTaxId()
+                );
+                if (matchedVendor != null) {
+                    invoice.setVendor(matchedVendor);
+                    log.info("Linked invoice {} to vendor {} (id={})", 
+                            invoice.getId(), matchedVendor.getName(), matchedVendor.getId());
+                }
+            } catch (Exception e) {
+                log.warn("Failed to auto-link vendor for invoice {}: {}", invoice.getId(), e.getMessage());
+            }
+            
+            // ── Financial ─────────────────────────────────────────────────
+            setIfPresent(data, "subtotal", v -> invoice.setSubtotal(toBigDecimal(v)));
+            setIfPresent(data, "tax_amount", v -> invoice.setTaxAmount(toBigDecimal(v)));
+            setIfPresent(data, "total_amount", v -> invoice.setTotalAmount(toBigDecimal(v)));
+            setIfPresent(data, "currency", v -> invoice.setCurrency(v.asText()));
+            
+            // ── Dates ─────────────────────────────────────────────────────
+            setIfPresent(data, "invoice_date", v -> invoice.setInvoiceDate(LocalDate.parse(v.asText())));
+            setIfPresent(data, "due_date", v -> invoice.setDueDate(LocalDate.parse(v.asText())));
+            
+            // ── Mapping fields (gl_account, project, item, etc.) ──────────
+            setIfPresent(data, "gl_account", v -> invoice.setGlAccount(v.asText()));
+            setIfPresent(data, "project", v -> invoice.setProject(v.asText()));
+            setIfPresent(data, "item_category", v -> invoice.setItemCategory(v.asText()));
+            setIfPresent(data, "location", v -> invoice.setLocation(v.asText()));
+            setIfPresent(data, "cost_center", v -> invoice.setCostCenter(v.asText()));
+            setIfPresent(data, "mapping_profile_id", v -> invoice.setMappingProfileId(v.asText()));
+            
+            // Also check mapping_info at result level for fallback
+            JsonNode mappingInfo = result.get("mapping_info");
+            if (mappingInfo != null && !mappingInfo.isNull()) {
+                if (invoice.getGlAccount() == null)
+                    setIfPresent(mappingInfo, "gl_account", v -> invoice.setGlAccount(v.asText()));
+                if (invoice.getProject() == null)
+                    setIfPresent(mappingInfo, "project", v -> invoice.setProject(v.asText()));
+                if (invoice.getItemCategory() == null)
+                    setIfPresent(mappingInfo, "item", v -> invoice.setItemCategory(v.asText()));
+                
+                // Save field mapping trace for the reviewer UI
+                JsonNode fieldMappingsNode = mappingInfo.get("field_mappings");
+                if (fieldMappingsNode != null && fieldMappingsNode.isArray()) {
+                    invoice.setFieldMappings(fieldMappingsNode.toString());
+                }
+            }
+            
+            // ── Confidence and review flags ───────────────────────────────
             if (data.has("confidence_score") && !data.get("confidence_score").isNull()) {
-                BigDecimal confidence = new BigDecimal(data.get("confidence_score").asText());
+                BigDecimal confidence = toBigDecimal(data.get("confidence_score"));
                 invoice.setConfidenceScore(confidence);
-                // Flag for manual review if confidence is low
-                invoice.setRequiresManualReview(confidence.compareTo(new BigDecimal("0.8")) < 0);
+                invoice.setRequiresManualReview(confidence.compareTo(autoApprovalConfidenceThreshold) < 0);
+                log.debug("Invoice confidence: {}, threshold: {}, requires review: {}", 
+                    confidence, autoApprovalConfidenceThreshold, invoice.getRequiresManualReview());
             }
             
-            // Extraction metadata
-            invoice.setExtractionMethod(data.has("extraction_method") 
-                ? data.get("extraction_method").asText() : "ocr");
+            // ── Line items ────────────────────────────────────────────────
+            JsonNode lineItemsNode = data.get("line_items");
+            if (lineItemsNode != null && lineItemsNode.isArray() && lineItemsNode.size() > 0) {
+                // Clear existing line items
+                invoice.getLineItems().clear();
+                
+                for (JsonNode itemNode : lineItemsNode) {
+                    InvoiceLineItem lineItem = InvoiceLineItem.builder()
+                            .lineNumber(itemNode.has("line_number") ? itemNode.get("line_number").asInt() : 0)
+                            .description(getTextOrNull(itemNode, "description"))
+                            .itemCode(getTextOrNull(itemNode, "item_code"))
+                            .unit(getTextOrNull(itemNode, "unit"))
+                            .quantity(itemNode.has("quantity") && !itemNode.get("quantity").isNull()
+                                    ? toBigDecimal(itemNode.get("quantity")) : null)
+                            .unitPrice(itemNode.has("unit_price") && !itemNode.get("unit_price").isNull()
+                                    ? toBigDecimal(itemNode.get("unit_price")) : null)
+                            .lineTotal(itemNode.has("line_total") && !itemNode.get("line_total").isNull()
+                                    ? toBigDecimal(itemNode.get("line_total")) : BigDecimal.ZERO)
+                            .taxAmount(itemNode.has("tax_amount") && !itemNode.get("tax_amount").isNull()
+                                    ? toBigDecimal(itemNode.get("tax_amount")) : null)
+                            .glAccountCode(getTextOrNull(itemNode, "gl_account_code"))
+                            .costCenter(getTextOrNull(itemNode, "cost_center"))
+                            .build();
+                    invoice.addLineItem(lineItem);
+                }
+                log.info("Saved {} line items for invoice {}", invoice.getLineItems().size(), invoice.getId());
+            }
+            
+            // ── Extraction metadata (from top-level result, not data) ─────
+            if (result.has("extraction_method") && !result.get("extraction_method").isNull()) {
+                invoice.setExtractionMethod(result.get("extraction_method").asText());
+            } else {
+                invoice.setExtractionMethod("ocr");
+            }
+            if (result.has("page_count") && !result.get("page_count").isNull()) {
+                invoice.setPageCount(result.get("page_count").asInt());
+            }
             invoice.setExtractedAt(LocalDateTime.now());
             
-            // Set status based on confidence
-            if (invoice.getRequiresManualReview()) {
+            // ── Status based on confidence ────────────────────────────────
+            if (invoice.getRequiresManualReview() != null && invoice.getRequiresManualReview()) {
                 invoice.setStatus(InvoiceStatus.UNDER_REVIEW);
             } else {
                 invoice.setStatus(InvoiceStatus.PENDING);
             }
             
-            // Store raw extracted data
+            // Store raw extracted data for debugging
             invoice.setRawExtractedData(result.toString());
             
             invoiceRepository.save(invoice);
-            log.info("Updated invoice {} with extraction results", invoice.getId());
+            log.info("Updated invoice {} with extraction results — vendor={}, total={}, confidence={}, lineItems={}", 
+                    invoice.getId(), invoice.getVendorName(), invoice.getTotalAmount(), 
+                    invoice.getConfidenceScore(), invoice.getLineItems().size());
             
         } catch (Exception e) {
-            log.error("Error updating invoice from extraction: {}", e.getMessage());
+            log.error("Error updating invoice from extraction: {}", e.getMessage(), e);
             markInvoiceAsFailedExtraction(invoice, "Failed to parse extraction results: " + e.getMessage());
         }
+    }
+    
+    /** Helper: set field if JSON node has non-null value */
+    private void setIfPresent(JsonNode node, String field, java.util.function.Consumer<JsonNode> setter) {
+        if (node.has(field) && !node.get(field).isNull()) {
+            setter.accept(node.get(field));
+        }
+    }
+    
+    /** Helper: convert JSON number/string to BigDecimal */
+    private BigDecimal toBigDecimal(JsonNode node) {
+        if (node.isNumber()) {
+            return node.decimalValue();
+        }
+        return new BigDecimal(node.asText().replace(",", "").replace("$", ""));
+    }
+    
+    /** Helper: get text or null */
+    private String getTextOrNull(JsonNode node, String field) {
+        if (node.has(field) && !node.get(field).isNull()) {
+            String text = node.get(field).asText();
+            return text.isEmpty() ? null : text;
+        }
+        return null;
     }
 
     /**

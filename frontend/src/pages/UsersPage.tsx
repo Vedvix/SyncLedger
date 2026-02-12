@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { userService } from '@/services/userService'
+import { organizationService } from '@/services/organizationService'
+import { useAuthStore } from '@/store/authStore'
 import type { User, CreateUserRequest, UpdateUserRequest, UserRole } from '@/types'
 import { Modal, ConfirmDialog } from '@/components/ui/Modal'
 import { 
@@ -63,6 +65,8 @@ export function UsersPage() {
   
   const getRoleBadgeColor = (role: UserRole) => {
     switch (role) {
+      case 'SUPER_ADMIN':
+        return 'bg-indigo-100 text-indigo-800'
       case 'ADMIN':
         return 'bg-purple-100 text-purple-800'
       case 'APPROVER':
@@ -197,6 +201,9 @@ export function UsersPage() {
                     Role
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Organization
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Department
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -232,6 +239,21 @@ export function UsersPage() {
                       <span className={`px-2 py-1 text-xs rounded-full ${getRoleBadgeColor(user.role)}`}>
                         {user.role}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {user.role === 'SUPER_ADMIN' ? (
+                        <div className="flex items-center">
+                          <Shield className="w-4 h-4 text-indigo-500 mr-1" />
+                          <span className="text-indigo-600 font-medium">SyncLedger Platform</span>
+                        </div>
+                      ) : user.organizationName ? (
+                        <div>
+                          <div className="font-medium">{user.organizationName}</div>
+                          <div className="text-xs text-gray-500">{user.organizationSlug}</div>
+                        </div>
+                      ) : (
+                        <span className="text-red-400 text-xs">No organization assigned</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-gray-500">
                       {user.department || '-'}
@@ -369,6 +391,8 @@ interface CreateUserModalProps {
 }
 
 function CreateUserModal({ isOpen, onClose, onSubmit, isLoading, error }: CreateUserModalProps) {
+  const { user: currentUser } = useAuthStore()
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN'
   const [formData, setFormData] = useState<CreateUserRequest>({
     firstName: '',
     lastName: '',
@@ -378,16 +402,66 @@ function CreateUserModal({ isOpen, onClose, onSubmit, isLoading, error }: Create
     phone: '',
     department: '',
     jobTitle: '',
+    organizationId: undefined,
   })
   const [showPassword, setShowPassword] = useState(false)
   
+  // Reset form when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        password: '',
+        role: 'VIEWER',
+        phone: '',
+        department: '',
+        jobTitle: '',
+        organizationId: currentUser?.organizationId || undefined,
+      })
+    }
+  }, [isOpen, currentUser])
+  
+  // Fetch organizations if super admin — fetch eagerly so data is ready when modal opens
+  const { data: orgsData, isLoading: orgsLoading, isFetching: orgsFetching, error: orgsError } = useQuery({
+    queryKey: ['organizations-list'],
+    queryFn: () => organizationService.getOrganizations(0, 100),
+    enabled: isSuperAdmin,
+    staleTime: 30_000, // 30s - refetch if stale
+  })
+
+  const isSuperAdminRole = formData.role === 'SUPER_ADMIN'
+  const activeOrgs = orgsData?.content?.filter(org => org.status === 'ACTIVE') || []
+  
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    // SUPER_ADMIN users belong to SyncLedger platform - no org needed
+    if (isSuperAdminRole) {
+      onSubmit({ ...formData, organizationId: undefined })
+      return
+    }
+    // All other roles MUST have an organization
+    if (!formData.organizationId) {
+      alert('Organization is required. Every non-Super Admin user must belong to an organization.')
+      return
+    }
     onSubmit(formData)
   }
   
-  const handleChange = (field: keyof CreateUserRequest, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+  const handleChange = (field: keyof CreateUserRequest, value: string | number) => {
+    setFormData(prev => {
+      const updated = { ...prev, [field]: value }
+      // When role changes to SUPER_ADMIN, clear organization
+      if (field === 'role' && value === 'SUPER_ADMIN') {
+        updated.organizationId = undefined
+      }
+      // When role changes from SUPER_ADMIN to another, pre-fill org for non-super-admin creators
+      if (field === 'role' && value !== 'SUPER_ADMIN' && !isSuperAdmin) {
+        updated.organizationId = currentUser?.organizationId || undefined
+      }
+      return updated
+    })
   }
   
   return (
@@ -477,8 +551,66 @@ function CreateUserModal({ isOpen, onClose, onSubmit, isLoading, error }: Create
           >
             <option value="VIEWER">Viewer - Can view invoices only</option>
             <option value="APPROVER">Approver - Can approve/reject invoices</option>
-            <option value="ADMIN">Admin - Full system access</option>
+            <option value="ADMIN">Admin - Organization admin access</option>
+            {isSuperAdmin && (
+              <option value="SUPER_ADMIN">Super Admin - SyncLedger platform team</option>
+            )}
           </select>
+          {isSuperAdminRole && (
+            <p className="text-xs text-indigo-600 mt-1">
+              Super Admins have platform-wide access and are not tied to any organization.
+            </p>
+          )}
+        </div>
+
+        {/* Organization field */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            <Building className="w-4 h-4 inline mr-1" />
+            Organization {!isSuperAdminRole ? '*' : ''}
+          </label>
+          {isSuperAdminRole ? (
+            <div className="px-4 py-2 border rounded-lg bg-indigo-50 text-indigo-700 text-sm">
+              <Shield className="w-4 h-4 inline mr-1" />
+              Super Admins belong to the <strong>SyncLedger Platform</strong> team and are not linked to any organization.
+            </div>
+          ) : isSuperAdmin ? (
+            <>
+              <select
+                required
+                value={formData.organizationId || ''}
+                onChange={(e) => handleChange('organizationId', e.target.value ? parseInt(e.target.value) : '')}
+                disabled={orgsLoading || orgsFetching}
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
+              >
+                <option value="">
+                  {orgsLoading || orgsFetching
+                    ? 'Loading organizations...'
+                    : activeOrgs.length === 0
+                      ? 'No active organizations found'
+                      : '-- Select an organization --'}
+                </option>
+                {activeOrgs.map(org => (
+                  <option key={org.id} value={org.id}>{org.name}</option>
+                ))}
+              </select>
+              {orgsError && (
+                <p className="text-xs text-red-500 mt-1">
+                  Failed to load organizations: {orgsError.message}
+                </p>
+              )}
+              {!formData.organizationId && !orgsError && (
+                <p className="text-xs text-red-500 mt-1">Organization is required for this role.</p>
+              )}
+            </>
+          ) : (
+            <input
+              type="text"
+              disabled
+              value={currentUser?.organizationName || 'Your Organization'}
+              className="w-full px-4 py-2 border rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+            />
+          )}
         </div>
         
         <div className="grid grid-cols-2 gap-4">
@@ -553,6 +685,8 @@ interface EditUserModalProps {
 }
 
 function EditUserModal({ isOpen, onClose, user, onSubmit, isLoading, error }: EditUserModalProps) {
+  const { user: currentUser } = useAuthStore()
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN'
   const [formData, setFormData] = useState<UpdateUserRequest>({
     firstName: user.firstName,
     lastName: user.lastName,
@@ -581,10 +715,21 @@ function EditUserModal({ isOpen, onClose, user, onSubmit, isLoading, error }: Ed
           </div>
         )}
         
-        <div className="p-3 bg-gray-50 rounded-lg mb-4">
+        {/* User info header */}
+        <div className="p-3 bg-gray-50 rounded-lg mb-4 space-y-1">
           <p className="text-sm text-gray-600">
             <Mail className="w-4 h-4 inline mr-1" />
             {user.email}
+          </p>
+          <p className="text-sm text-gray-600">
+            <Building className="w-4 h-4 inline mr-1" />
+            {user.role === 'SUPER_ADMIN' ? (
+              <span className="text-indigo-600 font-medium">SyncLedger Platform Team</span>
+            ) : user.organizationName ? (
+              <span className="font-medium">{user.organizationName}</span>
+            ) : (
+              <span className="text-gray-400">No organization</span>
+            )}
           </p>
         </div>
         
@@ -626,10 +771,14 @@ function EditUserModal({ isOpen, onClose, user, onSubmit, isLoading, error }: Ed
               value={formData.role}
               onChange={(e) => handleChange('role', e.target.value as UserRole)}
               className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              disabled={user.role === 'SUPER_ADMIN' && !isSuperAdmin}
             >
               <option value="VIEWER">Viewer</option>
               <option value="APPROVER">Approver</option>
               <option value="ADMIN">Admin</option>
+              {isSuperAdmin && (
+                <option value="SUPER_ADMIN">Super Admin</option>
+              )}
             </select>
           </div>
           <div>

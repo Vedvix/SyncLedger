@@ -50,6 +50,12 @@ public class Invoice {
     @Column(length = 100)
     private String poNumber;
 
+    // ==================== Vendor Reference ====================
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vendor_id")
+    private Vendor vendor;
+
     // ==================== Vendor Information ====================
     
     @Column(nullable = false, length = 255)
@@ -189,7 +195,30 @@ public class Invoice {
     @Column(length = 500)
     private String syncErrorMessage;
 
-    // ==================== Line Items ====================
+    // ==================== Mapping Fields ====================
+
+    @Column(name = "gl_account", length = 100)
+    private String glAccount;
+
+    @Column(length = 255)
+    private String project;
+
+    @Column(name = "item_category", length = 255)
+    private String itemCategory;
+
+    @Column(length = 500)
+    private String location;
+
+    @Column(name = "cost_center", length = 100)
+    private String costCenter;
+
+    @Column(name = "mapping_profile_id", length = 100)
+    private String mappingProfileId;
+
+    @Column(name = "field_mappings", columnDefinition = "TEXT")
+    private String fieldMappings;
+
+    // ==================== Line Items ======================================
     
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

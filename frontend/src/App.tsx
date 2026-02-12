@@ -16,6 +16,9 @@ import { NotFoundPage } from '@/pages/NotFoundPage'
 import SuperAdminPage from '@/pages/SuperAdminPage'
 import { OrganizationFormPage } from '@/pages/OrganizationFormPage'
 import { OrganizationDetailPage } from '@/pages/OrganizationDetailPage'
+import { MappingConfigPage } from '@/pages/MappingConfigPage'
+import { VendorsPage } from '@/pages/VendorsPage'
+import { VendorDetailPage } from '@/pages/VendorDetailPage'
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -79,6 +82,8 @@ function App() {
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="invoices" element={<InvoicesPage />} />
           <Route path="invoices/:id" element={<InvoiceDetailPage />} />
+          <Route path="vendors" element={<VendorsPage />} />
+          <Route path="vendors/:id" element={<VendorDetailPage />} />
           <Route path="settings" element={<SettingsPage />} />
           
           {/* Admin Only Routes */}
@@ -87,6 +92,14 @@ function App() {
             element={
               <AdminRoute>
                 <UsersPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="mapping"
+            element={
+              <AdminRoute>
+                <MappingConfigPage />
               </AdminRoute>
             }
           />

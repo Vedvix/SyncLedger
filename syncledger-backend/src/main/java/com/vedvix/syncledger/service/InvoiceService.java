@@ -15,7 +15,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import org.springframework.beans.factory.annotation.Value;
+
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -34,19 +38,54 @@ public class InvoiceService {
     private final InvoiceRepository invoiceRepository;
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
+    private final StorageService storageService;
+    private final InvoiceProcessingService invoiceProcessingService;
+
+    @Value("${storage.type:local}")
+    private String storageType;
+
+    // ─── Upload & Process ──────────────────────────────────────────────────
+
+    /**
+     * Upload a PDF, store in S3/local, create invoice, and trigger extraction.
+     */
+    @Transactional
+    public InvoiceDTO uploadInvoice(MultipartFile file, UserPrincipal currentUser) {
+        Organization org;
+        if (currentUser.isSuperAdmin()) {
+            // Super Admin needs an org — use first available
+            org = organizationRepository.findAll().stream().findFirst()
+                    .orElseThrow(() -> new BadRequestException("No organization found. Create one first."));
+        } else {
+            org = organizationRepository.findById(currentUser.getOrganizationId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", currentUser.getOrganizationId()));
+        }
+        
+        try {
+            Invoice invoice = invoiceProcessingService.uploadAndProcess(org, file);
+            return mapToDTO(invoice);
+        } catch (Exception e) {
+            log.error("Failed to upload invoice: {}", e.getMessage(), e);
+            throw new BadRequestException("Failed to upload invoice: " + e.getMessage());
+        }
+    }
 
     /**
      * Get invoices for current user's organization (or all for Super Admin).
      */
     @Transactional(readOnly = true)
     public PagedResponse<InvoiceDTO> getInvoices(Pageable pageable, String search, 
-                                                  InvoiceStatus status, UserPrincipal currentUser) {
+                                                  List<InvoiceStatus> statuses, UserPrincipal currentUser) {
         Page<Invoice> invoices;
 
         if (currentUser.isSuperAdmin()) {
             // Super Admin sees all invoices
-            if (status != null) {
-                invoices = invoiceRepository.findByStatus(status, pageable);
+            if (statuses != null && !statuses.isEmpty()) {
+                if (statuses.size() == 1) {
+                    invoices = invoiceRepository.findByStatus(statuses.get(0), pageable);
+                } else {
+                    invoices = invoiceRepository.findByStatusIn(statuses, pageable);
+                }
             } else if (search != null && !search.isEmpty()) {
                 invoices = invoiceRepository.searchInvoices(search, pageable);
             } else {
@@ -55,8 +94,12 @@ public class InvoiceService {
         } else {
             // Org users see only their organization's invoices
             Long orgId = currentUser.getOrganizationId();
-            if (status != null) {
-                invoices = invoiceRepository.findByOrganization_IdAndStatus(orgId, status, pageable);
+            if (statuses != null && !statuses.isEmpty()) {
+                if (statuses.size() == 1) {
+                    invoices = invoiceRepository.findByOrganization_IdAndStatus(orgId, statuses.get(0), pageable);
+                } else {
+                    invoices = invoiceRepository.findByOrganization_IdAndStatusIn(orgId, statuses, pageable);
+                }
             } else if (search != null && !search.isEmpty()) {
                 invoices = invoiceRepository.searchInvoicesInOrganization(orgId, search, pageable);
             } else {
@@ -122,6 +165,21 @@ public class InvoiceService {
         }
         if (request.getReviewNotes() != null) {
             invoice.setReviewNotes(request.getReviewNotes());
+        }
+        if (request.getGlAccount() != null) {
+            invoice.setGlAccount(request.getGlAccount());
+        }
+        if (request.getProject() != null) {
+            invoice.setProject(request.getProject());
+        }
+        if (request.getItemCategory() != null) {
+            invoice.setItemCategory(request.getItemCategory());
+        }
+        if (request.getLocation() != null) {
+            invoice.setLocation(request.getLocation());
+        }
+        if (request.getCostCenter() != null) {
+            invoice.setCostCenter(request.getCostCenter());
         }
 
         invoiceRepository.save(invoice);
@@ -269,29 +327,146 @@ public class InvoiceService {
     }
 
     private InvoiceDTO mapToDTO(Invoice invoice) {
+        // Map line items
+        List<InvoiceLineItemDTO> lineItemDTOs = invoice.getLineItems() != null
+                ? invoice.getLineItems().stream()
+                    .map(this::mapLineItemToDTO)
+                    .collect(java.util.stream.Collectors.toList())
+                : java.util.Collections.emptyList();
+
+        // Compute days until due
+        Long daysUntilDue = null;
+        Boolean isOverdue = false;
+        if (invoice.getDueDate() != null) {
+            daysUntilDue = java.time.temporal.ChronoUnit.DAYS.between(
+                    java.time.LocalDate.now(), invoice.getDueDate());
+            isOverdue = daysUntilDue < 0;
+        }
+
         return InvoiceDTO.builder()
                 .id(invoice.getId())
+                .organizationId(invoice.getOrganizationId())
+                // Invoice Identification
                 .invoiceNumber(invoice.getInvoiceNumber())
                 .poNumber(invoice.getPoNumber())
+                // Vendor Information
+                .vendorId(invoice.getVendor() != null ? invoice.getVendor().getId() : null)
                 .vendorName(invoice.getVendorName())
                 .vendorAddress(invoice.getVendorAddress())
                 .vendorEmail(invoice.getVendorEmail())
+                .vendorPhone(invoice.getVendorPhone())
+                .vendorTaxId(invoice.getVendorTaxId())
+                // Financial Details
                 .subtotal(invoice.getSubtotal())
                 .taxAmount(invoice.getTaxAmount())
+                .discountAmount(invoice.getDiscountAmount())
+                .shippingAmount(invoice.getShippingAmount())
                 .totalAmount(invoice.getTotalAmount())
                 .currency(invoice.getCurrency())
+                // Dates
                 .invoiceDate(invoice.getInvoiceDate())
                 .dueDate(invoice.getDueDate())
+                .receivedDate(invoice.getReceivedDate())
+                // Status & Processing
                 .status(invoice.getStatus().name())
                 .confidenceScore(invoice.getConfidenceScore())
                 .requiresManualReview(invoice.getRequiresManualReview())
                 .reviewNotes(invoice.getReviewNotes())
+                // File Info
                 .originalFileName(invoice.getOriginalFileName())
-                .s3Url(invoice.getS3Url())
-                .organizationId(invoice.getOrganizationId())
+                .s3Url(getFreshFileUrl(invoice))
+                .fileSizeBytes(invoice.getFileSizeBytes())
+                .pageCount(invoice.getPageCount())
+                // Email Source
+                .sourceEmailFrom(invoice.getSourceEmailFrom())
+                .sourceEmailSubject(invoice.getSourceEmailSubject())
+                .sourceEmailReceivedAt(invoice.getSourceEmailReceivedAt())
+                // Extraction
+                .extractionMethod(invoice.getExtractionMethod())
+                .extractedAt(invoice.getExtractedAt())
+                // Sage Integration
+                .sageInvoiceId(invoice.getSageInvoiceId())
+                .syncStatus(invoice.getSyncStatus() != null ? invoice.getSyncStatus().name() : null)
+                .lastSyncAttempt(invoice.getLastSyncAttempt())
+                .syncErrorMessage(invoice.getSyncErrorMessage())
+                // Line Items
+                .lineItems(lineItemDTOs)
+                // Mapping Fields
+                .glAccount(invoice.getGlAccount())
+                .project(invoice.getProject())
+                .itemCategory(invoice.getItemCategory())
+                .location(invoice.getLocation())
+                .costCenter(invoice.getCostCenter())
+                .mappingProfileId(invoice.getMappingProfileId())
+                .fieldMappings(invoice.getFieldMappings())
+                // Assignment
+                .assignedToId(invoice.getAssignedTo() != null ? invoice.getAssignedTo().getId() : null)
+                .assignedToName(invoice.getAssignedTo() != null
+                        ? invoice.getAssignedTo().getFirstName() + " " + invoice.getAssignedTo().getLastName()
+                        : null)
+                // Audit
                 .createdAt(invoice.getCreatedAt())
                 .updatedAt(invoice.getUpdatedAt())
+                // Computed
+                .daysUntilDue(daysUntilDue)
+                .isOverdue(isOverdue)
+                .isEditable(invoice.isEditable())
                 .build();
+    }
+
+    private InvoiceLineItemDTO mapLineItemToDTO(InvoiceLineItem lineItem) {
+        return InvoiceLineItemDTO.builder()
+                .id(lineItem.getId())
+                .lineNumber(lineItem.getLineNumber())
+                .description(lineItem.getDescription())
+                .itemCode(lineItem.getItemCode())
+                .unit(lineItem.getUnit())
+                .quantity(lineItem.getQuantity())
+                .unitPrice(lineItem.getUnitPrice())
+                .taxRate(lineItem.getTaxRate())
+                .taxAmount(lineItem.getTaxAmount())
+                .discountAmount(lineItem.getDiscountAmount())
+                .lineTotal(lineItem.getLineTotal())
+                .glAccountCode(lineItem.getGlAccountCode())
+                .costCenter(lineItem.getCostCenter())
+                .build();
+    }
+
+    /**
+     * Generate fresh file URL for invoice preview.
+     * For S3 storage: generates a new presigned URL (old ones expire after 1 hour).
+     * For local storage: returns the stored URL as-is (no expiry).
+     */
+    private String getFreshFileUrl(Invoice invoice) {
+        if (invoice.getS3Key() == null || invoice.getS3Key().isBlank()) {
+            return invoice.getS3Url(); // fallback to stored URL
+        }
+        try {
+            return storageService.generatePresignedUrl(invoice.getS3Key());
+        } catch (Exception e) {
+            log.warn("Failed to generate fresh URL for invoice {}, falling back to stored URL: {}", 
+                     invoice.getId(), e.getMessage());
+            return invoice.getS3Url();
+        }
+    }
+
+    /**
+     * Download invoice file as InputStream.
+     */
+    public InputStream downloadInvoiceFile(Long id, UserPrincipal currentUser) {
+        Invoice invoice = findInvoiceWithAccessCheck(id, currentUser);
+        if (invoice.getS3Key() == null || invoice.getS3Key().isBlank()) {
+            throw new ResourceNotFoundException("Invoice", "file", id);
+        }
+        return storageService.downloadFile(invoice.getS3Key());
+    }
+
+    /**
+     * Get original filename for invoice.
+     */
+    public String getInvoiceFileName(Long id, UserPrincipal currentUser) {
+        Invoice invoice = findInvoiceWithAccessCheck(id, currentUser);
+        return invoice.getOriginalFileName();
     }
 }
 

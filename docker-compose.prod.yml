@@ -1,0 +1,116 @@
+# =============================================================================
+# SYNCLEDGER - PRODUCTION DOCKER COMPOSE
+# Used on EC2 for deployment. Images pulled from GitHub Container Registry.
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: syncledger-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: syncledger
+      POSTGRES_USER: syncledger
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD required}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U syncledger -d syncledger"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - syncledger
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # ---------------------------------------------------------------------------
+  # Spring Boot Backend API
+  # ---------------------------------------------------------------------------
+  backend:
+    image: ghcr.io/${GHCR_OWNER:-vedvix}/syncledger-backend:${IMAGE_TAG:-latest}
+    container_name: syncledger-backend
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/syncledger
+      SPRING_DATASOURCE_USERNAME: syncledger
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
+      STORAGE_TYPE: ${STORAGE_TYPE:-s3}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-syncledger-prod-invoices}
+      PDF_SERVICE_URL: http://pdf-service:8001
+      EMAIL_POLLING_ENABLED: ${EMAIL_POLLING_ENABLED:-false}
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID:-}
+      AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET:-}
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost}
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - syncledger
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # ---------------------------------------------------------------------------
+  # Python PDF Microservice
+  # ---------------------------------------------------------------------------
+  pdf-service:
+    image: ghcr.io/${GHCR_OWNER:-vedvix}/syncledger-pdf:${IMAGE_TAG:-latest}
+    container_name: syncledger-pdf
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://syncledger:${DB_PASSWORD}@postgres:5432/syncledger
+    volumes:
+      - pdf_temp:/tmp/pdf_processing
+    networks:
+      - syncledger
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # ---------------------------------------------------------------------------
+  # Nginx Reverse Proxy + Frontend
+  # ---------------------------------------------------------------------------
+  frontend:
+    image: ghcr.io/${GHCR_OWNER:-vedvix}/syncledger-frontend:${IMAGE_TAG:-latest}
+    container_name: syncledger-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - syncledger
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+volumes:
+  postgres_data:
+    driver: local
+  uploads_data:
+    driver: local
+  pdf_temp:
+    driver: local
+
+networks:
+  syncledger:
+    driver: bridge

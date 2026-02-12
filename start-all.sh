@@ -140,20 +140,20 @@ if [ $attempt -lt $max_attempts ]; then
 fi
 
 # Wait for Frontend
-echo -n "  Waiting for Frontend..."
-attempt=0
-until curl -s http://localhost:3000 > /dev/null 2>&1; do
-    echo -n "."
-    sleep 2
-    attempt=$((attempt + 1))
-    if [ $attempt -ge 30 ]; then
-        echo -e " ${YELLOW}(timeout - frontend may still be starting)${NC}"
-        break
-    fi
-done
-if [ $attempt -lt 30 ]; then
-    echo -e " ${GREEN}✓${NC}"
-fi
+# echo -n "  Waiting for Frontend..."
+# attempt=0
+# until curl -s http://localhost:3000 > /dev/null 2>&1; do
+#     echo -n "."
+#     sleep 2
+#     attempt=$((attempt + 1))
+#     if [ $attempt -ge 30 ]; then
+#         echo -e " ${YELLOW}(timeout - frontend may still be starting)${NC}"
+#         break
+#     fi
+# done
+# if [ $attempt -lt 30 ]; then
+#     echo -e " ${GREEN}✓${NC}"
+# fi
 
 # =============================================================================
 # Show status

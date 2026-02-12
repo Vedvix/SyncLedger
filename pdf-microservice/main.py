@@ -22,9 +22,21 @@ from models.invoice_data import (
     BatchProcessRequest, BatchProcessResponse,
     ExtractFromUrlRequest
 )
+from models.mapping_config import (
+    InvoiceMappingProfile,
+    MappingProfileListResponse,
+    MappingProfileCreateRequest,
+    MappingProfileUpdateRequest,
+    AvailableFieldsResponse,
+    MappingSourceField,
+    MappingTargetField,
+    DateTransform,
+    FieldMappingRule,
+)
 from services.pdf_extractor import PDFExtractor
 from services.ocr_service import OCRService
 from services.field_parser import FieldParser
+from services.mapping_engine import MappingEngine
 from services.database_service import DatabaseService, init_db_service
 
 # Configure structured logging
@@ -52,13 +64,14 @@ logger = structlog.get_logger(__name__)
 pdf_extractor: Optional[PDFExtractor] = None
 ocr_service: Optional[OCRService] = None
 field_parser: Optional[FieldParser] = None
+mapping_engine: Optional[MappingEngine] = None
 db_service: Optional[DatabaseService] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
-    global pdf_extractor, ocr_service, field_parser, db_service
+    global pdf_extractor, ocr_service, field_parser, mapping_engine, db_service
     
     logger.info("Starting SyncLedger PDF Extraction Service")
     
@@ -66,6 +79,7 @@ async def lifespan(app: FastAPI):
     pdf_extractor = PDFExtractor()
     ocr_service = OCRService()
     field_parser = FieldParser()
+    mapping_engine = MappingEngine()
     
     # Initialize database service
     try:
@@ -182,8 +196,16 @@ async def extract_invoice_data(
                 logger.info("Using OCR for scanned document", filename=file.filename)
                 extraction_result = await ocr_service.extract(tmp_path)
             
-            # Parse extracted text into structured data
-            invoice_data = await field_parser.parse(extraction_result.text)
+            # Parse extracted text into raw fields + line items
+            raw_fields, line_items = field_parser.parse_with_line_items(extraction_result.text)
+            
+            # Apply configurable field mapping
+            mapping_result = mapping_engine.apply_mapping(
+                raw_fields=raw_fields,
+                line_items=line_items,
+            )
+            invoice_data = mapping_result.invoice_data
+            invoice_data.mapping_profile_id = mapping_result.profile_used.id
             
             # Optionally save to database
             invoice_id = None
@@ -206,6 +228,9 @@ async def extract_invoice_data(
                 filename=file.filename,
                 confidence=invoice_data.confidence_score,
                 method=extraction_result.method,
+                mapping_profile=mapping_result.profile_used.name,
+                gl_account=mapping_result.gl_account,
+                project=mapping_result.project,
                 saved_to_db=invoice_id is not None
             )
             
@@ -215,7 +240,8 @@ async def extract_invoice_data(
                 extraction_method=extraction_result.method,
                 page_count=extraction_result.page_count,
                 processing_time_ms=extraction_result.processing_time_ms,
-                invoice_id=invoice_id
+                invoice_id=invoice_id,
+                mapping_info=mapping_result.to_dict()
             )
             
         finally:
@@ -260,14 +286,21 @@ async def extract_from_url(url: str):
             if extraction_result.needs_ocr:
                 extraction_result = await ocr_service.extract(tmp_path)
             
-            invoice_data = await field_parser.parse(extraction_result.text)
+            raw_fields, line_items = field_parser.parse_with_line_items(extraction_result.text)
+            mapping_result = mapping_engine.apply_mapping(
+                raw_fields=raw_fields,
+                line_items=line_items,
+            )
+            invoice_data = mapping_result.invoice_data
+            invoice_data.mapping_profile_id = mapping_result.profile_used.id
             
             return ExtractionResponse(
                 success=True,
                 data=invoice_data,
                 extraction_method=extraction_result.method,
                 page_count=extraction_result.page_count,
-                processing_time_ms=extraction_result.processing_time_ms
+                processing_time_ms=extraction_result.processing_time_ms,
+                mapping_info=mapping_result.to_dict()
             )
             
         finally:
@@ -331,8 +364,15 @@ async def extract_invoice_from_url(request: ExtractFromUrlRequest):
                 logger.info("Using OCR for scanned document", filename=request.file_name)
                 extraction_result = await ocr_service.extract(tmp_path)
             
-            # Parse extracted text into structured data
-            invoice_data = await field_parser.parse(extraction_result.text)
+            # Parse extracted text using mapping engine
+            raw_fields, line_items = field_parser.parse_with_line_items(extraction_result.text)
+            mapping_result = mapping_engine.apply_mapping(
+                raw_fields=raw_fields,
+                line_items=line_items,
+                organization_id=request.organization_id,
+            )
+            invoice_data = mapping_result.invoice_data
+            invoice_data.mapping_profile_id = mapping_result.profile_used.id
             
             processing_time = int((time.time() - start_time) * 1000)
             
@@ -342,6 +382,9 @@ async def extract_invoice_from_url(request: ExtractFromUrlRequest):
                 invoice_id=request.invoice_id,
                 confidence=invoice_data.confidence_score,
                 method=extraction_result.method,
+                mapping_profile=mapping_result.profile_used.name,
+                gl_account=mapping_result.gl_account,
+                project=mapping_result.project,
                 processing_time_ms=processing_time
             )
             
@@ -350,7 +393,8 @@ async def extract_invoice_from_url(request: ExtractFromUrlRequest):
                 data=invoice_data,
                 extraction_method=extraction_result.method,
                 page_count=extraction_result.page_count,
-                processing_time_ms=processing_time
+                processing_time_ms=processing_time,
+                mapping_info=mapping_result.to_dict()
             )
             
         finally:
@@ -573,6 +617,11 @@ async def batch_extract(
                 
                 invoice_data = await field_parser.parse(extraction_result.text)
                 
+                # Apply mapping engine
+                raw_fields, line_items = field_parser.parse_with_line_items(extraction_result.text)
+                mapped_result = mapping_engine.apply_mapping(raw_fields, line_items)
+                invoice_data = mapped_result.to_invoice_data()
+                
                 invoice_id = None
                 if save_to_db and db_service:
                     try:
@@ -658,6 +707,11 @@ async def extract_from_folder(
             
             invoice_data = await field_parser.parse(extraction_result.text)
             
+            # Apply mapping engine
+            raw_fields, line_items = field_parser.parse_with_line_items(extraction_result.text)
+            mapped_result = mapping_engine.apply_mapping(raw_fields, line_items)
+            invoice_data = mapped_result.to_invoice_data()
+            
             invoice_id = None
             if save_to_db and db_service:
                 invoice_id = await db_service.save_invoice(
@@ -694,6 +748,200 @@ async def extract_from_folder(
         "processed": len([r for r in results if r.get("success")]),
         "results": results
     }
+
+
+# ─── Mapping Profile Management API ────────────────────────────────────────
+
+@app.get("/api/v1/mapping/profiles", tags=["Mapping"])
+async def list_mapping_profiles(
+    organization_id: Optional[int] = Query(None, description="Filter by organization")
+):
+    """
+    List all available mapping profiles.
+    
+    Returns built-in and custom mapping profiles for the given organization context.
+    """
+    profiles = mapping_engine.list_profiles(organization_id=organization_id)
+    return {
+        "success": True,
+        "profiles": [p.dict() for p in profiles],
+        "total": len(profiles)
+    }
+
+
+@app.get("/api/v1/mapping/profiles/{profile_id}", tags=["Mapping"])
+async def get_mapping_profile(profile_id: str):
+    """Get a specific mapping profile by ID."""
+    profile = mapping_engine.get_profile(profile_id)
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Mapping profile '{profile_id}' not found"
+        )
+    return {"success": True, "profile": profile.dict()}
+
+
+@app.post("/api/v1/mapping/profiles", tags=["Mapping"])
+async def create_mapping_profile(request: MappingProfileCreateRequest):
+    """
+    Create a new mapping profile.
+    
+    Custom mapping profiles allow organizations to define how extracted invoice
+    fields map to the target system model for different vendor invoice formats.
+    """
+    import uuid
+    
+    profile = InvoiceMappingProfile(
+        id=f"custom-{uuid.uuid4().hex[:8]}",
+        name=request.name,
+        description=request.description,
+        vendor_pattern=request.vendor_pattern,
+        is_default=request.is_default,
+        organization_id=request.organization_id,
+        rules=request.rules,
+    )
+    
+    mapping_engine.register_profile(profile)
+    
+    logger.info("Mapping profile created", profile_id=profile.id, name=profile.name)
+    return {"success": True, "profile": profile.dict()}
+
+
+@app.put("/api/v1/mapping/profiles/{profile_id}", tags=["Mapping"])
+async def update_mapping_profile(profile_id: str, request: MappingProfileUpdateRequest):
+    """Update an existing mapping profile."""
+    existing = mapping_engine.get_profile(profile_id)
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Mapping profile '{profile_id}' not found"
+        )
+    
+    # Apply updates
+    if request.name is not None:
+        existing.name = request.name
+    if request.description is not None:
+        existing.description = request.description
+    if request.vendor_pattern is not None:
+        existing.vendor_pattern = request.vendor_pattern
+    if request.is_default is not None:
+        existing.is_default = request.is_default
+    if request.rules is not None:
+        existing.rules = request.rules
+    
+    mapping_engine.register_profile(existing)
+    
+    logger.info("Mapping profile updated", profile_id=profile_id)
+    return {"success": True, "profile": existing.dict()}
+
+
+@app.delete("/api/v1/mapping/profiles/{profile_id}", tags=["Mapping"])
+async def delete_mapping_profile(profile_id: str):
+    """Delete a mapping profile."""
+    # Prevent deletion of built-in profiles
+    if profile_id.startswith("default-") or profile_id.startswith("standard-"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete built-in mapping profiles"
+        )
+    
+    if not mapping_engine.remove_profile(profile_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Mapping profile '{profile_id}' not found"
+        )
+    
+    return {"success": True, "message": f"Profile '{profile_id}' deleted"}
+
+
+@app.get("/api/v1/mapping/fields", tags=["Mapping"])
+async def get_available_fields():
+    """
+    Get all available source fields, target fields, and date transforms.
+    
+    This endpoint helps the frontend build the mapping profile configuration UI.
+    """
+    source_fields = [
+        {"value": f.value, "label": f.value.replace("_", " ").title()}
+        for f in MappingSourceField
+    ]
+    target_fields = [
+        {"value": f.value, "label": f.value.replace("_", " ").title()}
+        for f in MappingTargetField
+    ]
+    date_transforms = [
+        {"value": t.value, "label": t.value.replace("_", " ").title()}
+        for t in DateTransform
+    ]
+    
+    return {
+        "success": True,
+        "source_fields": source_fields,
+        "target_fields": target_fields,
+        "date_transforms": date_transforms,
+    }
+
+
+@app.post("/api/v1/mapping/preview", tags=["Mapping"])
+async def preview_mapping(
+    file: UploadFile = File(..., description="PDF file to preview mapping for"),
+    profile_id: Optional[str] = Query(None, description="Mapping profile to use"),
+    organization_id: Optional[int] = Query(None, description="Organization context"),
+):
+    """
+    Preview the result of applying a mapping profile to a PDF.
+    
+    Extracts fields from the PDF and shows both the raw extracted data and
+    the mapped result, without saving to the database.
+    """
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only PDF files are accepted"
+        )
+    
+    content = await file.read()
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+        tmp_file.write(content)
+        tmp_path = tmp_file.name
+    
+    try:
+        extraction_result = await pdf_extractor.extract(tmp_path)
+        
+        if extraction_result.needs_ocr:
+            extraction_result = await ocr_service.extract(tmp_path)
+        
+        raw_fields, line_items = field_parser.parse_with_line_items(extraction_result.text)
+        
+        mapping_result = mapping_engine.apply_mapping(
+            raw_fields=raw_fields,
+            line_items=line_items,
+            profile_id=profile_id,
+            organization_id=organization_id,
+        )
+        
+        # Build serializable raw_fields (remove raw_text for preview)
+        preview_raw = {
+            k: (str(v) if v is not None else None)
+            for k, v in raw_fields.items()
+            if k != "raw_text"
+        }
+        
+        return {
+            "success": True,
+            "raw_extracted_fields": preview_raw,
+            "mapped_result": {
+                "invoice_data": mapping_result.invoice_data.dict(),
+                **mapping_result.to_dict(),
+            },
+            "line_items": [item.dict() for item in line_items],
+            "extraction_method": extraction_result.method,
+            "page_count": extraction_result.page_count,
+        }
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 
 if __name__ == "__main__":

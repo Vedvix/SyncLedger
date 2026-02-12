@@ -81,18 +81,12 @@ export function InvoiceDetailPage() {
   const canApprove = user?.role === 'ADMIN' || user?.role === 'APPROVER'
   const canSync = user?.role === 'ADMIN' && invoice?.status === 'APPROVED'
   
-  // Build PDF URL - the s3Url from backend uses internal Docker hostname,
-  // we need to use the frontend's API proxy
+  // Build PDF URL - use backend preview endpoint for both local and S3 storage
   const getPdfUrl = () => {
     if (!invoice?.s3Url) return null
-    // Extract the path from s3Url and build URL through our API
-    // s3Url format: http://backend:8080/api/files/{key}
-    const match = invoice.s3Url.match(/\/api\/files\/(.+)$/)
-    if (match) {
-      const apiBase = import.meta.env.VITE_API_URL || '/api'
-      return `${apiBase}/files/${match[1]}`
-    }
-    return invoice.s3Url
+    const apiBase = import.meta.env.VITE_API_URL || '/api'
+    const token = useAuthStore.getState().accessToken
+    return `${apiBase}/v1/invoices/${id}/preview?token=${token}`
   }
   
   const pdfUrl = getPdfUrl()
@@ -388,9 +382,9 @@ export function InvoiceDetailPage() {
           </div>
           
           {/* Line Items */}
-          {invoice.lineItems.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm p-5">
-              <h2 className="text-lg font-semibold mb-4">Line Items ({invoice.lineItems.length})</h2>
+          <div className="bg-white rounded-xl shadow-sm p-5">
+            <h2 className="text-lg font-semibold mb-4">Line Items ({invoice.lineItems.length})</h2>
+            {invoice.lineItems.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="border-b bg-gray-50">
@@ -399,6 +393,7 @@ export function InvoiceDetailPage() {
                       <th className="text-left py-2 px-2 text-sm text-gray-500">Description</th>
                       <th className="text-right py-2 px-2 text-sm text-gray-500">Qty</th>
                       <th className="text-right py-2 px-2 text-sm text-gray-500">Unit Price</th>
+                      <th className="text-right py-2 px-2 text-sm text-gray-500">GL Code</th>
                       <th className="text-right py-2 px-2 text-sm text-gray-500">Total</th>
                     </tr>
                   </thead>
@@ -409,14 +404,39 @@ export function InvoiceDetailPage() {
                         <td className="py-2 px-2 text-sm">{item.description || '-'}</td>
                         <td className="py-2 px-2 text-sm text-right">{item.quantity || '-'}</td>
                         <td className="py-2 px-2 text-sm text-right">{item.unitPrice ? formatCurrency(item.unitPrice) : '-'}</td>
+                        <td className="py-2 px-2 text-sm text-right">{item.glAccountCode || '-'}</td>
                         <td className="py-2 px-2 text-sm text-right font-medium">{formatCurrency(item.lineTotal)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+            ) : (
+              <p className="text-sm text-gray-400 italic">No line items extracted</p>
+            )}
+          </div>
+
+          {/* Allocation */}
+          <div className="bg-white rounded-xl shadow-sm p-5">
+            <h2 className="text-lg font-semibold mb-4 flex items-center">
+              <FileText className="w-5 h-5 mr-2 text-indigo-500" />
+              Allocation
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
+              <ExtractedField label="GL Account" value={invoice.glAccount} highlight />
+              <ExtractedField label="Project / Opportunity" value={invoice.project} />
+              <ExtractedField label="Item Category" value={invoice.itemCategory} />
+              <ExtractedField label="Cost Center" value={invoice.costCenter} />
+              <div className="col-span-2">
+                <ExtractedField label="Location" value={invoice.location} />
+              </div>
             </div>
-          )}
+            {invoice.mappingProfileId && (
+              <div className="mt-3 pt-3 border-t text-xs text-gray-500">
+                Profile: <span className="font-medium text-gray-700">{invoice.mappingProfileId}</span>
+              </div>
+            )}
+          </div>
           
           {/* Source & Metadata */}
           <div className="bg-white rounded-xl shadow-sm p-5">

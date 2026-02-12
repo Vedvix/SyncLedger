@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { dashboardService } from '@/services/dashboardService'
+import { useAuthStore } from '@/store/authStore'
 import { 
   FileText, 
   Clock, 
@@ -14,10 +15,13 @@ import {
   Sparkles,
   Eye,
   BarChart3,
-  PieChart
+  PieChart,
+  Building,
+  Shield
 } from 'lucide-react'
 
 export function DashboardPage() {
+  const { user } = useAuthStore()
   const { data: stats, isLoading, error, refetch } = useQuery({
     queryKey: ['dashboardStats'],
     queryFn: () => dashboardService.getStats(),
@@ -124,6 +128,19 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Organization scope banner */}
+      {user?.role === 'SUPER_ADMIN' ? (
+        <div className="flex items-center px-4 py-2 bg-indigo-50 border border-indigo-200 rounded-lg text-sm text-indigo-700">
+          <Shield className="w-4 h-4 mr-2 flex-shrink-0" />
+          Viewing <strong className="mx-1">platform-wide</strong> data across all organizations.
+        </div>
+      ) : user?.organizationName ? (
+        <div className="flex items-center px-4 py-2 bg-primary-50 border border-primary-200 rounded-lg text-sm text-primary-700">
+          <Building className="w-4 h-4 mr-2 flex-shrink-0" />
+          Showing data for <strong className="mx-1">{user.organizationName}</strong> only.
+        </div>
+      ) : null}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

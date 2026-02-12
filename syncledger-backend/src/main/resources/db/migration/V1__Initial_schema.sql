@@ -225,6 +225,7 @@ CREATE TABLE email_logs (
     invoices_extracted INTEGER,
     has_error BOOLEAN DEFAULT FALSE,
     error_message TEXT,
+    processing_duration_ms BIGINT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

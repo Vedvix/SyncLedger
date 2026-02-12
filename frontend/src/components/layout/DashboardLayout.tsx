@@ -8,7 +8,10 @@ import {
   LogOut,
   Menu,
   X,
-  Shield
+  Shield,
+  GitCompareArrows,
+  Building,
+  Building2
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -30,7 +33,9 @@ export function DashboardLayout() {
     ...(isSuperAdmin ? [{ to: '/super-admin', icon: Shield, label: 'Platform Admin' }] : []),
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/invoices', icon: FileText, label: 'Invoices' },
+    { to: '/vendors', icon: Building2, label: 'Vendors' },
     ...(isAdmin ? [{ to: '/users', icon: Users, label: 'Users' }] : []),
+    ...(isAdmin ? [{ to: '/mapping', icon: GitCompareArrows, label: 'Mapping' }] : []),
     { to: '/settings', icon: Settings, label: 'Settings' },
   ]
   
@@ -85,6 +90,18 @@ export function DashboardLayout() {
           
           {/* User info & Logout */}
           <div className="p-4 border-t">
+            {/* Organization badge */}
+            <div className="mb-3 px-3 py-2 bg-gray-50 rounded-lg">
+              <div className="flex items-center text-xs text-gray-500 mb-1">
+                <Building className="w-3 h-3 mr-1" />
+                Organization
+              </div>
+              {user?.role === 'SUPER_ADMIN' ? (
+                <p className="text-sm font-medium text-indigo-600">SyncLedger Platform</p>
+              ) : (
+                <p className="text-sm font-medium text-gray-800">{user?.organizationName || 'N/A'}</p>
+              )}
+            </div>
             <div className="flex items-center mb-4">
               <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
                 <span className="text-primary-600 font-medium">
@@ -120,9 +137,23 @@ export function DashboardLayout() {
             <Menu className="w-6 h-6" />
           </button>
           <div className="flex-1" />
-          <span className="text-sm text-gray-500">
-            Welcome, {user?.firstName}!
-          </span>
+          <div className="flex items-center gap-4">
+            {user?.role !== 'SUPER_ADMIN' && user?.organizationName && (
+              <span className="hidden sm:inline-flex items-center px-3 py-1 text-xs font-medium bg-primary-50 text-primary-700 rounded-full">
+                <Building className="w-3 h-3 mr-1" />
+                {user.organizationName}
+              </span>
+            )}
+            {user?.role === 'SUPER_ADMIN' && (
+              <span className="hidden sm:inline-flex items-center px-3 py-1 text-xs font-medium bg-indigo-50 text-indigo-700 rounded-full">
+                <Shield className="w-3 h-3 mr-1" />
+                Platform Admin
+              </span>
+            )}
+            <span className="text-sm text-gray-500">
+              Welcome, {user?.firstName}!
+            </span>
+          </div>
         </header>
         
         {/* Page content */}

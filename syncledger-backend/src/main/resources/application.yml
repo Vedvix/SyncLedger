@@ -97,6 +97,16 @@ email:
     max-emails-per-batch: ${EMAIL_MAX_BATCH:50}
 
 # =============================================================================
+# INVOICE PROCESSING CONFIGURATION
+# =============================================================================
+invoice:
+  auto-approval:
+    # Confidence threshold for auto-approval (0.0 - 1.0)
+    # Invoices at or above this threshold skip manual review
+    # Recommended: 0.85-0.90 (85-90%)
+    confidence-threshold: ${INVOICE_AUTO_APPROVAL_THRESHOLD:0.87}
+
+# =============================================================================
 # PDF MICROSERVICE CONFIGURATION
 # =============================================================================
 pdf-service:

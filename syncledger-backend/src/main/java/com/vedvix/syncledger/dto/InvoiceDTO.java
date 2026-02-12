@@ -28,6 +28,7 @@ public class InvoiceDTO {
     private String poNumber;
     
     // Vendor Information
+    private Long vendorId;
     private String vendorName;
     private String vendorAddress;
     private String vendorEmail;
@@ -76,6 +77,15 @@ public class InvoiceDTO {
     
     // Line Items
     private List<InvoiceLineItemDTO> lineItems;
+    
+    // Mapping Fields
+    private String glAccount;
+    private String project;
+    private String itemCategory;
+    private String location;
+    private String costCenter;
+    private String mappingProfileId;
+    private String fieldMappings;
     
     // Assignment
     private Long assignedToId;

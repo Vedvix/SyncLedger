@@ -140,6 +140,7 @@ export interface Invoice {
   poNumber?: string
   
   // Vendor
+  vendorId?: number
   vendorName: string
   vendorAddress?: string
   vendorEmail?: string
@@ -189,6 +190,15 @@ export interface Invoice {
   // Line items
   lineItems: InvoiceLineItem[]
   
+  // Mapping Fields
+  glAccount?: string
+  project?: string
+  itemCategory?: string
+  location?: string
+  costCenter?: string
+  mappingProfileId?: string
+  fieldMappings?: string  // JSON string of mapping trace
+  
   // Assignment
   assignedToId?: number
   assignedToName?: string
@@ -219,6 +229,11 @@ export interface UpdateInvoiceRequest {
   dueDate?: string
   reviewNotes?: string
   lineItems?: InvoiceLineItem[]
+  glAccount?: string
+  project?: string
+  itemCategory?: string
+  location?: string
+  costCenter?: string
 }
 
 // ==================== Approval Types ====================
@@ -392,4 +407,139 @@ export interface EmailStatsDTO {
   processedEmails: number
   failedEmails: number
   pendingEmails: number
+}
+
+// ==================== Mapping Profile Types ====================
+
+export type DateTransform = 
+  | 'NONE'
+  | 'NEXT_FRIDAY'
+  | 'NEXT_MONDAY'
+  | 'NEXT_BUSINESS_DAY'
+  | 'END_OF_MONTH'
+  | 'ADD_30_DAYS'
+  | 'ADD_60_DAYS'
+  | 'ADD_90_DAYS'
+  | 'NET_30'
+  | 'NET_60'
+
+export interface FieldMappingRule {
+  source: string
+  target: string
+  fallbackSource?: string
+  defaultValue?: string
+  dateTransform?: DateTransform
+  description?: string
+}
+
+export interface MappingProfile {
+  id: string
+  name: string
+  description?: string
+  vendorPattern?: string
+  organizationId?: number
+  isDefault: boolean
+  rules: FieldMappingRule[]
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface MappingProfileCreateRequest {
+  id?: string
+  name: string
+  description?: string
+  vendorPattern?: string
+  organizationId?: number
+  isDefault?: boolean
+  rules: FieldMappingRule[]
+}
+
+export interface MappingProfileUpdateRequest {
+  name?: string
+  description?: string
+  vendorPattern?: string
+  isDefault?: boolean
+  rules?: FieldMappingRule[]
+}
+
+export interface MappingFieldInfo {
+  sourceFields: string[]
+  targetFields: string[]
+  dateTransforms: string[]
+}
+
+// ==================== Vendor Types ====================
+
+export type VendorStatus = 'ACTIVE' | 'INACTIVE' | 'BLOCKED' | 'PENDING_REVIEW'
+
+export interface Vendor {
+  id: number
+  organizationId: number
+  organizationName?: string
+  name: string
+  code?: string
+  address?: string
+  email?: string
+  phone?: string
+  contactPerson?: string
+  website?: string
+  taxId?: string
+  paymentTerms?: string
+  currency: string
+  status: VendorStatus
+  notes?: string
+  createdAt: string
+  updatedAt: string
+  analytics?: VendorAnalytics
+}
+
+export interface VendorAnalytics {
+  totalInvoices: number
+  pendingInvoices: number
+  approvedInvoices: number
+  rejectedInvoices: number
+  syncedInvoices: number
+  totalAmount: number
+  averageInvoiceAmount: number
+  minInvoiceAmount: number
+  maxInvoiceAmount: number
+  totalTaxAmount: number
+  averageConfidenceScore: number
+  invoicesRequiringReview: number
+  firstInvoiceDate?: string
+  lastInvoiceDate?: string
+  monthlyTotals: Record<string, number>
+}
+
+export interface VendorSummary {
+  totalVendors: number
+  activeVendors: number
+  totalInvoicesAcrossVendors: number
+  totalAmountAcrossVendors: number
+  averageAmountPerVendor: number
+  topVendorsByCount: TopVendor[]
+  topVendorsByAmount: TopVendor[]
+}
+
+export interface TopVendor {
+  vendorId: number
+  vendorName: string
+  invoiceCount: number
+  totalAmount: number
+  averageAmount: number
+}
+
+export interface VendorRequest {
+  name: string
+  code?: string
+  address?: string
+  email?: string
+  phone?: string
+  contactPerson?: string
+  website?: string
+  taxId?: string
+  paymentTerms?: string
+  currency?: string
+  status?: string
+  notes?: string
 }

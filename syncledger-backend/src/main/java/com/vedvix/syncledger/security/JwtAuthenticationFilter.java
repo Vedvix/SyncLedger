@@ -60,12 +60,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Extract JWT token from Authorization header.
+     * Extract JWT token from Authorization header or 'token' query parameter.
+     * Query parameter support is needed for iframe-based PDF previews where
+     * headers cannot be set.
      */
     private String getJwtFromRequest(HttpServletRequest request) {
+        // First try Authorization header
         String bearerToken = request.getHeader("Authorization");
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
+        }
+        // Fall back to query parameter (for iframe/preview endpoints)
+        String tokenParam = request.getParameter("token");
+        if (StringUtils.hasText(tokenParam)) {
+            return tokenParam;
         }
         return null;
     }

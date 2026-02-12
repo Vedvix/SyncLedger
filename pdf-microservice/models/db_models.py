@@ -108,6 +108,14 @@ class Invoice(Base):
     sync_attempt_count: Mapped[int] = mapped_column(Integer, default=0)
     sync_error_message: Mapped[Optional[str]] = mapped_column(String(500))
     
+    # Mapping Fields
+    gl_account: Mapped[Optional[str]] = mapped_column(String(100))
+    project: Mapped[Optional[str]] = mapped_column(String(255))
+    item_category: Mapped[Optional[str]] = mapped_column(String(255))
+    location: Mapped[Optional[str]] = mapped_column(String(500))
+    cost_center: Mapped[Optional[str]] = mapped_column(String(100))
+    mapping_profile_id: Mapped[Optional[str]] = mapped_column(String(100))
+    
     # Audit Fields
     assigned_to_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.id"))
     processed_by_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.id"))
