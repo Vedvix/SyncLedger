@@ -109,6 +109,13 @@ class ExtractionResponse(BaseModel):
     error: Optional[str] = Field(None, description="Error message if failed")
     invoice_id: Optional[int] = Field(None, description="Database ID if saved")
     mapping_info: Optional[dict] = Field(None, description="Mapping profile info and results")
+    
+    # AI extraction metadata
+    ai_tier_used: Optional[str] = Field(None, description="AI extraction tier used (gpt4o_vision, gpt4o_text, regex_parser)")
+    ai_confidence: Optional[float] = Field(None, description="AI cross-validated confidence score")
+    ai_cost_usd: Optional[float] = Field(None, description="Estimated AI API cost for this extraction")
+    ai_token_usage: Optional[dict] = Field(None, description="Token usage breakdown")
+    ai_validation: Optional[dict] = Field(None, description="Cross-validation results summary")
 
 
 class SaveInvoiceRequest(BaseModel):

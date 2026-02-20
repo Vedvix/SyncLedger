@@ -1,25 +1,27 @@
 # SyncLedger - Subscription Estimate
-## Invoice Processing Automation Platform
-**Prepared By**: Vedvix (Nevorix)  
-**Date**: February 10, 2026  
+## AI-Powered Invoice Processing Automation Platform
+**Prepared By**: SyncLedger  
+**Date**: February 13, 2026  
 **Valid Until**: March 31, 2026
 
 ---
 
 ## 📊 Executive Summary
 
-**SyncLedger** transforms invoice processing from a manual, time-consuming task into an automated, streamlined workflow. Our AI-powered platform reduces processing time by 70% while improving accuracy and providing complete audit trails.
+**SyncLedger** transforms invoice processing from a manual, time-consuming task into an automated, streamlined workflow. Every invoice is processed through **GPT-4o Vision AI** — the most advanced document intelligence model available — delivering 97%+ extraction accuracy across any vendor format, any language, and any PDF quality.
 
 ### Key Benefits
-- ⚡ **70% faster processing**: 2-5 minutes vs 15-30 minutes per invoice
-- ✅ **95%+ accuracy**: AI-powered data extraction eliminates manual entry errors
+- ⚡ **80% faster processing**: 1-3 minutes vs 15-30 minutes per invoice
+- 🤖 **97%+ accuracy**: GPT-4o Vision AI understands any invoice layout, any vendor format
+- 🔍 **Handles everything**: Scanned PDFs, digital PDFs, handwritten notes, multi-language
 - 📧 **Email automation**: Automatically monitors and processes incoming invoices
 - 👥 **Built-in approval workflows**: Route invoices with one-click approval
 - 🔗 **Sage integration**: Auto-sync approved invoices to your accounting system
 - 📊 **Complete audit trail**: Track every action, approval, and change
+- 📥 **Excel export**: Advanced filtering and custom reports for accountants
 
 ### 💡 Pricing Model
-**SyncLedger uses flat-rate subscription pricing with NO per-invoice or per-usage token fees.** Your monthly cost is predictable and includes unlimited PDF processing using our built-in OCR technology. Optional premium AI services are available but not required.
+**SyncLedger uses flat-rate subscription pricing with AI Vision processing included in every plan.** Each invoice is analyzed by GPT-4o Vision AI for maximum accuracy. Your monthly cost is predictable within your plan's invoice limit. Invoices processed beyond your plan limit are billed at a transparent per-invoice overage rate.
 
 ### 💰 Cost Comparison at a Glance
 
@@ -27,36 +29,42 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                     3-YEAR TOTAL COST COMPARISON                        │
+│                     2-YEAR TOTAL COST COMPARISON                        │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
-│  Starter Plan:                                                          │
-│  ├─ SyncLedger Subscription:        $8,686                              │
-│  └─ Self-Hosted Solution:           $359,724                            │
-│     💰 YOU SAVE: $351,038 (97.6% savings)                               │
+│  Starter Plan (1,000 invoices/month):                                   │
+│  ├─ SyncLedger Subscription (2yr):  $11,878                             │
+│  └─ Self-Hosted Solution (2yr):     $230,500                            │
+│     💰 YOU SAVE: $218,622 (94.8% savings)                               │
 │                                                                         │
-│  Professional Plan:                                                     │
-│  ├─ SyncLedger Subscription:        $20,618                             │
-│  └─ Self-Hosted Solution:           $422,556                            │
-│     💰 YOU SAVE: $401,938 (95.1% savings)                               │
+│  Professional Plan (5,000 invoices/month):                              │
+│  ├─ SyncLedger Subscription (2yr):  $20,980                             │
+│  └─ Self-Hosted Solution (2yr):     $305,200                            │
+│     💰 YOU SAVE: $284,220 (93.1% savings)                               │
 │                                                                         │
-│  Enterprise Plan:                                                       │
-│  ├─ SyncLedger Subscription:        $51,130                             │
-│  └─ Self-Hosted Solution:           $920,980                            │
-│     💰 YOU SAVE: $869,850 (94.4% savings)                               │
+│  Business Plan (10,000 invoices/month — fits ~8,000):                   │
+│  ├─ SyncLedger Subscription (2yr):  $24,176                             │
+│  └─ Self-Hosted Solution (2yr):     $373,400                            │
+│     💰 YOU SAVE: $349,224 (93.5% savings)                               │
 │                                                                         │
-│  Self-hosting includes: $64,500 development + monthly infrastructure   │
-│  + $3,000-22,000/month developer/DevOps maintenance costs               │
+│  Enterprise Plan (20,000+ invoices/month):                              │
+│  ├─ SyncLedger Subscription (2yr):  $45,976                             │
+│  └─ Self-Hosted Solution (2yr):     $609,800                            │
+│     💰 YOU SAVE: $563,824 (92.5% savings)                               │
+│                                                                         │
+│  Self-hosting includes: $77,250+ development + AI API costs             │
+│  + $3,000-8,000/month developer/DevOps maintenance costs                │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Why SyncLedger Subscription Wins:**
-- ✅ No $64,500+ upfront development cost
-- ✅ No ongoing developer maintenance ($36,000-180,000/year)
-- ✅ No DevOps overhead ($24,000-144,000/year)
+- ✅ No $77,250+ upfront development cost
+- ✅ No ongoing developer maintenance ($36,000-60,000/year)
+- ✅ No DevOps overhead ($12,000-24,000/year)
+- ✅ No managing OpenAI API keys, quotas, and billing
 - ✅ No server management headaches
-- ✅ Immediate deployment (1-2 weeks vs 12-16 weeks)
-- ✅ Always up-to-date with latest features
+- ✅ Immediate deployment (1-2 weeks vs 14-18 weeks)
+- ✅ Always up-to-date with latest AI models
 - ✅ Expert support included
 
 ---
@@ -64,51 +72,57 @@
 ## 💰 Subscription Plans
 
 ### 🌱 Starter Plan
-**Perfect for small businesses processing up to 500 invoices/month**
+**Perfect for small businesses processing up to 1,000 invoices/month**
 
-| **Monthly Subscription** | **$199/month** |
-|--------------------------|----------------|
-| **Annual Subscription**  | **$1,990/year** (save $398 - 2 months free) |
+| **Monthly Subscription** | **$349/month**                              |
+| ------------------------ | ------------------------------------------- |
+| **Annual Subscription**  | **$3,490/year** (save $698 — 2 months free) |
 
-#### Features Included:
+#### What's Included:
+- ✅ Up to **1,000 invoices/month** with GPT-4o Vision AI
 - ✅ Up to 3 user accounts
-- ✅ 500 invoices per month
 - ✅ 1 organization/tenant
 - ✅ Email integration (1 monitored inbox)
-- ✅ AI PDF extraction with OCR
+- ✅ AI Vision extraction (97%+ accuracy on any format)
 - ✅ Basic approval workflow
 - ✅ Sage integration
+- ✅ Excel export with custom filters
 - ✅ 50GB file storage
 - ✅ Email support (24-hour response)
 - ✅ Standard security features
 - ✅ Mobile responsive interface
+
+#### Overage Pricing:
+- **$0.15 per invoice** beyond the 1,000/month limit
+- Automated notification at 80% and 100% of limit
+- No service interruption — overages billed monthly in arrears
 
 **Infrastructure Included:**
 - Cloud hosting on AWS
 - Database management
 - Automatic backups (7-day retention)
 - 99.5% uptime SLA
-- **Unlimited PDF processing** with built-in OCR (no per-page fees)
-- **No token or usage-based charges** for standard features
+- GPT-4o Vision AI processing for every invoice
+- S3 storage with intelligent lifecycle (Standard → IA → Glacier)
 
 ---
 
 ### 🚀 Professional Plan
-**Ideal for growing businesses processing 500-5,000 invoices/month**
+**Ideal for growing businesses processing up to 5,000 invoices/month**
 
-| **Monthly Subscription** | **$499/month** |
-|--------------------------|----------------|
-| **Annual Subscription**  | **$4,990/year** (save $998 - 2 months free) |
+| **Monthly Subscription** | **$649/month**                                |
+| ------------------------ | --------------------------------------------- |
+| **Annual Subscription**  | **$6,490/year** (save $1,298 — 2 months free) |
 
-#### Features Included:
+#### What's Included:
 - ✅ **All Starter features, plus:**
+- ✅ Up to **5,000 invoices/month** with GPT-4o Vision AI
 - ✅ Up to 15 user accounts
-- ✅ 5,000 invoices per month
 - ✅ 3 organizations/tenants
 - ✅ Email integration (3 monitored inboxes)
 - ✅ Advanced approval workflows with multi-level approvals
 - ✅ Custom approval rules and thresholds
-- ✅ Advanced reporting and analytics
+- ✅ Advanced reporting, analytics, and Excel export
 - ✅ 200GB file storage
 - ✅ Priority email & phone support (4-hour response)
 - ✅ Enhanced security with audit logs
@@ -116,31 +130,77 @@
 - ✅ Vendor management features
 - ✅ Batch invoice processing
 
+#### Overage Pricing:
+- **$0.12 per invoice** beyond the 5,000/month limit
+- Automated notification at 80% and 100% of limit
+- No service interruption — overages billed monthly in arrears
+
 **Infrastructure Included:**
 - High-availability cloud hosting
 - Automatic backups (30-day retention)
 - 99.7% uptime SLA
 - Dedicated database resources
 - Performance monitoring
-- **Unlimited PDF processing** with built-in OCR (no per-page fees)
-- **No token or usage-based charges** for standard features
+- GPT-4o Vision AI processing for every invoice
+- S3 storage with intelligent lifecycle management
 
 ---
 
-### 🏢 Enterprise Plan
-**Designed for organizations processing 5,000+ invoices/month**
+### 🏢 Business Plan
+**Built for organizations processing up to 10,000 invoices/month**
 
-| **Monthly Subscription** | **$1,299/month** |
-|--------------------------|------------------|
-| **Annual Subscription**  | **$12,990/year** (save $2,598 - 2 months free) |
+| **Monthly Subscription** | **$799/month**                                |
+| ------------------------ | --------------------------------------------- |
+| **Annual Subscription**  | **$7,990/year** (save $1,598 — 2 months free) |
 
-#### Features Included:
+#### What's Included:
 - ✅ **All Professional features, plus:**
+- ✅ Up to **10,000 invoices/month** with GPT-4o Vision AI
+- ✅ Up to 30 user accounts
+- ✅ 5 organizations/tenants
+- ✅ Email integration (5 monitored inboxes)
+- ✅ Advanced AI with confidence scoring and validation
+- ✅ Custom workflow automation
+- ✅ Advanced Excel export with summary analytics
+- ✅ 500GB file storage
+- ✅ Dedicated support channel (2-hour response)
+- ✅ Advanced security & compliance features
+- ✅ Custom integrations
+- ✅ Dedicated training sessions
+
+#### Overage Pricing:
+- **$0.10 per invoice** beyond the 10,000/month limit
+- Automated notification at 80% and 100% of limit
+- No service interruption — overages billed monthly in arrears
+
+**Infrastructure Included:**
+- Enterprise-grade cloud hosting
+- Automatic backups (60-day retention)
+- 99.8% uptime SLA
+- Dedicated database & compute resources
+- 24/7 infrastructure monitoring
+- GPT-4o Vision AI processing for every invoice
+- S3 storage with intelligent lifecycle management
+
+#### 💡 Recommended for the 8,000 invoices/month use case
+At 8,000 invoices/month, this plan covers your needs with 2,000 invoices of headroom. No overages unless you exceed 10,000.
+
+---
+
+### 🏗️ Enterprise Plan
+**Designed for large organizations processing 10,000+ invoices/month**
+
+| **Monthly Subscription** | **$1,499/month**                               |
+| ------------------------ | ---------------------------------------------- |
+| **Annual Subscription**  | **$14,990/year** (save $2,998 — 2 months free) |
+
+#### What's Included:
+- ✅ **All Business features, plus:**
+- ✅ Up to **20,000 invoices/month** with GPT-4o Vision AI
 - ✅ Unlimited user accounts
-- ✅ Unlimited invoices
 - ✅ Unlimited organizations/tenants
 - ✅ Unlimited monitored email inboxes
-- ✅ Advanced AI with custom model training
+- ✅ Custom AI model fine-tuning for your vendor formats
 - ✅ Custom workflow automation
 - ✅ White-label options available
 - ✅ Unlimited file storage
@@ -150,45 +210,81 @@
 - ✅ Custom integrations (beyond Sage)
 - ✅ Advanced analytics and BI dashboards
 - ✅ SLA-backed performance guarantees
-- ✅ Dedicated training sessions
+
+#### Overage Pricing:
+- **$0.08 per invoice** beyond the 20,000/month limit
+- Automated notification at 80% and 100% of limit
+- No service interruption — overages billed monthly in arrears
 
 **Infrastructure Included:**
-- Enterprise-grade cloud infrastructure
+- Enterprise-grade multi-region infrastructure
 - Geo-redundant backups (90-day retention)
 - 99.9% uptime SLA with credit guarantees
 - Dedicated infrastructure resources
 - 24/7 infrastructure monitoring
 - Performance optimization
 - Security audits and penetration testing
-- **Unlimited PDF processing** with built-in OCR (no per-page fees)
-- **No token or usage-based charges** for standard features
+- GPT-4o Vision AI processing for every invoice
+- S3 storage with intelligent lifecycle management
 
 ---
 
 ## 📋 Plan Comparison Table
 
-**Note:** All plans include unlimited PDF processing with no per-page or token fees for standard OCR.
+| Feature                          | Starter  | Professional |  Business  | Enterprise |
+| -------------------------------- | :------: | :----------: | :--------: | :--------: |
+| **Monthly Price**                |   $349   |     $649     |    $799    |   $1,499   |
+| **Annual Price (2 months free)** |  $3,490  |    $6,490    |   $7,990   |  $14,990   |
+| **Invoices/Month (included)**    |  1,000   |    5,000     |   10,000   |   20,000   |
+| **Overage per Invoice**          |  $0.15   |    $0.12     |   $0.10    |   $0.08    |
+| **AI Vision Processing**         | ✅ GPT-4o |   ✅ GPT-4o   |  ✅ GPT-4o  |  ✅ GPT-4o  |
+| **Extraction Accuracy**          |   97%+   |     97%+     |    97%+    |    97%+    |
+| **Users**                        | Up to 3  |   Up to 15   |  Up to 30  | Unlimited  |
+| **Organizations**                |    1     |      3       |     5      | Unlimited  |
+| **Email Inboxes**                |    1     |      3       |     5      | Unlimited  |
+| **Storage**                      |   50GB   |    200GB     |   500GB    | Unlimited  |
+| **Approval Workflows**           |  Basic   | Multi-level  |   Custom   |   Custom   |
+| **Excel Export**                 |    ✅     |  ✅ Advanced  | ✅ Advanced | ✅ Advanced |
+| **Sage Integration**             |    ✅     |      ✅       |     ✅      |     ✅      |
+| **API Access**                   |    ❌     |      ✅       |     ✅      |     ✅      |
+| **Custom Integrations**          |    ❌     |   Limited    |     ✅      |     ✅      |
+| **Support Response Time**        | 24 hours |   4 hours    |  2 hours   |   1 hour   |
+| **Uptime SLA**                   |  99.5%   |    99.7%     |   99.8%    |   99.9%    |
+| **Backup Retention**             |  7 days  |   30 days    |  60 days   |  90 days   |
+| **Account Manager**              |    ❌     |      ❌       |     ❌      |     ✅      |
+| **White Label**                  |    ❌     |      ❌       |     ❌      | Available  |
 
-| Feature | Starter | Professional | Enterprise |
-|---------|:-------:|:------------:|:----------:|
-| **Monthly Price** | $199 | $499 | $1,299 |
-| **Annual Price (2 months free)** | $1,990 | $4,990 | $12,990 |
-| **Users** | Up to 3 | Up to 15 | Unlimited |
-| **Invoices/Month** | 500 | 5,000 | Unlimited |
-| **Organizations** | 1 | 3 | Unlimited |
-| **Email Inboxes** | 1 | 3 | Unlimited |
-| **Storage** | 50GB | 200GB | Unlimited |
-| **PDF Processing** | Included (unlimited) | Included (unlimited) | Included (unlimited) |
-| **Per-Page Fees** | None | None | None |
-| **Approval Workflows** | Basic | Multi-level | Custom |
-| **Sage Integration** | ✅ | ✅ | ✅ |
-| **API Access** | ❌ | ✅ | ✅ |
-| **Custom Integrations** | ❌ | Limited | ✅ |
-| **Support Response Time** | 24 hours | 4 hours | 1 hour |
-| **Uptime SLA** | 99.5% | 99.7% | 99.9% |
-| **Backup Retention** | 7 days | 30 days | 90 days |
-| **Account Manager** | ❌ | ❌ | ✅ |
-| **White Label** | ❌ | ❌ | Available |
+---
+
+## 💵 Overage Pricing Details
+
+When an organization exceeds their plan's included invoice limit, additional invoices are processed and billed automatically:
+
+| Plan             | Included Invoices | Overage Rate  | Example: 500 Extra Invoices |
+| ---------------- | :---------------: | :-----------: | :-------------------------: |
+| **Starter**      |       1,000       | $0.15/invoice |            +$75             |
+| **Professional** |       5,000       | $0.12/invoice |            +$60             |
+| **Business**     |      10,000       | $0.10/invoice |            +$50             |
+| **Enterprise**   |      20,000       | $0.08/invoice |            +$40             |
+
+### How Overages Work:
+1. **No interruption**: Invoices continue processing — your team is never blocked
+2. **Real-time tracking**: Dashboard shows current usage vs. plan limit
+3. **Automated alerts**: Email notifications at 80% and 100% of your limit
+4. **Monthly billing**: Overages are calculated and billed on the 1st of the following month
+5. **Upgrade anytime**: Switch to a higher plan mid-cycle with prorated billing
+
+### Overage Cost Transparency:
+
+| Cost Component                             |    Per Invoice    |
+| ------------------------------------------ | :---------------: |
+| GPT-4o Vision AI processing                |      $0.017       |
+| AWS infrastructure (compute, DB, transfer) |      $0.002       |
+| S3 storage (lifecycle managed)             |      $0.001       |
+| **Our cost**                               |    **$0.020**     |
+| **Your overage charge**                    | **$0.08 - $0.15** |
+
+> Overage pricing is designed to be transparent and fair. We encourage upgrades when consistent overages occur.
 
 ---
 
@@ -203,6 +299,7 @@ Includes:
 - ✅ User account creation and role assignment
 - ✅ Email inbox integration (Microsoft 365)
 - ✅ Sage accounting system connection
+- ✅ AI extraction validation with sample invoices
 - ✅ 2 hours of administrator training
 - ✅ 4 hours of end-user training
 - ✅ Data import assistance (if needed)
@@ -215,7 +312,8 @@ Includes:
 - ✅ **All Standard features, plus:**
 - ✅ Custom workflow configuration
 - ✅ Advanced approval rule setup
-- ✅ Custom report creation
+- ✅ Custom Excel export template setup
+- ✅ AI accuracy validation with your vendor invoice samples
 - ✅ 4 hours of administrator training
 - ✅ 8 hours of end-user training
 - ✅ Historical data migration (up to 1,000 invoices)
@@ -231,6 +329,7 @@ Includes:
 - ✅ Dedicated implementation team
 - ✅ Custom development (if required)
 - ✅ Multiple integration setups
+- ✅ AI model fine-tuning for your vendor formats
 - ✅ Unlimited training sessions
 - ✅ Full historical data migration
 - ✅ White-label customization
@@ -246,23 +345,21 @@ Includes:
 ### Additional Users
 - **Starter Plan**: $25/user/month
 - **Professional Plan**: $20/user/month
+- **Business Plan**: $15/user/month
 - **Enterprise Plan**: Included (unlimited)
 
-### Extra Invoices (if over plan limit)
-- **$0.10 per additional invoice** (Starter & Professional)
-- **Enterprise**: Unlimited included
-
 ### Additional Storage
-- **$10/month per 50GB** (Starter & Professional)
+- **$10/month per 50GB** (Starter, Professional, Business)
 - **Enterprise**: Unlimited included
 
 ### Additional Email Inboxes
-- **$50/month per inbox** (Starter & Professional)
+- **$50/month per inbox** (Starter, Professional, Business)
 - **Enterprise**: Unlimited included
 
 ### Additional Organizations/Tenants
 - **Starter**: $100/month per organization
 - **Professional**: $75/month per organization
+- **Business**: $50/month per organization
 - **Enterprise**: Unlimited included
 
 ### Custom Development
@@ -274,37 +371,53 @@ Includes:
 - **Enterprise Plan**: 10 hours included annually
 
 ---
-## 💳 Usage-Based Services & Third-Party Costs
 
-### What's Included (No Additional Charges)
+## 💳 What's Included vs. Third-Party Costs
 
-**PDF Processing Technology:**
-- ✅ **OCR Processing**: Unlimited invoice processing using Tesseract OCR (open-source)
-- ✅ **Digital PDF Extraction**: PyMuPDF/pdfplumber for text-based PDFs
-- ✅ **No per-page fees**: Process as many invoices as your plan allows
-- ✅ **No token charges**: No AI API usage fees for standard processing
+### What's Included in Your Subscription (No Additional Charges)
 
-**Infrastructure:**
-- ✅ Cloud hosting (AWS)
-- ✅ Database storage
-- ✅ File storage (up to plan limits)
-- ✅ Email monitoring
+**AI-Powered PDF Processing:**
+- ✅ **GPT-4o Vision AI**: Every invoice processed through OpenAI's most advanced vision model
+- ✅ **97%+ extraction accuracy**: Works with any vendor format, any language, scanned or digital
+- ✅ **Intelligent field extraction**: Invoice number, vendor, amounts, dates, line items, GL codes
+- ✅ **Confidence scoring**: AI rates its own accuracy — low-confidence invoices flagged for review
+- ✅ **Legacy OCR fallback**: Tesseract OCR + pdfplumber as additional backup layer
+- ✅ **No per-page AI fees**: All AI processing is included in your plan's invoice limit
+
+**Infrastructure (Fully Managed):**
+- ✅ Cloud hosting on AWS (EC2, RDS, S3)
+- ✅ PostgreSQL database management
+- ✅ S3 file storage with lifecycle optimization (Standard → IA → Glacier)
+- ✅ Email monitoring and polling
+- ✅ SSL/TLS encryption
+- ✅ Automated backups with disaster recovery
+- ✅ 24/7 infrastructure monitoring
 - ✅ All API calls and processing
+
+**Application Features:**
+- ✅ Multi-tenant organization management
+- ✅ Role-based access control
+- ✅ Approval workflows
+- ✅ Excel export with advanced filters
+- ✅ Dashboard analytics
+- ✅ Session management with device tracking
+- ✅ Vendor management
 
 ### Required Third-Party Services (Your Responsibility)
 
 #### Microsoft 365 Email Licenses
 **Required for email integration functionality.**
 
-| License Type | Cost (per mailbox/month) | Notes |
-|--------------|--------------------------|-------|
-| Microsoft 365 Business Basic | ~$6 USD | Minimum required |
-| Microsoft 365 Business Standard | ~$12.50 USD | Additional features |
-| Microsoft 365 Apps for Business | ~$8.25 USD | Alternative option |
+| License Type                    | Cost (per mailbox/month) | Notes               |
+| ------------------------------- | ------------------------ | ------------------- |
+| Microsoft 365 Business Basic    | ~$6 USD                  | Minimum required    |
+| Microsoft 365 Business Standard | ~$12.50 USD              | Additional features |
+| Microsoft 365 Apps for Business | ~$8.25 USD               | Alternative option  |
 
 **Example Costs:**
 - **Starter Plan** (1 monitored inbox): ~$6/month from Microsoft
 - **Professional Plan** (3 monitored inboxes): ~$18/month from Microsoft
+- **Business Plan** (5 monitored inboxes): ~$30/month from Microsoft
 - **Enterprise Plan** (unlimited inboxes): Variable, based on your needs
 
 **Important Notes:**
@@ -319,98 +432,185 @@ Includes:
 - We integrate with Sage 50, Sage 200, and Sage Intacct
 - API access may require specific Sage plan levels
 
-### Optional Premium AI Services (Not Required)
+---
 
-**The standard SyncLedger subscription uses free, open-source OCR technology that handles 95%+ of invoices perfectly.** However, for complex scenarios, you can optionally enable premium AI services:
+## 📊 Internal Cost Structure & Profit Analysis
 
-#### AWS Textract (Advanced OCR)
-**When to use:** Extremely poor quality scans, handwritten notes, complex layouts
+### Production Cost Breakdown (Scenario C — Full GPT-4o Vision)
 
-| Volume (pages/month) | Cost per 1,000 pages | Estimated Monthly Cost |
-|----------------------|----------------------|------------------------|
-| 1,000 pages | $1.50 | $1.50 |
-| 5,000 pages | $1.50 | $7.50 |
-| 10,000 pages | $1.50 | $15.00 |
+**Per-Invoice Cost:**
 
-#### OpenAI GPT-4 Vision (Intelligent Extraction)
-**When to use:** Complex invoice layouts, smart field parsing, multi-language
+| Cost Component                     | Per Invoice | Notes                                |
+| ---------------------------------- | :---------: | ------------------------------------ |
+| GPT-4o Vision API (image + prompt) |   $0.017    | ~3,700 tokens per 1.5-page invoice   |
+| AWS S3 storage (lifecycle managed) |   $0.001    | Standard → IA (90d) → Glacier (365d) |
+| AWS compute & transfer (amortized) |   $0.002    | EC2 + RDS + data transfer            |
+| **Total Variable Cost**            | **$0.020**  | Per invoice processed                |
 
-| Volume (pages/month) | Cost per page | Estimated Monthly Cost |
-|----------------------|---------------|------------------------|
-| 500 pages | $0.02 | $10.00 |
-| 2,000 pages | $0.02 | $40.00 |
-| 5,000 pages | $0.02 | $100.00 |
+**Fixed Monthly Infrastructure Cost:** $43/month (EC2 Reserved + RDS Reserved + CloudWatch + Route 53 + EBS)
 
-#### Anthropic Claude Vision (Alternative AI)
-**When to use:** Similar to GPT-4, alternative provider
+### Plan-Level Profit Analysis
 
-| Volume (pages/month) | Cost per page | Estimated Monthly Cost |
-|----------------------|---------------|------------------------|
-| 500 pages | $0.015 | $7.50 |
-| 2,000 pages | $0.015 | $30.00 |
-| 5,000 pages | $0.015 | $75.00 |
+| Plan              | Price  | Max Invoices | Max Cost | Min Profit | Profit Margin |
+| ----------------- | :----: | :----------: | :------: | :--------: | :-----------: |
+| **Starter**       |  $349  |    1,000     |   $63    |  **$286**  |      82%      |
+| **Professional**  |  $649  |    5,000     |   $143   |  **$506**  |      78%      |
+| **Business**      |  $799  |    10,000    |   $243   |  **$556**  |      70%      |
+| **Business @ 8K** |  $799  |    8,000     | **$203** |  **$596**  |    **75%**    |
+| **Enterprise**    | $1,499 |    20,000    |   $443   | **$1,056** |      70%      |
 
-**Premium AI Services Notes:**
-- ❌ **Not included** in standard subscription
-- ❌ **Not required** for normal operation
-- ✅ Can be enabled on-demand per organization
-- ✅ Billed monthly based on actual usage
-- ✅ Only charged when actively used
-- ✅ Can be toggled on/off anytime
+> **At 8,000 invoices/month on the Business plan:** Revenue $799 − Cost $203 = **$596 net profit/month** (~$600 target ✓)
 
-**Recommendation:** Start with the included free OCR. Upgrade to premium AI only if you encounter PDFs that the standard system can't process accurately.
+### Overage Profit Per Invoice
 
-### Total Cost of Ownership Example
+| Plan         | Overage Rate | Our Cost | Profit Per Extra Invoice |
+| ------------ | :----------: | :------: | :----------------------: |
+| Starter      |    $0.15     |  $0.020  |       $0.13 (87%)        |
+| Professional |    $0.12     |  $0.020  |       $0.10 (83%)        |
+| Business     |    $0.10     |  $0.020  |       $0.08 (80%)        |
+| Enterprise   |    $0.08     |  $0.020  |       $0.06 (75%)        |
 
-**Professional Plan - Processing 2,000 invoices/month:**
+### S3 Storage Growth Over 24 Months (8,000 invoices/month, ~500KB avg)
 
-| Cost Component | Monthly Cost | Notes |
-|----------------|--------------|-------|
-| SyncLedger Subscription | $499 | Includes all processing |
-| Microsoft 365 (3 inboxes) | $18 | Direct from Microsoft |
-| Sage Subscription | $50-200 | Your existing cost |
-| **Premium AI Services** | **Optional** | |
-| └─ Standard OCR (included) | $0 | Free, handles 95%+ invoices |
-| └─ AWS Textract (if needed) | $0-15 | Only if enabled |
-| **Total (without AI)** | **$517-717** | **Most common scenario** |
-| **Total (with premium AI)** | **$532-732** | **If enabled** |
+| Month  | Total Data |            Storage Tiers             | Monthly S3 Cost | Cumulative S3 |
+| ------ | :--------: | :----------------------------------: | :-------------: | :-----------: |
+| 3      |   12 GB    |            12 GB Standard            |      $0.28      |     $0.56     |
+| 6      |   24 GB    |         12 GB Std + 12 GB IA         |      $0.43      |     $1.82     |
+| 9      |   36 GB    |         12 GB Std + 24 GB IA         |      $0.58      |     $3.33     |
+| 12     |   48 GB    |         12 GB Std + 36 GB IA         |      $0.73      |     $5.09     |
+| 15     |   60 GB    | 12 GB Std + 36 GB IA + 12 GB Glacier |      $0.78      |     $7.06     |
+| 18     |   72 GB    | 12 GB Std + 36 GB IA + 24 GB Glacier |      $0.83      |     $9.13     |
+| 21     |   84 GB    | 12 GB Std + 36 GB IA + 36 GB Glacier |      $0.88      |    $11.30     |
+| **24** | **96 GB**  | 12 GB Std + 36 GB IA + 48 GB Glacier |    **$0.92**    |  **$13.57**   |
+
+> S3 lifecycle policy keeps storage cost under **$1/month** even at 96GB — negligible impact.
 
 ---
+
+## 📈 2-Year Total Cost Projection (Business Plan — 8,000 invoices/month)
+
+### Your Revenue
+
+| Period       | Monthly Revenue | Cumulative Revenue |
+| ------------ | :-------------: | :----------------: |
+| Month 1      |      $799       |        $799        |
+| Month 6      |      $799       |       $4,794       |
+| Month 12     |      $799       |       $9,588       |
+| Month 18     |      $799       |      $14,382       |
+| **Month 24** |    **$799**     |    **$19,176**     |
+
+### Your Total Cost (Infrastructure + AI)
+
+| Period       | Monthly Cost | Cumulative Cost | Monthly Profit |
+| ------------ | :----------: | :-------------: | :------------: |
+| Month 1      |     $195     |      $195       |      $604      |
+| Month 6      |     $195     |     $1,173      |      $604      |
+| Month 12     |     $196     |     $2,349      |      $603      |
+| Month 18     |     $197     |     $3,528      |      $602      |
+| **Month 24** |   **$197**   |   **$4,710**    |    **$602**    |
+
+### 2-Year Summary
+
+|                                     |   Amount    |
+| ----------------------------------- | :---------: |
+| **Total Revenue (24 months)**       | **$19,176** |
+| **Total Cost (24 months)**          | **$4,710**  |
+| **Total Profit (24 months)**        | **$14,466** |
+| **Average Monthly Profit**          |  **$603**   |
+| **Profit Margin**                   |  **75.4%**  |
+| **Plus onboarding fee (one-time)**  | **+$5,000** |
+| **Grand Total Revenue (24 months)** | **$24,176** |
+| **Grand Total Profit (24 months)**  | **$19,466** |
+
+### Cost Breakdown by Category (24 months)
+
+| Category                  | 24-Month Total | Monthly Avg | % of Cost |
+| ------------------------- | :------------: | :---------: | :-------: |
+| GPT-4o Vision API         |     $3,264     |   $136.00   |   69.3%   |
+| EC2 (Reserved Instance)   |      $456      |   $19.00    |   9.7%    |
+| RDS PostgreSQL (Reserved) |      $192      |    $8.00    |   4.1%    |
+| CloudWatch Logs & Alarms  |      $132      |    $5.50    |   2.8%    |
+| EBS Volume (30GB gp3)     |      $58       |    $2.40    |   1.2%    |
+| RDS Storage               |      $55       |    $2.30    |   1.2%    |
+| Data Transfer Out         |      $22       |    $0.90    |   0.5%    |
+| EBS Snapshots             |      $36       |    $1.50    |   0.8%    |
+| RDS Backups               |      $24       |    $1.00    |   0.5%    |
+| S3 Storage (lifecycle)    |      $14       |    $0.58    |   0.3%    |
+| Route 53 DNS              |      $12       |    $0.50    |   0.3%    |
+| Domain Name               |      $24       |    $1.00    |   0.5%    |
+| OpenAI API Buffer (10%)   |      $326      |   $13.60    |   6.9%    |
+| SSL Certificate (ACM)     |       $0       |     $0      |    0%     |
+| Elastic IP                |       $0       |     $0      |    0%     |
+| SSM Parameters            |       $0       |     $0      |    0%     |
+| **TOTAL**                 |   **$4,615**   |  **$192**   | **100%**  |
+
+> **69% of production cost is GPT-4o Vision API.** Infrastructure is only ~$57/month.
+
+---
+
 ## 📈 Return on Investment (ROI)
 
-### Sample ROI Calculation (Professional Plan Example)
-
-**Scenario**: Company processing 2,000 invoices/month
+### ROI Calculation — Business Plan (8,000 invoices/month)
 
 #### Current Manual Process Costs:
-- Time per invoice: 20 minutes
-- Total time monthly: 2,000 × 20 min = 667 hours
-- Staff hourly cost: $30/hour
-- **Monthly labor cost**: 667 × $30 = **$20,000**
+- Average time per invoice (manual entry): 20 minutes
+- Total time monthly: 8,000 × 20 min = 2,667 hours
+- Staff hourly cost (loaded): $30/hour
+- **Monthly labor cost**: 2,667 × $30 = **$80,000**
 
-#### With SyncLedger:
-- Time per invoice: 5 minutes (75% reduction)
-- Total time monthly: 2,000 × 5 min = 167 hours
+#### With SyncLedger (AI-Powered):
+- Average time per invoice (AI-extracted, review only): 3 minutes
+- Total time monthly: 8,000 × 3 min = 400 hours
 - Staff hourly cost: $30/hour
-- Monthly labor cost: 167 × $30 = $5,000
-- SyncLedger subscription: $499/month
-- **Total monthly cost**: $5,000 + $499 = **$5,499**
+- Monthly labor cost: 400 × $30 = $12,000
+- SyncLedger subscription: $799/month
+- **Total monthly cost**: $12,000 + $799 = **$12,799**
 
 #### Savings:
-- **Monthly savings**: $20,000 - $5,499 = **$14,501**
-- **Annual savings**: $14,501 × 12 = **$174,012**
-- **ROI**: 2,640% annually
+- **Monthly savings**: $80,000 − $12,799 = **$67,201**
+- **Annual savings**: $67,201 × 12 = **$806,412**
+- **2-Year savings**: $67,201 × 24 = **$1,612,824**
+- **ROI**: 8,410% annually
 
-**Payback period**: Less than 1 month!
+**Payback period**: Less than 1 week!
 
 ### Additional Benefits (Not Quantified):
-- ✅ Reduced error rates (95%+ accuracy vs manual entry)
+- ✅ 97%+ extraction accuracy vs ~85% manual entry accuracy
+- ✅ Works with any vendor format — no manual template setup
+- ✅ Handles scanned, digital, handwritten, and multi-language invoices
 - ✅ Faster approval cycles leading to early payment discounts
 - ✅ Complete audit trail for compliance
 - ✅ Better vendor relationships with faster processing
 - ✅ Real-time visibility into invoice status
 - ✅ Reduced risk of duplicate payments
+- ✅ Excel export for accountant analysis
 - ✅ Scalability without proportional headcount increase
+
+---
+
+## 📊 Total Cost of Ownership — Client Perspective
+
+### Business Plan: Processing 8,000 invoices/month
+
+| Cost Component            |  Monthly Cost  |    Annual Cost    | Notes                  |
+| ------------------------- | :------------: | :---------------: | ---------------------- |
+| SyncLedger Subscription   |      $799      |  $7,990 (annual)  | Includes AI processing |
+| Microsoft 365 (5 inboxes) |      $30       |       $360        | Direct from Microsoft  |
+| Sage Subscription         |    $100–200    |   $1,200–2,400    | Your existing cost     |
+| **Total Monthly**         | **$929–1,029** | **$9,550–10,750** |                        |
+
+### What If You Exceed 10,000 Invoices?
+
+| Monthly Volume |                 Base Plan                 |       Overage        | Total Monthly Cost |
+| :------------: | :---------------------------------------: | :------------------: | :----------------: |
+|     8,000      |                   $799                    |          $0          |      **$799**      |
+|     10,000     |                   $799                    |          $0          |      **$799**      |
+|     10,500     |                   $799                    |  500 × $0.10 = $50   |      **$849**      |
+|     11,000     |                   $799                    | 1,000 × $0.10 = $100 |      **$899**      |
+|     12,000     |                   $799                    | 2,000 × $0.10 = $200 |      **$999**      |
+|    13,000+     | Consider upgrading to Enterprise ($1,499) |                      |                    |
+
+> **Tip:** If overages consistently exceed $700/month (i.e., >17,000 invoices), upgrading to Enterprise ($1,499) is more cost-effective.
 
 ---
 
@@ -418,8 +618,10 @@ Includes:
 
 All plans include:
 - ✅ 256-bit SSL/TLS encryption in transit
-- ✅ AES-256 encryption at rest
+- ✅ AES-256 encryption at rest (S3, EBS, RDS)
 - ✅ Role-based access control (RBAC)
+- ✅ Server-side refresh token session management
+- ✅ Device tracking and session revocation
 - ✅ Multi-factor authentication (MFA) option
 - ✅ Regular security updates and patches
 - ✅ Automated backups with disaster recovery
@@ -438,22 +640,23 @@ All plans include:
 ## 📞 Support & Service Level Agreements
 
 ### Support Channels
-- **Email**: support@vedvix.com
-- **Phone**: Available for Professional & Enterprise plans
+- **Email**: support@SyncLedger.com
+- **Phone**: Available for Professional, Business & Enterprise plans
 - **Portal**: 24/7 ticket submission system
 - **Chat**: Available during business hours
 
 ### Response Times
 
-| Priority | Starter | Professional | Enterprise |
-|----------|---------|--------------|------------|
-| Critical (System Down) | 24 hours | 4 hours | 1 hour |
-| High (Major Feature) | 48 hours | 8 hours | 2 hours |
-| Medium (Minor Issue) | 72 hours | 16 hours | 4 hours |
-| Low (Enhancement) | 5 business days | 3 business days | 24 hours |
+| Priority               | Starter  | Professional | Business | Enterprise |
+| ---------------------- | :------: | :----------: | :------: | :--------: |
+| Critical (System Down) | 24 hours |   4 hours    | 2 hours  |   1 hour   |
+| High (Major Feature)   | 48 hours |   8 hours    | 4 hours  |  2 hours   |
+| Medium (Minor Issue)   | 72 hours |   16 hours   | 8 hours  |  4 hours   |
+| Low (Enhancement)      |  5 days  |    3 days    |  2 days  |  24 hours  |
 
 ### Business Hours
 - **Standard**: Monday-Friday, 9 AM - 6 PM (local time)
+- **Business**: Extended hours, Monday-Saturday
 - **Enterprise**: 24/7/365 for critical issues
 
 ---
@@ -467,7 +670,7 @@ All plans include:
 - ✅ User guides and quick reference cards
 - ✅ Regular product updates newsletter
 
-### Professional & Enterprise:
+### Professional & Business:
 - ✅ Webinar training sessions (quarterly)
 - ✅ Early access to new features
 - ✅ Beta program participation
@@ -486,7 +689,7 @@ All plans include:
 - Monthly subscriptions billed on the 1st of each month
 - Annual subscriptions billed upfront with 2 months free
 - Implementation fees due before project start
-- Usage overages billed monthly in arrears
+- **Invoice overages billed monthly in arrears** (1st of following month)
 
 ### Contract Terms
 - **Monthly**: 30-day notice for cancellation
@@ -502,53 +705,57 @@ All plans include:
 - Upgrade anytime with prorated billing
 - Downgrade at contract renewal or with 30-day notice
 - Feature access changes immediately upon plan change
+- **Overage rates apply based on your current plan tier**
 
 ---
 
 ## 🚀 Getting Started
 
 ### Step 1: Choose Your Plan
-Review the features and select the plan that best fits your needs. Not sure? Contact us for a free consultation.
+Review the features and select the plan that best fits your invoice volume. Not sure? Contact us for a free consultation.
 
 ### Step 2: Sign Up
 Complete our online signup form or contact our sales team:
-- **Email**: sales@vedvix.com
+- **Email**: sales@SyncLedger.com
 - **Phone**: +1 (888) 555-SYNC
 - **Website**: www.syncledger.com
 
 ### Step 3: Onboarding
-Our team will schedule your implementation and training sessions.
+Our team will schedule your implementation, validate AI extraction with your sample invoices, and conduct training.
 
 ### Step 4: Go Live
-Start processing invoices automatically within 1-2 weeks!
+Start processing invoices with 97%+ accuracy within 1-2 weeks!
 
 ---
 
 ## 💡 Frequently Asked Questions
 
 ### Q: Can I try SyncLedger before committing?
-**A**: Yes! We offer a 30-day free trial with full access to Professional plan features. Contact us to get started.
+**A**: Yes! We offer a 14-day free trial with full access to Professional plan features (up to 200 invoices). Contact us to get started.
 
-### Q: Are there any per-invoice or per-usage fees?
-**A**: No! SyncLedger uses flat-rate subscription pricing. Your monthly fee covers unlimited processing with our built-in OCR technology. There are no hidden per-invoice, per-page, or token-based charges for standard operation. Optional premium AI services (AWS Textract, GPT-4 Vision) are available but not required.
+### Q: How does the AI Vision extraction work?
+**A**: Every invoice PDF is converted to a high-resolution image and sent to OpenAI's GPT-4o Vision model. The AI "reads" the invoice like a human — understanding layouts, tables, headers, and context. It returns structured JSON data with 97%+ accuracy, regardless of the vendor format. This works on scanned PDFs, digital PDFs, handwritten notes, and multi-language documents.
 
-### Q: Do I need to pay for OCR or AI processing?
-**A**: No additional fees for standard processing. SyncLedger includes free, open-source OCR technology (Tesseract) that handles 95%+ of invoices with high accuracy. Premium AI services are optional add-ons for edge cases.
+### Q: What happens if I exceed my plan's invoice limit?
+**A**: Your invoices continue processing without interruption. Additional invoices beyond your plan limit are billed at the overage rate for your tier ($0.08–$0.15 per invoice). You receive automated alerts at 80% and 100% of your limit. Overages are billed on the 1st of the following month. If you're consistently over, we recommend upgrading to the next plan tier.
+
+### Q: Are there any hidden fees beyond the subscription?
+**A**: No hidden fees. Your subscription includes all AI processing, infrastructure, storage, and support within your plan limits. The only additional costs are: (1) invoice overages if you exceed your limit, (2) optional add-ons you choose to enable, and (3) third-party services (Microsoft 365, Sage) billed directly by those providers.
 
 ### Q: What third-party services do I need to pay for separately?
 **A**: You'll need:
-- **Microsoft 365 email license** (~$6-12/mailbox/month) - billed by Microsoft
+- **Microsoft 365 email license** (~$6-12/mailbox/month) — billed by Microsoft
 - **Sage accounting system** (your existing subscription)
-- **Optional**: Premium AI services (AWS Textract, OpenAI GPT-4) - only if you choose to enable them
-
-### Q: What happens if I exceed my invoice limit?
-**A**: Overages are billed at $0.10 per invoice. We'll notify you at 80% and 100% of your limit. You can upgrade anytime.
+- That's it! AI processing is fully included.
 
 ### Q: Is my data secure?
-**A**: Absolutely. We use bank-level encryption, regular security audits, and follow industry best practices. See our Security section above.
+**A**: Absolutely. We use bank-level encryption (AES-256 at rest, TLS 1.3 in transit), server-side refresh token session management, role-based access control, and follow industry best practices. Invoice images sent to GPT-4o are processed in real-time and not stored by OpenAI.
 
 ### Q: Can I cancel anytime?
-**A**: Monthly subscriptions can be cancelled with 30 days notice. Annual subscriptions have a 12-month commitment.
+**A**: Monthly subscriptions can be cancelled with 30 days notice. Annual subscriptions have a 12-month commitment. Your data is available for export for 90 days after cancellation.
+
+### Q: What accuracy can I expect?
+**A**: GPT-4o Vision AI achieves 97%+ accuracy on invoice field extraction across all vendor formats. Complex invoices with unusual layouts may occasionally need manual review, which the system automatically flags with a confidence score.
 
 ### Q: Do you offer discounts for non-profits?
 **A**: Yes! We offer 20% discount for registered non-profit organizations. Contact sales for details.
@@ -556,21 +763,15 @@ Start processing invoices automatically within 1-2 weeks!
 ### Q: Can I integrate with accounting systems other than Sage?
 **A**: Enterprise plans support custom integrations. We're also adding QuickBooks and Xero support in Q2 2026.
 
-### Q: What if I need more than the Enterprise plan offers?
-**A**: We can create a custom plan tailored to your specific needs. Contact our enterprise sales team.
+### Q: What if my invoice volume fluctuates seasonally?
+**A**: The overage system handles this naturally. Choose a plan based on your average monthly volume. During peak months, overages cover the excess — and you only pay for what you use over the limit. No need to upgrade for temporary spikes.
 
-### Q: Do you offer training for new employees?
-**A**: Yes! Additional training sessions can be purchased at $200/hour, or included in Enterprise plans.
-
-### Q: Is there a setup fee?
-**A**: Implementation packages start at $2,500. This ensures proper configuration and training for success.
-
-### Q: What is the typical implementation timeline?
-**A**: Standard implementations take 1-2 weeks. Complex enterprise deployments may take 4-6 weeks.
+### Q: How is the overage calculated?
+**A**: At the end of each month, we count total invoices processed. If the count exceeds your plan limit, each additional invoice is billed at your tier's overage rate. Example: Business plan (10,000 limit) with 10,800 invoices processed = 800 × $0.10 = $80 overage.
 
 ---
 
-## � Platform Development & Infrastructure Costs
+## 🏗️ Platform Development & Infrastructure Costs
 
 ### Development Cost Analysis
 
@@ -578,231 +779,73 @@ Start processing invoices automatically within 1-2 weeks!
 
 #### Full Development Cost Breakdown
 
-| Component | Hours | Rate | Total Cost | Description |
-|-----------|-------|------|------------|-------------|
-| **Backend Development** | 200 | $75/hr | **$15,000** | Spring Boot REST API, JWT auth, multi-tenancy |
-| **PDF Microservice** | 80 | $75/hr | **$6,000** | Python FastAPI, OCR integration, field extraction |
-| **Frontend Development** | 160 | $75/hr | **$12,000** | React/TypeScript UI, responsive design |
-| **Database Design** | 40 | $75/hr | **$3,000** | PostgreSQL schema, migrations, optimization |
-| **Email Integration** | 60 | $75/hr | **$4,500** | Microsoft Graph API, polling service |
-| **Sage Integration** | 60 | $75/hr | **$4,500** | API integration, sync logic, error handling |
-| **DevOps & Deployment** | 50 | $75/hr | **$3,750** | Docker, AWS setup, CI/CD pipelines |
-| **Security Implementation** | 40 | $75/hr | **$3,000** | Encryption, RBAC, audit logging |
-| **Testing & QA** | 80 | $75/hr | **$6,000** | Unit tests, integration tests, UAT |
-| **Documentation** | 30 | $75/hr | **$2,250** | Technical docs, user guides, API docs |
-| **Project Management** | 60 | $75/hr | **$4,500** | Planning, coordination, reporting |
-| **TOTAL** | **860 hrs** | | **$64,500** | Full platform development |
+| Component                    |     Hours     |  Rate  | Total Cost  | Description                                    |
+| ---------------------------- | :-----------: | :----: | :---------: | ---------------------------------------------- |
+| **Backend Development**      |      200      | $75/hr | **$15,000** | Spring Boot REST API, JWT auth, multi-tenancy  |
+| **AI Extraction Service**    |      120      | $75/hr | **$9,000**  | GPT-4o Vision integration, confidence scoring  |
+| **PDF Microservice**         |      80       | $75/hr | **$6,000**  | Python FastAPI, OCR fallback, field extraction |
+| **Frontend Development**     |      160      | $75/hr | **$12,000** | React/TypeScript UI, responsive design         |
+| **Database Design**          |      40       | $75/hr | **$3,000**  | PostgreSQL schema, migrations, optimization    |
+| **Email Integration**        |      60       | $75/hr | **$4,500**  | Microsoft Graph API, polling service           |
+| **Sage Integration**         |      60       | $75/hr | **$4,500**  | API integration, sync logic, error handling    |
+| **DevOps & Deployment**      |      50       | $75/hr | **$3,750**  | Docker, AWS setup, CI/CD pipelines             |
+| **Security Implementation**  |      50       | $75/hr | **$3,750**  | Encryption, RBAC, session management, audit    |
+| **Excel Export & Analytics** |      40       | $75/hr | **$3,000**  | Apache POI, advanced filters, summary sheets   |
+| **Testing & QA**             |      80       | $75/hr | **$6,000**  | Unit tests, integration tests, UAT             |
+| **Documentation**            |      30       | $75/hr | **$2,250**  | Technical docs, user guides, API docs          |
+| **Project Management**       |      60       | $75/hr | **$4,500**  | Planning, coordination, reporting              |
+| **TOTAL**                    | **1,030 hrs** |        | **$77,250** | Full platform development                      |
 
-**Timeline:** 12-16 weeks with 2 full-time developers
+**Timeline:** 14-18 weeks with 2 full-time developers
 
 **Additional Hidden Costs:**
+- OpenAI API account setup and management: $1,000-2,000
 - Infrastructure setup and configuration: $3,000-5,000
 - Third-party API integrations and testing: $2,000-3,000
 - Bug fixes and stabilization: $5,000-8,000
-- **Realistic Total: $74,500 - $80,500**
+- **Realistic Total: $88,250 - $95,250**
 
 **Ongoing Maintenance Costs (if self-hosted):**
 - Developer time for updates/bugs: $3,000-5,000/month
+- OpenAI API costs (8K invoices): $150/month
 - Infrastructure management: $1,000-2,000/month
 - Security patches and monitoring: $1,000/month
-- **Annual maintenance: $60,000-96,000**
+- **Annual maintenance: $62,000-98,000**
 
 ---
 
-### Infrastructure Cost Breakdown
+### Total Cost of Ownership — 2-Year Comparison
 
-**What You Pay With SyncLedger Subscription vs. Self-Hosting**
+#### Business Plan (8,000 invoices/month) — 2-Year TCO
 
-#### Starter Plan Infrastructure
+| Cost Component              | SyncLedger Subscription |      Self-Hosted      |   Savings    |
+| --------------------------- | :---------------------: | :-------------------: | :----------: |
+| **Year 1**                  |                         |                       |              |
+| Initial Development         |    $0 (ready to use)    |        $91,750        |   $91,750    |
+| Implementation              |         $5,000          |        $8,000         |    $3,000    |
+| Subscription/Infrastructure |     $7,990 (annual)     | $77,400 (infra + dev) |   $69,410    |
+| Microsoft 365 (5 inboxes)   |          $360           |         $360          |      $0      |
+| **Year 1 Total**            |       **$13,350**       |     **$177,510**      | **$164,160** |
+|                             |                         |                       |              |
+| **Year 2**                  |                         |                       |              |
+| Subscription/Infrastructure |         $7,990          |        $77,400        |   $69,410    |
+| Microsoft 365               |          $360           |         $360          |      $0      |
+| AI API growth (S3 storage)  |        Included         |          $30          |     $30      |
+| **Year 2 Total**            |       **$8,350**        |      **$77,790**      | **$69,440**  |
+|                             |                         |                       |              |
+| **2-Year Grand Total**      |       **$21,700**       |     **$255,300**      | **$233,600** |
 
-| Service | SyncLedger (Included) | Self-Hosting Cost | Savings |
-|---------|----------------------|-------------------|---------|
-| AWS EC2 (t3.small) | ✅ Included | $15-20/month | $15-20 |
-| AWS RDS PostgreSQL | ✅ Included | $15-25/month | $15-25 |
-| AWS S3 Storage (50GB) | ✅ Included | $5-10/month | $5-10 |
-| AWS SQS Queues | ✅ Included | $2-5/month | $2-5 |
-| Load Balancer | ✅ Included | $16/month | $16 |
-| CloudWatch Monitoring | ✅ Included | $10-15/month | $10-15 |
-| Backups & Snapshots | ✅ Included | $5-10/month | $5-10 |
-| SSL Certificates | ✅ Included | $50-100/year | $4-8/mo |
-| **SUBTOTAL** | **$199/month** | **$72-113/month** | |
-| **Plus Microsoft 365** | $6/mailbox | $6/mailbox | - |
-| **Your Total** | **$205/month** | **$78-119/month** | |
-
-**But with self-hosting you also need:**
-- Developer maintenance: $3,000-5,000/month
-- Server management time: $500-1,000/month
-- **Realistic self-hosting cost: $3,578-6,119/month**
+**ROI: You save 91.5% over 2 years with SyncLedger subscription**
 
 ---
 
-#### Professional Plan Infrastructure
+## 📧 Contact Information
 
-| Service | SyncLedger (Included) | Self-Hosting Cost | Savings |
-|---------|----------------------|-------------------|---------|
-| AWS EC2 (t3.medium) | ✅ Included | $35-50/month | $35-50 |
-| AWS RDS PostgreSQL (db.t3.small) | ✅ Included | $50-75/month | $50-75 |
-| AWS S3 Storage (200GB) | ✅ Included | $20-30/month | $20-30 |
-| AWS SQS Queues (higher throughput) | ✅ Included | $10-20/month | $10-20 |
-| Load Balancer + Auto-scaling | ✅ Included | $30-50/month | $30-50 |
-| CloudWatch + Enhanced Monitoring | ✅ Included | $25-40/month | $25-40 |
-| Backups & DR (30-day retention) | ✅ Included | $20-40/month | $20-40 |
-| WAF & Security Services | ✅ Included | $50-75/month | $50-75 |
-| CDN (CloudFront) | ✅ Included | $20-30/month | $20-30 |
-| **SUBTOTAL** | **$499/month** | **$260-410/month** | |
-| **Plus Microsoft 365** | $18/month (3) | $18/month | - |
-| **Your Total** | **$517/month** | **$278-428/month** | |
+**SyncLedger - SyncLedger Division**
 
-**But with self-hosting you also need:**
-- Developer maintenance: $3,000-5,000/month
-- DevOps engineer (part-time): $2,000-3,000/month
-- 24/7 monitoring service: $500-1,000/month
-- **Realistic self-hosting cost: $5,778-9,428/month**
-
----
-
-#### Enterprise Plan Infrastructure
-
-| Service | SyncLedger (Included) | Self-Hosting Cost | Savings |
-|---------|----------------------|-------------------|---------|
-| AWS EC2 (t3.large + redundancy) | ✅ Included | $150-250/month | $150-250 |
-| AWS RDS (Multi-AZ, db.t3.medium) | ✅ Included | $200-350/month | $200-350 |
-| AWS S3 Storage (unlimited) | ✅ Included | $50-200/month | $50-200 |
-| AWS SQS (multiple queues) | ✅ Included | $20-50/month | $20-50 |
-| Load Balancer + Auto-scaling | ✅ Included | $100-150/month | $100-150 |
-| CloudWatch + Enhanced Monitoring | ✅ Included | $50-100/month | $50-100 |
-| Backups & DR (90-day, geo-redundant) | ✅ Included | $100-200/month | $100-200 |
-| WAF + Shield + GuardDuty | ✅ Included | $100-200/month | $100-200 |
-| CDN + Edge Locations | ✅ Included | $50-100/month | $50-100 |
-| VPC + Private networking | ✅ Included | $50-75/month | $50-75 |
-| Secrets Manager | ✅ Included | $10-20/month | $10-20 |
-| **SUBTOTAL** | **$1,299/month** | **$880-1,695/month** | |
-| **Plus Microsoft 365** | Variable | Variable | - |
-| **Your Total** | **$1,299+/month** | **$880-1,695/month** | |
-
-**But with self-hosting you also need:**
-- 2+ Full-time developers: $10,000-15,000/month
-- Full-time DevOps engineer: $8,000-12,000/month
-- 24/7 monitoring & support: $2,000-5,000/month
-- Security audits & compliance: $2,000-3,000/month
-- **Realistic self-hosting cost: $22,880-36,695/month**
-
----
-
-### Total Cost of Ownership (3-Year Comparison)
-
-#### Starter Plan - 3 Year TCO
-
-| Cost Component | SyncLedger Subscription | Self-Hosted | Savings |
-|----------------|------------------------|-------------|---------|
-| **Year 1** | | | |
-| Initial Development | $0 (ready to use) | $74,500 | $74,500 |
-| Implementation | $2,500 | $5,000 | $2,500 |
-| Subscription/Infrastructure | $1,990 (annual) | $93,336 (infra + dev) | $91,346 |
-| Microsoft 365 | $72 | $72 | $0 |
-| **Year 1 Total** | **$4,562** | **$172,908** | **$168,346** |
-| | | | |
-| **Year 2-3 (each)** | | | |
-| Subscription/Infrastructure | $1,990 | $93,336 | $91,346 |
-| Microsoft 365 | $72 | $72 | $0 |
-| **Per Year** | **$2,062** | **$93,408** | **$91,346** |
-| | | | |
-| **3-Year Total** | **$8,686** | **$359,724** | **$351,038** |
-
-**ROI: You save 97.6% over 3 years with SyncLedger subscription**
-
----
-
-#### Professional Plan - 3 Year TCO
-
-| Cost Component | SyncLedger Subscription | Self-Hosted | Savings |
-|----------------|------------------------|-------------|---------|
-| **Year 1** | | | |
-| Initial Development | $0 (ready to use) | $74,500 | $74,500 |
-| Implementation | $5,000 | $8,000 | $3,000 |
-| Subscription/Infrastructure | $4,990 (annual) | $113,136 (infra + dev) | $108,146 |
-| Microsoft 365 | $216 (3 mailboxes) | $216 | $0 |
-| **Year 1 Total** | **$10,206** | **$195,852** | **$185,646** |
-| | | | |
-| **Year 2-3 (each)** | | | |
-| Subscription/Infrastructure | $4,990 | $113,136 | $108,146 |
-| Microsoft 365 | $216 | $216 | $0 |
-| **Per Year** | **$5,206** | **$113,352** | **$108,146** |
-| | | | |
-| **3-Year Total** | **$20,618** | **$422,556** | **$401,938** |
-
-**ROI: You save 95.1% over 3 years with SyncLedger subscription**
-
----
-
-#### Enterprise Plan - 3 Year TCO
-
-| Cost Component | SyncLedger Subscription | Self-Hosted | Savings |
-|----------------|------------------------|-------------|---------|
-| **Year 1** | | | |
-| Initial Development | $0 (ready to use) | $80,500 (enhanced) | $80,500 |
-| Implementation | Custom ($10,000) | $15,000 | $5,000 |
-| Subscription/Infrastructure | $12,990 (annual) | $274,440 (infra + dev) | $261,450 |
-| Microsoft 365 | $720+ (10+ mailboxes) | $720+ | $0 |
-| **Year 1 Total** | **$23,710** | **$370,660** | **$346,950** |
-| | | | |
-| **Year 2-3 (each)** | | | |
-| Subscription/Infrastructure | $12,990 | $274,440 | $261,450 |
-| Microsoft 365 | $720 | $720 | $0 |
-| **Per Year** | **$13,710** | **$275,160** | **$261,450** |
-| | | | |
-| **3-Year Total** | **$51,130** | **$920,980** | **$869,850** |
-
-**ROI: You save 94.4% over 3 years with SyncLedger subscription**
-
----
-
-### What's Included in Your Subscription
-
-**You're not just paying for servers - you're getting a complete managed service:**
-
-✅ **Development & Maintenance**
-- Continuous platform improvements
-- New features and enhancements
-- Bug fixes at no additional cost
-- Security patches and updates
-
-✅ **Infrastructure Management**
-- 24/7 server monitoring
-- Automatic scaling
-- Database optimization
-- Backup management
-- Disaster recovery
-
-✅ **Support & Expertise**
-- Technical support team
-- Platform expertise
-- Best practices guidance
-- Training and onboarding
-
-✅ **Compliance & Security**
-- Regular security audits
-- Compliance certifications
-- Penetration testing
-- Data encryption
-
-✅ **No Hidden Costs**
-- No surprise bills
-- Predictable monthly costs
-- No vendor management overhead
-- No hiring technical staff
-
-**Bottom Line:** Even if infrastructure costs seem comparable, the hidden costs of development, maintenance, staffing, and management make self-hosting 10-20x more expensive than our subscription.
-
----
-
-## �📧 Contact Information
-
-**Vedvix (Nevorix) - SyncLedger Division**
-
-- **Sales Inquiries**: sales@vedvix.com
-- **Technical Support**: support@vedvix.com
-- **General Information**: info@vedvix.com
+- **Sales Inquiries**: sales@SyncLedger.com
+- **Technical Support**: support@SyncLedger.com
+- **General Information**: info@SyncLedger.com
 - **Phone**: +1 (888) 555-SYNC
 - **Website**: www.syncledger.com
 
@@ -812,22 +855,22 @@ Start processing invoices automatically within 1-2 weeks!
 
 ## ✅ Next Steps
 
-Ready to transform your invoice processing? Here's what to do:
+Ready to transform your invoice processing with AI?
 
 1. **Schedule a Demo**: See SyncLedger in action with your own sample invoices
-2. **Start Free Trial**: 30-day trial with no credit card required
+2. **Start Free Trial**: 14-day trial with up to 200 invoices, no credit card required
 3. **Get a Custom Quote**: For enterprise needs or custom requirements
 4. **Contact Sales**: Speak with our team about your specific needs
 
 **Special Offer**: Sign up before March 31, 2026, and receive:
 - ✨ 15% off your first year (annual plans)
-- ✨ Free Premium Onboarding ($5,000 value) with annual Professional or Enterprise plans
-- ✨ Extended 60-day free trial
+- ✨ Free Premium Onboarding ($5,000 value) with annual Business or Enterprise plans
+- ✨ Extended 30-day free trial
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: February 10, 2026  
+**Document Version**: 2.0  
+**Last Updated**: February 13, 2026  
 **Prepared For**: Prospective Clients  
 **Valid Through**: March 31, 2026
 

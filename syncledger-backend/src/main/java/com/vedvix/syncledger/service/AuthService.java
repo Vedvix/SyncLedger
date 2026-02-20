@@ -13,6 +13,7 @@ import com.vedvix.syncledger.security.JwtTokenProvider;
 import com.vedvix.syncledger.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -22,10 +23,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Authentication service handling login, registration, and token management.
  * Supports multi-tenant authentication with organization context.
+ * 
+ * Features:
+ * - Secure refresh token rotation
+ * - Token reuse attack detection
+ * - Session management (view/revoke sessions)
+ * - Multi-device support with configurable limits
  * 
  * @author vedvix
  */
@@ -39,12 +47,22 @@ public class AuthService {
     private final OrganizationRepository organizationRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
+    private final RefreshTokenService refreshTokenService;
+
+    @Value("${jwt.expiration:3600000}")
+    private long accessTokenExpirationMs;
 
     /**
      * Authenticate user and generate JWT tokens.
+     * Creates a server-side refresh token for session management.
+     * 
+     * @param request Login credentials
+     * @param userAgent User agent string from request
+     * @param ipAddress IP address of the client
+     * @return Authentication response with tokens
      */
     @Transactional
-    public AuthResponse login(LoginRequest request) {
+    public AuthResponse login(LoginRequest request, String userAgent, String ipAddress) {
         try {
             Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -54,20 +72,25 @@ public class AuthService {
             );
 
             UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+            User user = userRepository.findById(userPrincipal.getId())
+                    .orElseThrow(() -> new UnauthorizedException("User not found"));
             
-            // Update last login timestamp
+            // Update last login timestamp (also resets failed attempts)
             userRepository.updateLastLogin(userPrincipal.getId(), LocalDateTime.now());
             
+            // Generate access token (stateless JWT)
             String accessToken = tokenProvider.generateToken(userPrincipal);
-            String refreshToken = tokenProvider.generateRefreshToken(userPrincipal);
+            
+            // Generate refresh token (stored server-side for revocation support)
+            String refreshToken = refreshTokenService.createRefreshToken(user, userAgent, ipAddress);
 
-            log.info("User {} logged in successfully", request.getEmail());
+            log.info("User {} logged in successfully from IP: {}", request.getEmail(), ipAddress);
 
             return AuthResponse.builder()
                     .accessToken(accessToken)
                     .refreshToken(refreshToken)
                     .tokenType("Bearer")
-                    .expiresIn(3600L)
+                    .expiresIn(accessTokenExpirationMs / 1000)
                     .user(mapToUserDTO(userPrincipal))
                     .build();
 
@@ -90,17 +113,29 @@ public class AuthService {
     }
 
     /**
-     * Refresh access token using refresh token.
+     * Legacy login method for backward compatibility.
      */
-    @Transactional(readOnly = true)
-    public AuthResponse refreshToken(String refreshToken) {
-        if (!tokenProvider.validateToken(refreshToken) || !tokenProvider.isRefreshToken(refreshToken)) {
-            throw new UnauthorizedException("Invalid refresh token");
-        }
+    @Transactional
+    public AuthResponse login(LoginRequest request) {
+        return login(request, null, null);
+    }
 
-        Long userId = tokenProvider.getUserIdFromToken(refreshToken);
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UnauthorizedException("User not found"));
+    /**
+     * Refresh access token using refresh token.
+     * Implements token rotation - the old refresh token is invalidated
+     * and a new one is issued.
+     * 
+     * @param refreshToken The refresh token to use
+     * @param userAgent User agent string from request
+     * @param ipAddress IP address of the client
+     * @return New authentication response with rotated tokens
+     */
+    @Transactional
+    public AuthResponse refreshToken(String refreshToken, String userAgent, String ipAddress) {
+        // Rotate the refresh token (validates, revokes old, creates new)
+        Object[] result = refreshTokenService.rotateRefreshToken(refreshToken, userAgent, ipAddress);
+        String newRefreshToken = (String) result[0];
+        User user = (User) result[1];
 
         if (!user.getIsActive()) {
             throw new UnauthorizedException("User account is disabled");
@@ -108,15 +143,82 @@ public class AuthService {
 
         UserPrincipal userPrincipal = UserPrincipal.create(user);
         String newAccessToken = tokenProvider.generateToken(userPrincipal);
-        String newRefreshToken = tokenProvider.generateRefreshToken(userPrincipal);
+
+        log.debug("Token refreshed for user {} from IP: {}", user.getEmail(), ipAddress);
 
         return AuthResponse.builder()
                 .accessToken(newAccessToken)
                 .refreshToken(newRefreshToken)
                 .tokenType("Bearer")
-                .expiresIn(3600L)
+                .expiresIn(accessTokenExpirationMs / 1000)
                 .user(mapToUserDTO(userPrincipal))
                 .build();
+    }
+
+    /**
+     * Legacy refresh token method for backward compatibility.
+     */
+    @Transactional
+    public AuthResponse refreshToken(String refreshToken) {
+        return refreshToken(refreshToken, null, null);
+    }
+
+    /**
+     * Logout user - revokes the current refresh token.
+     * 
+     * @param refreshToken The refresh token to revoke
+     */
+    @Transactional
+    public void logout(String refreshToken) {
+        if (refreshToken != null && !refreshToken.isEmpty()) {
+            refreshTokenService.revokeToken(refreshToken);
+            log.debug("User logged out, refresh token revoked");
+        }
+    }
+
+    /**
+     * Logout from all devices - revokes all refresh tokens for a user.
+     * 
+     * @param userId The user ID
+     * @return Number of sessions revoked
+     */
+    @Transactional
+    public int logoutAllDevices(Long userId) {
+        int count = refreshTokenService.revokeAllUserTokens(userId);
+        log.info("Logged out user {} from {} devices", userId, count);
+        return count;
+    }
+
+    /**
+     * Get all active sessions for a user.
+     * 
+     * @param userId The user ID
+     * @param currentRefreshToken The current refresh token (to mark as current)
+     * @return List of active sessions
+     */
+    @Transactional(readOnly = true)
+    public List<SessionDTO> getActiveSessions(Long userId, String currentRefreshToken) {
+        List<SessionDTO> sessions = refreshTokenService.getActiveSessions(userId);
+        
+        // Mark the current session
+        if (currentRefreshToken != null) {
+            // We can't directly compare tokens since we only store hashes,
+            // so we just return sessions as-is. The frontend will track current session.
+        }
+        
+        return sessions;
+    }
+
+    /**
+     * Revoke a specific session.
+     * 
+     * @param userId The user ID (for authorization check)
+     * @param sessionId The session ID to revoke
+     */
+    @Transactional
+    public void revokeSession(Long userId, Long sessionId) {
+        refreshTokenService.revokeSession(userId, sessionId);
+        log.info("User {} revoked session {}", userId, sessionId);
     }
 
     /**

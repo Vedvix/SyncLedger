@@ -92,3 +92,28 @@ body {
 .animate-slide-in {
   animation: slide-in-right 0.25s ease-out;
 }
+
+/* Export panel input */
+@layer components {
+  .input-sm {
+    @apply w-full px-3 py-2 text-sm border border-gray-200 rounded-lg
+      focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
+      bg-white text-gray-900 placeholder-gray-400;
+  }
+}
+
+/* Slide-in animation for export panel */
+@keyframes slide-in-from-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0.5;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-in.slide-in-from-right {
+  animation: slide-in-from-right 0.3s ease-out;
+}

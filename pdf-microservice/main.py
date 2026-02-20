@@ -38,6 +38,8 @@ from services.ocr_service import OCRService
 from services.field_parser import FieldParser
 from services.mapping_engine import MappingEngine
 from services.database_service import DatabaseService, init_db_service
+from services.ai_extraction_service import AIExtractionService
+from services.ai_models import ExtractionTier
 
 # Configure structured logging
 structlog.configure(
@@ -66,12 +68,13 @@ ocr_service: Optional[OCRService] = None
 field_parser: Optional[FieldParser] = None
 mapping_engine: Optional[MappingEngine] = None
 db_service: Optional[DatabaseService] = None
+ai_service: Optional[AIExtractionService] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
-    global pdf_extractor, ocr_service, field_parser, mapping_engine, db_service
+    global pdf_extractor, ocr_service, field_parser, mapping_engine, db_service, ai_service
     
     logger.info("Starting SyncLedger PDF Extraction Service")
     
@@ -80,6 +83,14 @@ async def lifespan(app: FastAPI):
     ocr_service = OCRService()
     field_parser = FieldParser()
     mapping_engine = MappingEngine()
+    
+    # Initialize AI extraction service
+    ai_service = AIExtractionService()
+    try:
+        await ai_service.initialize()
+        logger.info("AI extraction service initialized", ai_enabled=ai_service.is_ai_enabled)
+    except Exception as e:
+        logger.warning("AI extraction service initialization failed — using regex only", error=str(e))
     
     # Initialize database service
     try:
@@ -140,6 +151,114 @@ async def health_check():
     )
 
 
+async def _extract_with_ai_pipeline(
+    tmp_path: str,
+    extraction_result,
+    organization_id: Optional[int] = None,
+    profile_id: Optional[str] = None,
+) -> ExtractionResponse:
+    """
+    Core extraction helper that runs the AI pipeline with fallback.
+    
+    Flow:
+    1. Run AI extraction (Vision → Text+LLM → Regex cascade)
+    2. If AI succeeded: convert to InvoiceData, then apply mapping engine
+    3. If AI failed: fall back to regex + mapping engine (original pipeline)
+    4. Return ExtractionResponse with AI metadata
+    """
+    from models.invoice_data import ExtractionResponse
+    
+    raw_text = extraction_result.text
+    ai_result = None
+    ai_response_fields = {}
+    
+    # ── Run AI Pipeline ───────────────────────────────────────────────
+    if ai_service and ai_service.is_ai_enabled:
+        try:
+            ai_result = await ai_service.extract(
+                pdf_path=tmp_path,
+                raw_text=raw_text,
+                field_parser=field_parser,
+            )
+            
+            ai_response_fields = {
+                "ai_tier_used": ai_result.tier_used.value,
+                "ai_confidence": ai_result.final_confidence,
+                "ai_cost_usd": ai_result.estimated_cost_usd,
+                "ai_token_usage": ai_result.token_usage,
+            }
+            
+            if ai_result.cross_validation:
+                ai_response_fields["ai_validation"] = {
+                    "fields_compared": ai_result.cross_validation.total_fields_compared,
+                    "matching": ai_result.cross_validation.matching_fields,
+                    "mismatched": ai_result.cross_validation.mismatched_fields,
+                    "validation_score": ai_result.cross_validation.validation_score,
+                    "review_recommended": ai_result.cross_validation.recommended_review,
+                    "notes": ai_result.cross_validation.notes,
+                }
+            
+        except Exception as e:
+            logger.error("AI pipeline error, falling back to regex", error=str(e))
+            ai_result = None
+    
+    # ── Build InvoiceData ─────────────────────────────────────────────
+    if ai_result and ai_result.ai_extraction and ai_result.tier_used != ExtractionTier.REGEX:
+        # AI succeeded — convert to InvoiceData
+        invoice_data = ai_service.ai_to_invoice_data(ai_result, raw_text)
+        extraction_method = ai_result.tier_used.value
+        
+        # Still apply mapping engine for GL account, project, etc.
+        raw_fields, line_items = field_parser.parse_with_line_items(raw_text)
+        # Override raw_fields with AI-extracted values where available
+        ai_ext = ai_result.ai_extraction
+        if ai_ext.invoice_number:
+            raw_fields["invoice_number"] = ai_ext.invoice_number
+        if ai_ext.vendor and ai_ext.vendor.name:
+            raw_fields["vendor_name"] = ai_ext.vendor.name
+        if ai_ext.total_amount is not None:
+            raw_fields["total"] = ai_ext.total_amount
+        
+        mapping_result = mapping_engine.apply_mapping(
+            raw_fields=raw_fields,
+            line_items=invoice_data.line_items,
+            organization_id=organization_id,
+            profile_id=profile_id,
+        )
+        
+        # Apply mapped fields (GL, project, etc.) to invoice_data
+        if mapping_result.gl_account:
+            invoice_data.gl_account = mapping_result.gl_account
+        if mapping_result.project:
+            invoice_data.project = mapping_result.project
+        if mapping_result.location:
+            invoice_data.location = mapping_result.location
+        if mapping_result.cost_center:
+            invoice_data.cost_center = mapping_result.cost_center
+        invoice_data.mapping_profile_id = mapping_result.profile_used.id
+        
+        # Apply GL to line items
+        if mapping_result.gl_account:
+            for item in invoice_data.line_items:
+                if not item.gl_account_code:
+                    item.gl_account_code = mapping_result.gl_account
+        
+    else:
+        # Regex fallback — original pipeline
+        extraction_method = extraction_result.method
+        raw_fields, line_items = field_parser.parse_with_line_items(raw_text)
+        mapping_result = mapping_engine.apply_mapping(
+            raw_fields=raw_fields,
+            line_items=line_items,
+            organization_id=organization_id,
+            profile_id=profile_id,
+        )
+        invoice_data = mapping_result.invoice_data
+        invoice_data.mapping_profile_id = mapping_result.profile_used.id
+    
+    return invoice_data, extraction_method, mapping_result, ai_response_fields
+
+
 @app.post("/extract", response_model=ExtractionResponse, tags=["Extraction"])
 async def extract_invoice_data(
     file: UploadFile = File(..., description="PDF file to extract data from"),
@@ -155,8 +274,11 @@ async def extract_invoice_data(
     - Line items (description, quantity, unit price, total)
     - Tax and total amounts
     
-    The extraction uses PyMuPDF for text extraction with Tesseract OCR fallback
-    for scanned documents.
+    Extraction uses a 3-tier AI cascade:
+    1. GPT-4o Vision (best accuracy)
+    2. GPT-4o Text+LLM (fallback)
+    3. Regex FieldParser (last resort)
+    Results are cross-validated for confidence scoring.
     """
     if not file.filename.lower().endswith('.pdf'):
         raise HTTPException(
@@ -196,16 +318,11 @@ async def extract_invoice_data(
                 logger.info("Using OCR for scanned document", filename=file.filename)
                 extraction_result = await ocr_service.extract(tmp_path)
             
-            # Parse extracted text into raw fields + line items
-            raw_fields, line_items = field_parser.parse_with_line_items(extraction_result.text)
-            
-            # Apply configurable field mapping
-            mapping_result = mapping_engine.apply_mapping(
-                raw_fields=raw_fields,
-                line_items=line_items,
+            # Run AI extraction pipeline with fallback
+            invoice_data, extraction_method, mapping_result, ai_meta = await _extract_with_ai_pipeline(
+                tmp_path=tmp_path,
+                extraction_result=extraction_result,
             )
-            invoice_data = mapping_result.invoice_data
-            invoice_data.mapping_profile_id = mapping_result.profile_used.id
             
             # Optionally save to database
             invoice_id = None
@@ -214,9 +331,9 @@ async def extract_invoice_data(
                     invoice_id = await db_service.save_invoice(
                         invoice_data=invoice_data,
                         original_filename=file.filename,
-                        s3_key=f"uploads/{file.filename}",  # Temporary key
+                        s3_key=f"uploads/{file.filename}",
                         page_count=extraction_result.page_count,
-                        extraction_method=extraction_result.method,
+                        extraction_method=extraction_method,
                         extraction_duration_ms=extraction_result.processing_time_ms
                     )
                     logger.info("Invoice saved to database", invoice_id=invoice_id)
@@ -227,7 +344,7 @@ async def extract_invoice_data(
                 "Extraction completed",
                 filename=file.filename,
                 confidence=invoice_data.confidence_score,
-                method=extraction_result.method,
+                method=extraction_method,
                 mapping_profile=mapping_result.profile_used.name,
                 gl_account=mapping_result.gl_account,
                 project=mapping_result.project,
@@ -237,11 +354,12 @@ async def extract_invoice_data(
             return ExtractionResponse(
                 success=True,
                 data=invoice_data,
-                extraction_method=extraction_result.method,
+                extraction_method=extraction_method,
                 page_count=extraction_result.page_count,
                 processing_time_ms=extraction_result.processing_time_ms,
                 invoice_id=invoice_id,
-                mapping_info=mapping_result.to_dict()
+                mapping_info=mapping_result.to_dict(),
+                **ai_meta,
             )
             
         finally:
@@ -286,21 +404,20 @@ async def extract_from_url(url: str):
             if extraction_result.needs_ocr:
                 extraction_result = await ocr_service.extract(tmp_path)
             
-            raw_fields, line_items = field_parser.parse_with_line_items(extraction_result.text)
-            mapping_result = mapping_engine.apply_mapping(
-                raw_fields=raw_fields,
-                line_items=line_items,
+            # Run AI extraction pipeline
+            invoice_data, extraction_method, mapping_result, ai_meta = await _extract_with_ai_pipeline(
+                tmp_path=tmp_path,
+                extraction_result=extraction_result,
             )
-            invoice_data = mapping_result.invoice_data
-            invoice_data.mapping_profile_id = mapping_result.profile_used.id
             
             return ExtractionResponse(
                 success=True,
                 data=invoice_data,
-                extraction_method=extraction_result.method,
+                extraction_method=extraction_method,
                 page_count=extraction_result.page_count,
                 processing_time_ms=extraction_result.processing_time_ms,
-                mapping_info=mapping_result.to_dict()
+                mapping_info=mapping_result.to_dict(),
+                **ai_meta,
             )
             
         finally:
@@ -364,15 +481,12 @@ async def extract_invoice_from_url(request: ExtractFromUrlRequest):
                 logger.info("Using OCR for scanned document", filename=request.file_name)
                 extraction_result = await ocr_service.extract(tmp_path)
             
-            # Parse extracted text using mapping engine
-            raw_fields, line_items = field_parser.parse_with_line_items(extraction_result.text)
-            mapping_result = mapping_engine.apply_mapping(
-                raw_fields=raw_fields,
-                line_items=line_items,
+            # Run AI extraction pipeline with organization context
+            invoice_data, extraction_method, mapping_result, ai_meta = await _extract_with_ai_pipeline(
+                tmp_path=tmp_path,
+                extraction_result=extraction_result,
                 organization_id=request.organization_id,
             )
-            invoice_data = mapping_result.invoice_data
-            invoice_data.mapping_profile_id = mapping_result.profile_used.id
             
             processing_time = int((time.time() - start_time) * 1000)
             
@@ -381,7 +495,8 @@ async def extract_invoice_from_url(request: ExtractFromUrlRequest):
                 organization_id=request.organization_id,
                 invoice_id=request.invoice_id,
                 confidence=invoice_data.confidence_score,
-                method=extraction_result.method,
+                method=extraction_method,
+                ai_tier=ai_meta.get("ai_tier_used"),
                 mapping_profile=mapping_result.profile_used.name,
                 gl_account=mapping_result.gl_account,
                 project=mapping_result.project,
@@ -391,10 +506,11 @@ async def extract_invoice_from_url(request: ExtractFromUrlRequest):
             return ExtractionResponse(
                 success=True,
                 data=invoice_data,
-                extraction_method=extraction_result.method,
+                extraction_method=extraction_method,
                 page_count=extraction_result.page_count,
                 processing_time_ms=processing_time,
-                mapping_info=mapping_result.to_dict()
+                mapping_info=mapping_result.to_dict(),
+                **ai_meta,
             )
             
         finally:
@@ -615,12 +731,11 @@ async def batch_extract(
                 if extraction_result.needs_ocr:
                     extraction_result = await ocr_service.extract(tmp_path)
                 
-                invoice_data = await field_parser.parse(extraction_result.text)
-                
-                # Apply mapping engine
-                raw_fields, line_items = field_parser.parse_with_line_items(extraction_result.text)
-                mapped_result = mapping_engine.apply_mapping(raw_fields, line_items)
-                invoice_data = mapped_result.to_invoice_data()
+                # Run AI extraction pipeline
+                invoice_data, extraction_method, mapping_result, ai_meta = await _extract_with_ai_pipeline(
+                    tmp_path=tmp_path,
+                    extraction_result=extraction_result,
+                )
                 
                 invoice_id = None
                 if save_to_db and db_service:
@@ -630,7 +745,7 @@ async def batch_extract(
                             original_filename=file.filename,
                             s3_key=f"batch/{file.filename}",
                             page_count=extraction_result.page_count,
-                            extraction_method=extraction_result.method,
+                            extraction_method=extraction_method,
                             extraction_duration_ms=extraction_result.processing_time_ms
                         )
                     except Exception as e:
@@ -639,10 +754,12 @@ async def batch_extract(
                 results.append(ExtractionResponse(
                     success=True,
                     data=invoice_data,
-                    extraction_method=extraction_result.method,
+                    extraction_method=extraction_method,
                     page_count=extraction_result.page_count,
                     processing_time_ms=extraction_result.processing_time_ms,
-                    invoice_id=invoice_id
+                    invoice_id=invoice_id,
+                    mapping_info=mapping_result.to_dict(),
+                    **ai_meta,
                 ))
                 successful += 1
                 
@@ -705,12 +822,11 @@ async def extract_from_folder(
             if extraction_result.needs_ocr:
                 extraction_result = await ocr_service.extract(pdf_path)
             
-            invoice_data = await field_parser.parse(extraction_result.text)
-            
-            # Apply mapping engine
-            raw_fields, line_items = field_parser.parse_with_line_items(extraction_result.text)
-            mapped_result = mapping_engine.apply_mapping(raw_fields, line_items)
-            invoice_data = mapped_result.to_invoice_data()
+            # Run AI extraction pipeline
+            invoice_data, extraction_method, mapping_result, ai_meta = await _extract_with_ai_pipeline(
+                tmp_path=pdf_path,
+                extraction_result=extraction_result,
+            )
             
             invoice_id = None
             if save_to_db and db_service:
@@ -719,7 +835,7 @@ async def extract_from_folder(
                     original_filename=os.path.basename(pdf_path),
                     s3_key=f"local/{os.path.basename(pdf_path)}",
                     page_count=extraction_result.page_count,
-                    extraction_method=extraction_result.method,
+                    extraction_method=extraction_method,
                     extraction_duration_ms=extraction_result.processing_time_ms
                 )
             
@@ -730,7 +846,8 @@ async def extract_from_folder(
                 "vendor": invoice_data.vendor.name,
                 "total": float(invoice_data.total_amount) if invoice_data.total_amount else None,
                 "confidence": invoice_data.confidence_score,
-                "invoice_id": invoice_id
+                "invoice_id": invoice_id,
+                "ai_tier": ai_meta.get("ai_tier_used"),
             })
             
         except Exception as e:
@@ -912,11 +1029,13 @@ async def preview_mapping(
         if extraction_result.needs_ocr:
             extraction_result = await ocr_service.extract(tmp_path)
         
+        # Always get regex fields for raw preview
         raw_fields, line_items = field_parser.parse_with_line_items(extraction_result.text)
         
-        mapping_result = mapping_engine.apply_mapping(
-            raw_fields=raw_fields,
-            line_items=line_items,
+        # Run AI pipeline for the mapped result
+        invoice_data, extraction_method, mapping_result, ai_meta = await _extract_with_ai_pipeline(
+            tmp_path=tmp_path,
+            extraction_result=extraction_result,
             profile_id=profile_id,
             organization_id=organization_id,
         )
@@ -932,16 +1051,57 @@ async def preview_mapping(
             "success": True,
             "raw_extracted_fields": preview_raw,
             "mapped_result": {
-                "invoice_data": mapping_result.invoice_data.dict(),
+                "invoice_data": invoice_data.dict(),
                 **mapping_result.to_dict(),
             },
             "line_items": [item.dict() for item in line_items],
-            "extraction_method": extraction_result.method,
+            "extraction_method": extraction_method,
             "page_count": extraction_result.page_count,
+            "ai_tier_used": ai_meta.get("ai_tier_used"),
+            "ai_confidence": ai_meta.get("ai_confidence"),
         }
     finally:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
+
+
+# ─── AI Stats & Management ─────────────────────────────────────────────────
+
+@app.get("/ai/stats", tags=["AI"])
+async def get_ai_stats():
+    """
+    Get AI extraction service statistics.
+    
+    Returns usage stats, cost tracking, and configuration status.
+    """
+    if not ai_service:
+        return {
+            "enabled": False,
+            "message": "AI extraction service not initialized (missing OPENAI_API_KEY)"
+        }
+    
+    stats = ai_service.stats
+    return {
+        "enabled": ai_service.is_ai_enabled,
+        "vision_enabled": ai_service.enable_vision,
+        "text_llm_enabled": ai_service.enable_text_llm,
+        "validation_enabled": ai_service.enable_cross_validation,
+        "stats": stats,
+    }
+
+
+@app.post("/ai/reset-stats", tags=["AI"])
+async def reset_ai_stats():
+    """Reset AI extraction statistics counters."""
+    if not ai_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI extraction service not available"
+        )
+    
+    ai_service._total_extractions = 0
+    ai_service._total_cost = 0.0
+    return {"success": True, "message": "AI stats reset"}
 
 
 if __name__ == "__main__":

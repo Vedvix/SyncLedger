@@ -1,9 +1,11 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { invoiceService } from '@/services/invoiceService'
 import { useAuthStore } from '@/store/authStore'
 import type { InvoiceStatus, InvoiceFilters } from '@/types'
 import { InvoiceSidePanel } from '@/components/InvoiceSidePanel'
+import { ExportPanel } from '@/components/ExportPanel'
 import {
   Search,
   RefreshCw,
@@ -15,6 +17,8 @@ import {
   Shield,
   Upload,
   Loader2,
+  Download,
+  X,
 } from 'lucide-react'
 
 // ─── Status tab configuration matching the reference UI ─────────────────────
@@ -60,6 +64,7 @@ export function InvoicesPage() {
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
   const [page, setPage] = useState(0)
   const [activeTab, setActiveTab] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
@@ -67,6 +72,34 @@ export function InvoicesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null)
   const [dateRange, setDateRange] = useState<{ from?: string; to?: string }>({})
+  const [exportPanelOpen, setExportPanelOpen] = useState(false)
+  const [vendorFilter, setVendorFilter] = useState('')
+
+  // Sync URL search params to component state
+  useEffect(() => {
+    const statusParam = searchParams.get('status')
+    const vendorParam = searchParams.get('vendorName')
+    const overdueParam = searchParams.get('overdue')
+
+    if (!statusParam && !vendorParam && !overdueParam) return
+
+    if (statusParam) {
+      const idx = STATUS_TABS.findIndex((tab) =>
+        tab.statuses.includes(statusParam as InvoiceStatus)
+      )
+      if (idx >= 0) {
+        setActiveTab(idx)
+      }
+    }
+
+    if (vendorParam) {
+      setVendorFilter(vendorParam)
+    }
+
+    setPage(0)
+    // Clear URL params after applying to avoid stale state on re-renders
+    setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams])
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => invoiceService.uploadInvoice(file),
@@ -93,10 +126,11 @@ export function InvoicesPage() {
     () => ({
       search: appliedSearch || undefined,
       status: currentTab.statuses.length > 0 ? currentTab.statuses : undefined,
+      vendorName: vendorFilter || undefined,
       dateFrom: dateRange.from || undefined,
       dateTo: dateRange.to || undefined,
     }),
-    [appliedSearch, currentTab, dateRange]
+    [appliedSearch, currentTab, vendorFilter, dateRange]
   )
 
   const { data, isLoading, refetch } = useQuery({
@@ -235,6 +269,13 @@ export function InvoicesPage() {
             {uploadMutation.isPending ? 'Uploading...' : 'Upload PDF'}
           </button>
           <button
+            onClick={() => setExportPanelOpen(true)}
+            className="flex items-center px-3 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+          >
+            <Download className="w-4 h-4 mr-1.5" />
+            Export
+          </button>
+          <button
             onClick={() => refetch()}
             className="flex items-center px-3 py-2 text-sm bg-white border rounded-lg hover:bg-gray-50"
           >
@@ -254,6 +295,22 @@ export function InvoicesPage() {
       {uploadMutation.isError && (
         <div className="mb-3 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
           Failed to upload invoice: {(uploadMutation.error as Error)?.message || 'Unknown error'}
+        </div>
+      )}
+
+      {/* Active filter badges */}
+      {vendorFilter && (
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-sm text-gray-500">Filtered by:</span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 border border-blue-200 text-blue-700 text-sm rounded-full">
+            Vendor: {vendorFilter}
+            <button
+              onClick={() => { setVendorFilter(''); setPage(0); }}
+              className="ml-1 hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </span>
         </div>
       )}
 
@@ -497,6 +554,18 @@ export function InvoicesPage() {
           onNavigate={(id) => setSelectedInvoiceId(id)}
         />
       )}
+
+      {/* Export Panel */}
+      <ExportPanel
+        open={exportPanelOpen}
+        onClose={() => setExportPanelOpen(false)}
+        initialFilters={{
+          search: appliedSearch || undefined,
+          statuses: currentTab.statuses.length > 0 ? currentTab.statuses : undefined,
+          invoiceDateFrom: dateRange.from || undefined,
+          invoiceDateTo: dateRange.to || undefined,
+        }}
+      />
     </div>
   )
 }

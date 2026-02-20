@@ -1,10 +1,12 @@
 import apiClient from './api'
+import { useAuthStore } from '@/store/authStore'
 import type { 
   LoginRequest, 
   AuthResponse, 
   ApiResponse,
   CreateUserRequest,
-  User
+  User,
+  Session
 } from '@/types'
 
 export const authService = {
@@ -25,10 +27,18 @@ export const authService = {
   },
   
   /**
-   * Logout user
+   * Logout user - revokes the refresh token server-side
    */
   async logout(): Promise<void> {
-    await apiClient.post('/v1/auth/logout')
+    const refreshToken = useAuthStore.getState().refreshToken
+    try {
+      await apiClient.post('/v1/auth/logout', { refreshToken })
+    } catch {
+      // Ignore errors on logout - we'll clear local state anyway
+      console.warn('Logout API call failed, clearing local state')
+    }
+    // Always clear local state
+    useAuthStore.getState().logout()
   },
   
   /**
@@ -66,5 +76,32 @@ export const authService = {
    */
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     await apiClient.post('/v1/auth/change-password', { currentPassword, newPassword })
+  },
+
+  // ==================== Session Management ====================
+
+  /**
+   * Get all active sessions for the current user
+   */
+  async getActiveSessions(): Promise<Session[]> {
+    const response = await apiClient.get<ApiResponse<Session[]>>('/v1/auth/sessions')
+    return response.data.data!
+  },
+
+  /**
+   * Revoke a specific session (logout from that device)
+   */
+  async revokeSession(sessionId: number): Promise<void> {
+    await apiClient.delete(`/v1/auth/sessions/${sessionId}`)
+  },
+
+  /**
+   * Logout from all devices (revoke all sessions)
+   */
+  async logoutAllDevices(): Promise<{ sessionsRevoked: number }> {
+    const response = await apiClient.post<ApiResponse<{ sessionsRevoked: number }>>('/v1/auth/logout-all')
+    // Clear local state after logging out all devices
+    useAuthStore.getState().logout()
+    return response.data.data!
   },
 }

@@ -179,26 +179,31 @@ export function VendorDetailPage() {
             icon={<FileText className="w-4 h-4 text-blue-600" />}
             label="Total Invoices"
             value={String(analytics.totalInvoices)}
+            onClick={() => navigate(`/invoices?vendorName=${encodeURIComponent(vendor.name)}`)}
           />
           <MetricCard
             icon={<DollarSign className="w-4 h-4 text-green-600" />}
             label="Total Amount"
             value={fmt(analytics.totalAmount)}
+            onClick={() => navigate(`/invoices?vendorName=${encodeURIComponent(vendor.name)}`)}
           />
           <MetricCard
             icon={<TrendingUp className="w-4 h-4 text-purple-600" />}
             label="Average Invoice"
             value={fmt(analytics.averageInvoiceAmount)}
+            onClick={() => navigate(`/invoices?vendorName=${encodeURIComponent(vendor.name)}`)}
           />
           <MetricCard
             icon={<Clock className="w-4 h-4 text-yellow-600" />}
             label="Pending"
             value={String(analytics.pendingInvoices)}
+            onClick={() => navigate(`/invoices?vendorName=${encodeURIComponent(vendor.name)}&status=PENDING`)}
           />
           <MetricCard
             icon={<CheckCircle className="w-4 h-4 text-green-600" />}
             label="Approved"
             value={String(analytics.approvedInvoices)}
+            onClick={() => navigate(`/invoices?vendorName=${encodeURIComponent(vendor.name)}&status=APPROVED`)}
           />
           <MetricCard
             icon={<BarChart3 className="w-4 h-4 text-indigo-600" />}
@@ -291,10 +296,10 @@ export function VendorDetailPage() {
               {/* Invoice Status Breakdown */}
               <hr />
               <h4 className="text-xs font-semibold text-gray-500 uppercase">Status Breakdown</h4>
-              <StatusBar label="Pending" count={analytics.pendingInvoices} total={analytics.totalInvoices} color="bg-yellow-400" />
-              <StatusBar label="Approved" count={analytics.approvedInvoices} total={analytics.totalInvoices} color="bg-green-400" />
-              <StatusBar label="Rejected" count={analytics.rejectedInvoices} total={analytics.totalInvoices} color="bg-red-400" />
-              <StatusBar label="Synced" count={analytics.syncedInvoices} total={analytics.totalInvoices} color="bg-blue-400" />
+              <StatusBar label="Pending" count={analytics.pendingInvoices} total={analytics.totalInvoices} color="bg-yellow-400" onClick={() => navigate(`/invoices?vendorName=${encodeURIComponent(vendor.name)}&status=PENDING`)} />
+              <StatusBar label="Approved" count={analytics.approvedInvoices} total={analytics.totalInvoices} color="bg-green-400" onClick={() => navigate(`/invoices?vendorName=${encodeURIComponent(vendor.name)}&status=APPROVED`)} />
+              <StatusBar label="Rejected" count={analytics.rejectedInvoices} total={analytics.totalInvoices} color="bg-red-400" onClick={() => navigate(`/invoices?vendorName=${encodeURIComponent(vendor.name)}&status=REJECTED`)} />
+              <StatusBar label="Synced" count={analytics.syncedInvoices} total={analytics.totalInvoices} color="bg-blue-400" onClick={() => navigate(`/invoices?vendorName=${encodeURIComponent(vendor.name)}&status=SYNCED`)} />
             </div>
           </div>
         )}
@@ -379,9 +384,15 @@ export function VendorDetailPage() {
 
 // ─── Subcomponents ──────────────────────────────────────────────────
 
-function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function MetricCard({ icon, label, value, onClick }: { icon: React.ReactNode; label: string; value: string; onClick?: () => void }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border p-4">
+    <div
+      className={`bg-white rounded-xl shadow-sm border p-4 transition-all ${onClick ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-[0.98]' : ''}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
+    >
       <div className="flex items-center gap-2 mb-1">
         {icon}
         <span className="text-xs text-gray-500">{label}</span>
@@ -448,10 +459,16 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-function StatusBar({ label, count, total, color }: { label: string; count: number; total: number; color: string }) {
+function StatusBar({ label, count, total, color, onClick }: { label: string; count: number; total: number; color: string; onClick?: () => void }) {
   const pct = total > 0 ? (count / total) * 100 : 0
   return (
-    <div className="flex items-center gap-3">
+    <div
+      className={`flex items-center gap-3 ${onClick ? 'cursor-pointer hover:bg-gray-50 rounded-lg px-2 py-1 -mx-2 transition-colors' : ''}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
+    >
       <span className="text-xs text-gray-600 w-20">{label}</span>
       <div className="flex-1 bg-gray-100 rounded h-3 overflow-hidden">
         <div className={`h-full ${color} rounded`} style={{ width: `${Math.max(pct, 1)}%` }} />

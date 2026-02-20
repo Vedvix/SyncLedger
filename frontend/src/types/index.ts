@@ -357,6 +357,18 @@ export interface AuthResponse {
   user: User
 }
 
+export interface Session {
+  id: number
+  deviceName: string
+  ipAddress: string
+  location?: string
+  userAgent?: string
+  createdAt: string
+  lastUsedAt?: string
+  expiresAt: string
+  isCurrent?: boolean
+}
+
 // ==================== Filter Types ====================
 
 export interface InvoiceFilters {
@@ -542,4 +554,41 @@ export interface VendorRequest {
   currency?: string
   status?: string
   notes?: string
+}
+
+// ==================== Export Types ====================
+
+export interface ExportRequest {
+  search?: string
+  statuses?: string[]
+  invoiceDateFrom?: string
+  invoiceDateTo?: string
+  dueDateFrom?: string
+  dueDateTo?: string
+  createdDateFrom?: string
+  createdDateTo?: string
+  minAmount?: number
+  maxAmount?: number
+  currency?: string
+  vendorNames?: string[]
+  vendorId?: number
+  glAccount?: string
+  costCenter?: string
+  project?: string
+  itemCategory?: string
+  overdueOnly?: boolean
+  requiresManualReview?: boolean
+  minConfidenceScore?: number
+  maxConfidenceScore?: number
+  columns?: string[]
+  includeLineItems?: boolean
+  includeSummary?: boolean
+  sortBy?: string
+  sortDirection?: 'asc' | 'desc'
+}
+
+export interface ExportColumn {
+  key: string
+  label: string
+  selected: boolean
 }

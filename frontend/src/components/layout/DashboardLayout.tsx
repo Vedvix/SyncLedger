@@ -1,5 +1,7 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
+import { dashboardService } from '@/services/dashboardService'
 import { 
   LayoutDashboard, 
   FileText, 
@@ -10,7 +12,6 @@ import {
   X,
   Shield,
   GitCompareArrows,
-  Building,
   Building2
 } from 'lucide-react'
 import { useState } from 'react'
@@ -19,6 +20,13 @@ export function DashboardLayout() {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Fetch stats for the invoice count badge
+  const { data: stats } = useQuery({
+    queryKey: ['dashboardStats'],
+    queryFn: () => dashboardService.getStats(),
+    refetchInterval: 30000,
+  })
   
   const handleLogout = () => {
     logout()
@@ -27,17 +35,23 @@ export function DashboardLayout() {
   
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   const isAdmin = user?.role === 'ADMIN' || isSuperAdmin
-  
-  const navItems = [
-    // Super Admin sees platform management first
-    ...(isSuperAdmin ? [{ to: '/super-admin', icon: Shield, label: 'Platform Admin' }] : []),
+
+  const coreNavItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/invoices', icon: FileText, label: 'Invoices' },
+    { to: '/invoices', icon: FileText, label: 'Invoices', badge: stats?.totalInvoices },
     { to: '/vendors', icon: Building2, label: 'Vendors' },
     ...(isAdmin ? [{ to: '/users', icon: Users, label: 'Users' }] : []),
+  ]
+
+  const systemNavItems = [
     ...(isAdmin ? [{ to: '/mapping', icon: GitCompareArrows, label: 'Mapping' }] : []),
     { to: '/settings', icon: Settings, label: 'Settings' },
+    ...(isSuperAdmin ? [{ to: '/super-admin', icon: Shield, label: 'Platform Admin' }] : []),
   ]
+
+  const userInitials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`
+  const userFullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim()
+  const userRoleLabel = user?.role?.replace(/_/g, ' ') || ''
   
   return (
     <div className="min-h-screen bg-gray-100">
@@ -51,77 +65,121 @@ export function DashboardLayout() {
       
       {/* Sidebar */}
       <aside className={`
-        fixed top-0 left-0 z-30 h-full w-64 bg-white shadow-lg transform transition-transform duration-200 ease-in-out
+        fixed top-0 left-0 z-30 h-full w-64 transform transition-transform duration-200 ease-in-out
         lg:translate-x-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
+      `}
+        style={{ backgroundColor: '#141414' }}
+      >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-6 border-b">
-            <span className="text-xl font-bold text-primary-600">SyncLedger</span>
+          <div className="flex items-center justify-between px-6 pt-6 pb-4">
+            <div>
+              <h1 className="text-xl font-bold">
+                <span className="text-orange-400">Sync</span>
+                <span className="text-white italic">Ledger</span>
+              </h1>
+              <p className="text-[10px] font-semibold tracking-[0.2em] text-gray-500 uppercase mt-0.5">
+                Accounts Payable
+              </p>
+            </div>
             <button 
-              className="lg:hidden"
+              className="lg:hidden text-gray-400 hover:text-white"
               onClick={() => setSidebarOpen(false)}
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </button>
           </div>
           
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) => `
-                  flex items-center px-4 py-3 rounded-lg transition-colors
-                  ${isActive 
-                    ? 'bg-primary-50 text-primary-600' 
-                    : 'text-gray-600 hover:bg-gray-50'
-                  }
-                `}
-              >
-                <item.icon className="w-5 h-5 mr-3" />
-                {item.label}
-              </NavLink>
-            ))}
+          <nav className="flex-1 px-4 pt-4 overflow-y-auto">
+            {/* CORE section */}
+            <p className="px-3 mb-2 text-[10px] font-semibold tracking-[0.15em] text-gray-600 uppercase">
+              Core
+            </p>
+            <div className="space-y-1 mb-6">
+              {coreNavItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setSidebarOpen(false)}
+                  className={({ isActive }) => `
+                    group flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+                    ${isActive 
+                      ? 'bg-white/10 text-orange-400' 
+                      : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                    }
+                  `}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <div className="flex items-center">
+                        <item.icon className={`w-[18px] h-[18px] mr-3 ${isActive ? 'text-orange-400' : 'text-gray-500 group-hover:text-gray-300'}`} />
+                        {item.label}
+                      </div>
+                      {'badge' in item && item.badge != null && item.badge > 0 && (
+                        <span className={`
+                          min-w-[24px] h-5 flex items-center justify-center px-1.5 rounded-md text-[11px] font-bold
+                          ${isActive ? 'bg-orange-500/20 text-orange-400' : 'bg-white/10 text-gray-400'}
+                        `}>
+                          {item.badge}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+
+            {/* SYSTEM section */}
+            <p className="px-3 mb-2 text-[10px] font-semibold tracking-[0.15em] text-gray-600 uppercase">
+              System
+            </p>
+            <div className="space-y-1">
+              {systemNavItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setSidebarOpen(false)}
+                  className={({ isActive }) => `
+                    group flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+                    ${isActive 
+                      ? 'bg-white/10 text-orange-400' 
+                      : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                    }
+                  `}
+                >
+                  {({ isActive }) => (
+                    <div className="flex items-center">
+                      <item.icon className={`w-[18px] h-[18px] mr-3 ${isActive ? 'text-orange-400' : 'text-gray-500 group-hover:text-gray-300'}`} />
+                      {item.label}
+                    </div>
+                  )}
+                </NavLink>
+              ))}
+            </div>
           </nav>
           
           {/* User info & Logout */}
-          <div className="p-4 border-t">
-            {/* Organization badge */}
-            <div className="mb-3 px-3 py-2 bg-gray-50 rounded-lg">
-              <div className="flex items-center text-xs text-gray-500 mb-1">
-                <Building className="w-3 h-3 mr-1" />
-                Organization
+          <div className="p-4 border-t border-white/10">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+                style={{ backgroundColor: '#e65100' }}
+              >
+                {userInitials}
               </div>
-              {user?.role === 'SUPER_ADMIN' ? (
-                <p className="text-sm font-medium text-indigo-600">SyncLedger Platform</p>
-              ) : (
-                <p className="text-sm font-medium text-gray-800">{user?.organizationName || 'N/A'}</p>
-              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-200 truncate">{userFullName}</p>
+                <p className="text-[10px] font-semibold tracking-wider text-gray-500 uppercase">{userRoleLabel}</p>
+              </div>
+              <button
+                onClick={handleLogout}
+                title="Logout"
+                className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-white/5 transition-colors flex-shrink-0"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
-            <div className="flex items-center mb-4">
-              <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
-                <span className="text-primary-600 font-medium">
-                  {user?.firstName?.[0]}{user?.lastName?.[0]}
-                </span>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-900">
-                  {user?.firstName} {user?.lastName}
-                </p>
-                <p className="text-xs text-gray-500">{user?.role}</p>
-              </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center w-full px-4 py-2 text-gray-600 rounded-lg hover:bg-gray-50"
-            >
-              <LogOut className="w-5 h-5 mr-3" />
-              Logout
-            </button>
           </div>
         </div>
       </aside>
@@ -129,7 +187,7 @@ export function DashboardLayout() {
       {/* Main content */}
       <div className="lg:ml-64">
         {/* Top bar */}
-        <header className="h-16 bg-white shadow-sm flex items-center px-6">
+        <header className="h-14 bg-white shadow-sm flex items-center px-6 sticky top-0 z-10">
           <button 
             className="lg:hidden mr-4"
             onClick={() => setSidebarOpen(true)}
@@ -137,21 +195,20 @@ export function DashboardLayout() {
             <Menu className="w-6 h-6" />
           </button>
           <div className="flex-1" />
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {user?.role !== 'SUPER_ADMIN' && user?.organizationName && (
-              <span className="hidden sm:inline-flex items-center px-3 py-1 text-xs font-medium bg-primary-50 text-primary-700 rounded-full">
-                <Building className="w-3 h-3 mr-1" />
+              <span className="hidden sm:inline-flex items-center px-2.5 py-1 text-xs font-medium bg-primary-50 text-primary-700 rounded-full">
                 {user.organizationName}
               </span>
             )}
             {user?.role === 'SUPER_ADMIN' && (
-              <span className="hidden sm:inline-flex items-center px-3 py-1 text-xs font-medium bg-indigo-50 text-indigo-700 rounded-full">
+              <span className="hidden sm:inline-flex items-center px-2.5 py-1 text-xs font-medium bg-indigo-50 text-indigo-700 rounded-full">
                 <Shield className="w-3 h-3 mr-1" />
                 Platform Admin
               </span>
             )}
             <span className="text-sm text-gray-500">
-              Welcome, {user?.firstName}!
+              Welcome, <span className="font-medium text-gray-700">{user?.firstName}</span>
             </span>
           </div>
         </header>

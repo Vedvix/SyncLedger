@@ -3,6 +3,7 @@ package com.vedvix.syncledger.controller;
 import com.vedvix.syncledger.dto.*;
 import com.vedvix.syncledger.model.InvoiceStatus;
 import com.vedvix.syncledger.security.UserPrincipal;
+import com.vedvix.syncledger.service.ExcelExportService;
 import com.vedvix.syncledger.service.InvoiceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -26,8 +27,11 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.InputStream;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.web.multipart.MultipartFile;
@@ -45,6 +49,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class InvoiceController {
 
     private final InvoiceService invoiceService;
+    private final ExcelExportService excelExportService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'APPROVER', 'VIEWER')")
@@ -354,6 +359,62 @@ public class InvoiceController {
             @AuthenticationPrincipal UserPrincipal currentUser) {
         DashboardStatsDTO stats = invoiceService.getDashboardStats(currentUser);
         return ResponseEntity.ok(ApiResponseDto.success(stats));
+    }
+
+    // ==================== Export Endpoints ====================
+
+    @PostMapping("/export")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'APPROVER', 'VIEWER')")
+    @Operation(
+        summary = "Export invoices to Excel",
+        description = "Exports filtered invoices to an Excel (.xlsx) file. Supports advanced filtering, column selection, optional line items and summary sheets. Accountants can create custom filter views and download the data for analysis."
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Excel file generated successfully",
+            content = @Content(mediaType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - user not authenticated"
+        )
+    })
+    public ResponseEntity<byte[]> exportInvoices(
+            @RequestBody(required = false) ExportRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) throws Exception {
+        
+        if (request == null) {
+            request = new ExportRequest();
+        }
+
+        byte[] excelData = excelExportService.exportToExcel(request, currentUser);
+
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String filename = "SyncLedger_Invoices_" + timestamp + ".xlsx";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDispositionFormData("attachment", filename);
+        headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
+        headers.setContentLength(excelData.length);
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(excelData);
+    }
+
+    @GetMapping("/export/columns")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'APPROVER', 'VIEWER')")
+    @Operation(
+        summary = "Get available export columns",
+        description = "Returns a map of available column keys and their display labels for use in the export column selector."
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    public ResponseEntity<ApiResponseDto<Map<String, String>>> getExportColumns() {
+        return ResponseEntity.ok(ApiResponseDto.success(excelExportService.getAvailableColumns()));
     }
 }
 

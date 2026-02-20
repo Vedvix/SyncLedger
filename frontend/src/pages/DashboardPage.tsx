@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { dashboardService } from '@/services/dashboardService'
 import { useAuthStore } from '@/store/authStore'
 import { 
@@ -22,6 +23,7 @@ import {
 
 export function DashboardPage() {
   const { user } = useAuthStore()
+  const navigate = useNavigate()
   const { data: stats, isLoading, error, refetch } = useQuery({
     queryKey: ['dashboardStats'],
     queryFn: () => dashboardService.getStats(),
@@ -73,6 +75,7 @@ export function DashboardPage() {
       color: 'bg-gradient-to-br from-blue-500 to-blue-600',
       textColor: 'text-blue-600',
       bgLight: 'bg-blue-50',
+      navigateTo: '/invoices',
     },
     {
       label: 'Pending Review',
@@ -82,6 +85,7 @@ export function DashboardPage() {
       textColor: 'text-yellow-600',
       bgLight: 'bg-yellow-50',
       badge: needsReview > 0 ? 'Needs Attention' : null,
+      navigateTo: '/invoices?status=PENDING',
     },
     {
       label: 'Approved',
@@ -90,6 +94,7 @@ export function DashboardPage() {
       color: 'bg-gradient-to-br from-green-500 to-emerald-600',
       textColor: 'text-green-600',
       bgLight: 'bg-green-50',
+      navigateTo: '/invoices?status=APPROVED',
     },
     {
       label: 'Synced to Sage',
@@ -98,6 +103,7 @@ export function DashboardPage() {
       color: 'bg-gradient-to-br from-purple-500 to-indigo-600',
       textColor: 'text-purple-600',
       bgLight: 'bg-purple-50',
+      navigateTo: '/invoices?status=SYNCED',
     },
     {
       label: 'Rejected',
@@ -106,6 +112,7 @@ export function DashboardPage() {
       color: 'bg-gradient-to-br from-red-500 to-red-600',
       textColor: 'text-red-600',
       bgLight: 'bg-red-50',
+      navigateTo: '/invoices?status=REJECTED',
     },
     {
       label: 'Overdue',
@@ -115,6 +122,7 @@ export function DashboardPage() {
       textColor: 'text-orange-600',
       bgLight: 'bg-orange-50',
       badge: (stats?.overdueInvoices || 0) > 0 ? 'Critical' : null,
+      navigateTo: '/invoices?overdue=true',
     },
   ]
 
@@ -221,7 +229,14 @@ export function DashboardPage() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {statusCards.map((card) => (
-          <div key={card.label} className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
+          <div
+            key={card.label}
+            onClick={() => card.navigateTo && navigate(card.navigateTo)}
+            className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && card.navigateTo && navigate(card.navigateTo)}
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <div className={`${card.color} p-3 rounded-lg`}>
@@ -340,15 +355,22 @@ export function DashboardPage() {
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           {[
-            { label: 'Pending', value: stats?.pendingInvoices || 0, color: 'bg-yellow-500' },
-            { label: 'Under Review', value: stats?.underReviewInvoices || 0, color: 'bg-blue-500' },
-            { label: 'Approved', value: stats?.approvedInvoices || 0, color: 'bg-green-500' },
-            { label: 'Rejected', value: stats?.rejectedInvoices || 0, color: 'bg-red-500' },
-            { label: 'Synced', value: stats?.syncedInvoices || 0, color: 'bg-purple-500' },
-            { label: 'Sync Failed', value: stats?.failedSyncs || 0, color: 'bg-orange-500' },
-            { label: 'Overdue', value: stats?.overdueInvoices || 0, color: 'bg-red-600' },
+            { label: 'Pending', value: stats?.pendingInvoices || 0, color: 'bg-yellow-500', navigateTo: '/invoices?status=PENDING' },
+            { label: 'Under Review', value: stats?.underReviewInvoices || 0, color: 'bg-blue-500', navigateTo: '/invoices?status=UNDER_REVIEW' },
+            { label: 'Approved', value: stats?.approvedInvoices || 0, color: 'bg-green-500', navigateTo: '/invoices?status=APPROVED' },
+            { label: 'Rejected', value: stats?.rejectedInvoices || 0, color: 'bg-red-500', navigateTo: '/invoices?status=REJECTED' },
+            { label: 'Synced', value: stats?.syncedInvoices || 0, color: 'bg-purple-500', navigateTo: '/invoices?status=SYNCED' },
+            { label: 'Sync Failed', value: stats?.failedSyncs || 0, color: 'bg-orange-500', navigateTo: '/invoices?status=SYNC_FAILED' },
+            { label: 'Overdue', value: stats?.overdueInvoices || 0, color: 'bg-red-600', navigateTo: '/invoices?overdue=true' },
           ].map((item) => (
-            <div key={item.label} className="text-center p-4 rounded-lg bg-gray-50">
+            <div
+              key={item.label}
+              onClick={() => navigate(item.navigateTo)}
+              className="text-center p-4 rounded-lg bg-gray-50 cursor-pointer hover:bg-gray-100 hover:shadow-sm transition-all active:scale-95"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && navigate(item.navigateTo)}
+            >
               <div className={`w-4 h-4 ${item.color} rounded-full mx-auto mb-2`} />
               <p className="text-2xl font-bold text-gray-900">{item.value}</p>
               <p className="text-xs text-gray-500">{item.label}</p>
@@ -361,46 +383,46 @@ export function DashboardPage() {
       <div className="bg-white rounded-xl shadow-sm p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <a 
-            href="/invoices?status=PENDING"
-            className="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+          <button 
+            onClick={() => navigate('/invoices?status=PENDING')}
+            className="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors text-left w-full"
           >
-            <Clock className="w-8 h-8 text-yellow-500 mr-3" />
+            <Clock className="w-8 h-8 text-yellow-500 mr-3 flex-shrink-0" />
             <div>
               <p className="font-medium">Review Pending</p>
               <p className="text-sm text-gray-500">{stats?.pendingInvoices || 0} invoices</p>
             </div>
-          </a>
-          <a 
-            href="/invoices?requiresManualReview=true"
-            className="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+          </button>
+          <button 
+            onClick={() => navigate('/invoices?status=UNDER_REVIEW')}
+            className="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors text-left w-full"
           >
-            <Eye className="w-8 h-8 text-blue-500 mr-3" />
+            <Eye className="w-8 h-8 text-blue-500 mr-3 flex-shrink-0" />
             <div>
               <p className="font-medium">Manual Review</p>
               <p className="text-sm text-gray-500">Low confidence</p>
             </div>
-          </a>
-          <a 
-            href="/invoices?syncStatus=FAILED"
-            className="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+          </button>
+          <button 
+            onClick={() => navigate('/invoices?status=SYNC_FAILED')}
+            className="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors text-left w-full"
           >
-            <AlertTriangle className="w-8 h-8 text-red-500 mr-3" />
+            <AlertTriangle className="w-8 h-8 text-red-500 mr-3 flex-shrink-0" />
             <div>
               <p className="font-medium">Failed Syncs</p>
               <p className="text-sm text-gray-500">{stats?.failedSyncs || 0} to retry</p>
             </div>
-          </a>
-          <a 
-            href="/invoices"
-            className="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+          </button>
+          <button 
+            onClick={() => navigate('/invoices')}
+            className="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors text-left w-full"
           >
-            <FileText className="w-8 h-8 text-primary-500 mr-3" />
+            <FileText className="w-8 h-8 text-primary-500 mr-3 flex-shrink-0" />
             <div>
               <p className="font-medium">All Invoices</p>
               <p className="text-sm text-gray-500">View all</p>
             </div>
-          </a>
+          </button>
         </div>
       </div>
     </div>

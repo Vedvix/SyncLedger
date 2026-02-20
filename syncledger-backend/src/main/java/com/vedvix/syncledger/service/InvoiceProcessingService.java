@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -123,6 +124,7 @@ public class InvoiceProcessingService {
     /**
      * Process invoice through PDF extraction service.
      */
+    @Transactional
     public void processInvoiceAsync(Long invoiceId) {
         try {
             Invoice invoice = invoiceRepository.findById(invoiceId)

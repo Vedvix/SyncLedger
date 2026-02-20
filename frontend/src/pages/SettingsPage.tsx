@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
 import { authService } from '@/services/authService'
 import { 
@@ -11,12 +11,22 @@ import {
   EyeOff,
   CheckCircle,
   AlertCircle,
-  Save
+  Save,
+  Monitor,
+  Smartphone,
+  Tablet,
+  Globe,
+  LogOut,
+  Trash2,
+  Loader2,
+  RefreshCw
 } from 'lucide-react'
+import type { Session } from '@/types'
 
 export function SettingsPage() {
   const { user } = useAuthStore()
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications'>('profile')
+  const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'sessions' | 'notifications'>('profile')
   
   // Password change state
   const [passwordData, setPasswordData] = useState({
@@ -46,6 +56,59 @@ export function SettingsPage() {
       setPasswordSuccess(false)
     },
   })
+
+  // Session management queries and mutations
+  const { data: sessions, isLoading: sessionsLoading, refetch: refetchSessions } = useQuery({
+    queryKey: ['sessions'],
+    queryFn: () => authService.getActiveSessions(),
+    enabled: activeTab === 'sessions',
+  })
+
+  const revokeSessionMutation = useMutation({
+    mutationFn: (sessionId: number) => authService.revokeSession(sessionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions'] })
+    },
+  })
+
+  const logoutAllMutation = useMutation({
+    mutationFn: () => authService.logoutAllDevices(),
+    onSuccess: () => {
+      // User will be redirected to login
+    },
+  })
+
+  // Helper to get device icon
+  const getDeviceIcon = (deviceName: string) => {
+    const name = deviceName.toLowerCase()
+    if (name.includes('iphone') || name.includes('android phone')) {
+      return <Smartphone className="w-5 h-5" />
+    }
+    if (name.includes('ipad') || name.includes('tablet')) {
+      return <Tablet className="w-5 h-5" />
+    }
+    if (name.includes('mac') || name.includes('windows') || name.includes('linux')) {
+      return <Monitor className="w-5 h-5" />
+    }
+    return <Globe className="w-5 h-5" />
+  }
+
+  // Format relative time
+  const formatRelativeTime = (dateString?: string) => {
+    if (!dateString) return 'Unknown'
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMins / 60)
+    const diffDays = Math.floor(diffHours / 24)
+
+    if (diffMins < 1) return 'Just now'
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
+    return date.toLocaleDateString()
+  }
   
   const validatePassword = (password: string): string[] => {
     const errors: string[] = []
@@ -118,6 +181,17 @@ export function SettingsPage() {
             >
               <Lock className="w-4 h-4 inline mr-2" />
               Security
+            </button>
+            <button
+              onClick={() => setActiveTab('sessions')}
+              className={`px-6 py-3 border-b-2 text-sm font-medium transition-colors ${
+                activeTab === 'sessions'
+                  ? 'border-primary-500 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Monitor className="w-4 h-4 inline mr-2" />
+              Sessions
             </button>
             <button
               onClick={() => setActiveTab('notifications')}
@@ -378,6 +452,116 @@ export function SettingsPage() {
                   <li>Contains at least one uppercase letter</li>
                   <li>Contains at least one lowercase letter</li>
                   <li>Contains at least one number</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Sessions Tab */}
+          {activeTab === 'sessions' && (
+            <div className="max-w-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-lg font-semibold">Active Sessions</h2>
+                  <p className="text-gray-500 text-sm">
+                    Manage your active sessions across all devices
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => refetchSessions()}
+                    disabled={sessionsLoading}
+                    className="flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-900 border rounded-lg hover:bg-gray-50"
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-1 ${sessionsLoading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm('This will log you out from all devices including this one. Continue?')) {
+                        logoutAllMutation.mutate()
+                      }
+                    }}
+                    disabled={logoutAllMutation.isPending}
+                    className="flex items-center px-3 py-2 text-sm text-red-600 hover:text-red-700 border border-red-200 rounded-lg hover:bg-red-50"
+                  >
+                    <LogOut className="w-4 h-4 mr-1" />
+                    {logoutAllMutation.isPending ? 'Logging out...' : 'Logout All Devices'}
+                  </button>
+                </div>
+              </div>
+
+              {sessionsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+                </div>
+              ) : sessions && sessions.length > 0 ? (
+                <div className="space-y-3">
+                  {sessions.map((session: Session, index: number) => (
+                    <div
+                      key={session.id}
+                      className={`flex items-center justify-between p-4 border rounded-lg ${
+                        index === 0 ? 'bg-green-50 border-green-200' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`p-2 rounded-lg ${index === 0 ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'}`}>
+                          {getDeviceIcon(session.deviceName)}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-900">{session.deviceName}</span>
+                            {index === 0 && (
+                              <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">
+                                Current Session
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-500 mt-1">
+                            <span>{session.ipAddress || 'Unknown IP'}</span>
+                            {session.location && <span> • {session.location}</span>}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            Last active: {formatRelativeTime(session.lastUsedAt)}
+                            {session.createdAt && (
+                              <> • Created: {new Date(session.createdAt).toLocaleDateString()}</>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      {index !== 0 && (
+                        <button
+                          onClick={() => {
+                            if (confirm('Are you sure you want to end this session?')) {
+                              revokeSessionMutation.mutate(session.id)
+                            }
+                          }}
+                          disabled={revokeSessionMutation.isPending}
+                          className="flex items-center px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          End Session
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <Monitor className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p>No active sessions found</p>
+                </div>
+              )}
+
+              <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h3 className="text-sm font-medium text-blue-800 mb-2 flex items-center">
+                  <Shield className="w-4 h-4 mr-2" />
+                  Security Tips
+                </h3>
+                <ul className="text-sm text-blue-700 list-disc list-inside space-y-1">
+                  <li>Review your sessions regularly and remove any you don't recognize</li>
+                  <li>Use "Logout All Devices" if you suspect unauthorized access</li>
+                  <li>Sessions automatically expire after 7 days of inactivity</li>
                 </ul>
               </div>
             </div>

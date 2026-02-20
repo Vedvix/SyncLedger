@@ -34,7 +34,7 @@ public class InvoiceLineItem {
     @Column(nullable = false)
     private Integer lineNumber;
 
-    @Column(length = 500)
+    @Column(columnDefinition = "TEXT")
     private String description;
 
     @Column(length = 100)

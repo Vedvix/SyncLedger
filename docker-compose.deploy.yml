@@ -1,0 +1,109 @@
+# =============================================================================
+# SYNCLEDGER - EC2 DEPLOYMENT DOCKER COMPOSE
+# Builds all services from source and runs in production mode
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: syncledger-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: syncledger
+      POSTGRES_USER: syncledger
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-syncledger123}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U syncledger -d syncledger"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - syncledger
+
+  # ---------------------------------------------------------------------------
+  # Spring Boot Backend API
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./syncledger-backend
+      dockerfile: Dockerfile
+    container_name: syncledger-backend
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/syncledger
+      SPRING_DATASOURCE_USERNAME: syncledger
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-syncledger123}
+      JWT_SECRET: ${JWT_SECRET}
+      STORAGE_TYPE: ${STORAGE_TYPE:-s3}
+      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY:-}
+      AWS_SECRET_KEY: ${AWS_SECRET_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-syncledger-invoice}
+      PDF_SERVICE_URL: http://pdf-service:8001
+      EMAIL_POLLING_ENABLED: ${EMAIL_POLLING_ENABLED:-false}
+      EMAIL_POLLING_INTERVAL_MS: ${EMAIL_POLLING_INTERVAL_MS:-300000}
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID:-}
+      AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET:-}
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost,http://107.20.130.251}
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - syncledger
+
+  # ---------------------------------------------------------------------------
+  # Python PDF Microservice
+  # ---------------------------------------------------------------------------
+  pdf-service:
+    build:
+      context: ./pdf-microservice
+      dockerfile: Dockerfile
+    container_name: syncledger-pdf
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://syncledger:${DB_PASSWORD:-syncledger123}@postgres:5432/syncledger
+    volumes:
+      - pdf_temp:/tmp/pdf_processing
+    networks:
+      - syncledger
+
+  # ---------------------------------------------------------------------------
+  # Nginx Reverse Proxy + Frontend
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: syncledger-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - syncledger
+
+volumes:
+  postgres_data:
+    driver: local
+  uploads_data:
+    driver: local
+  pdf_temp:
+    driver: local
+
+networks:
+  syncledger:
+    driver: bridge

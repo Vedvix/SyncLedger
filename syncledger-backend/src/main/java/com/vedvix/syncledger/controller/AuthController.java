@@ -11,21 +11,30 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Map;
+
 /**
- * Authentication Controller handling login, registration, and token management.
+ * Authentication Controller handling login, registration, token management, and session management.
+ * 
+ * Features:
+ * - Secure login with refresh token rotation
+ * - Session management (view and revoke sessions)
+ * - Multi-device support
  * 
  * @author vedvix
  */
 @RestController
 @RequestMapping("/v1/auth")
 @RequiredArgsConstructor
-@Tag(name = "Authentication", description = "API endpoints for authentication, registration, and token management")
+@Tag(name = "Authentication", description = "API endpoints for authentication, registration, token and session management")
 public class AuthController {
 
     private final AuthService authService;
@@ -59,15 +68,18 @@ public class AuthController {
                 required = true,
                 content = @Content(schema = @Schema(implementation = LoginRequest.class))
             )
-            @Valid @RequestBody LoginRequest request) {
-        AuthResponse response = authService.login(request);
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest) {
+        String userAgent = httpRequest.getHeader("User-Agent");
+        String ipAddress = getClientIpAddress(httpRequest);
+        AuthResponse response = authService.login(request, userAgent, ipAddress);
         return ResponseEntity.ok(com.vedvix.syncledger.dto.ApiResponseDto.success("Login successful", response));
     }
 
     @PostMapping("/refresh")
     @Operation(
         summary = "Refresh access token",
-        description = "Refreshes the access token using a valid refresh token"
+        description = "Refreshes the access token using a valid refresh token. Implements token rotation for security."
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -85,8 +97,11 @@ public class AuthController {
                 required = true,
                 content = @Content(schema = @Schema(implementation = RefreshTokenRequest.class))
             )
-            @RequestBody RefreshTokenRequest request) {
-        AuthResponse response = authService.refreshToken(request.getRefreshToken());
+            @RequestBody RefreshTokenRequest request,
+            HttpServletRequest httpRequest) {
+        String userAgent = httpRequest.getHeader("User-Agent");
+        String ipAddress = getClientIpAddress(httpRequest);
+        AuthResponse response = authService.refreshToken(request.getRefreshToken(), userAgent, ipAddress);
         return ResponseEntity.ok(com.vedvix.syncledger.dto.ApiResponseDto.success("Token refreshed", response));
     }
 
@@ -169,15 +184,100 @@ public class AuthController {
     @PostMapping("/logout")
     @Operation(
         summary = "Logout user",
-        description = "Logs out the user. Note: JWT tokens are stateless, so logout is primarily a client-side operation."
+        description = "Logs out the user by revoking the refresh token."
     )
     @SecurityRequirement(name = "Bearer Authentication")
     @ApiResponse(
         responseCode = "200",
         description = "User logged out successfully"
     )
-    public ResponseEntity<com.vedvix.syncledger.dto.ApiResponseDto<Void>> logout() {
-        // JWT is stateless, so logout is handled client-side
+    public ResponseEntity<com.vedvix.syncledger.dto.ApiResponseDto<Void>> logout(
+            @RequestBody(required = false) LogoutRequest request) {
+        String refreshToken = request != null ? request.getRefreshToken() : null;
+        authService.logout(refreshToken);
         return ResponseEntity.ok(com.vedvix.syncledger.dto.ApiResponseDto.success("Logged out successfully"));
+    }
+
+    @GetMapping("/sessions")
+    @Operation(
+        summary = "Get active sessions",
+        description = "Returns all active sessions (devices) for the current user"
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @ApiResponse(
+        responseCode = "200",
+        description = "Active sessions retrieved successfully"
+    )
+    public ResponseEntity<com.vedvix.syncledger.dto.ApiResponseDto<List<SessionDTO>>> getActiveSessions(
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        List<SessionDTO> sessions = authService.getActiveSessions(currentUser.getId(), null);
+        return ResponseEntity.ok(com.vedvix.syncledger.dto.ApiResponseDto.success(sessions));
+    }
+
+    @DeleteMapping("/sessions/{sessionId}")
+    @Operation(
+        summary = "Revoke a session",
+        description = "Revokes a specific session (logs out from a specific device)"
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Session revoked successfully"),
+        @ApiResponse(responseCode = "404", description = "Session not found"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to revoke this session")
+    })
+    public ResponseEntity<com.vedvix.syncledger.dto.ApiResponseDto<Void>> revokeSession(
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @PathVariable Long sessionId) {
+        authService.revokeSession(currentUser.getId(), sessionId);
+        return ResponseEntity.ok(com.vedvix.syncledger.dto.ApiResponseDto.success("Session revoked successfully"));
+    }
+
+    @PostMapping("/logout-all")
+    @Operation(
+        summary = "Logout from all devices",
+        description = "Revokes all refresh tokens for the user, logging them out from all devices"
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @ApiResponse(
+        responseCode = "200",
+        description = "Logged out from all devices successfully"
+    )
+    public ResponseEntity<com.vedvix.syncledger.dto.ApiResponseDto<Map<String, Integer>>> logoutAllDevices(
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        int count = authService.logoutAllDevices(currentUser.getId());
+        return ResponseEntity.ok(com.vedvix.syncledger.dto.ApiResponseDto.success(
+                "Logged out from all devices",
+                Map.of("sessionsRevoked", count)
+        ));
+    }
+
+    /**
+     * Extract real client IP address, handling proxies and load balancers.
+     */
+    private String getClientIpAddress(HttpServletRequest request) {
+        String[] headerNames = {
+            "X-Forwarded-For",
+            "X-Real-IP",
+            "Proxy-Client-IP",
+            "WL-Proxy-Client-IP",
+            "HTTP_X_FORWARDED_FOR",
+            "HTTP_X_FORWARDED",
+            "HTTP_FORWARDED_FOR",
+            "HTTP_FORWARDED",
+            "HTTP_CLIENT_IP"
+        };
+
+        for (String header : headerNames) {
+            String ip = request.getHeader(header);
+            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+                // X-Forwarded-For can contain multiple IPs, take the first one
+                return ip.split(",")[0].trim();
+            }
+        }
+
+        return request.getRemoteAddr();
     }
 }

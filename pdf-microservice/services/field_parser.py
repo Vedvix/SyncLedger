@@ -46,9 +46,30 @@ class FieldParser:
             r'Order\s*#?\s*:?\s*(\d+)',
         ],
         'invoice_number': [
-            r'invoice\s*#?\s*:?\s*([A-Z0-9\-]+)',
-            r'inv\s*#?\s*:?\s*([A-Z0-9\-]+)',
-            r'invoice\s+number\s*:?\s*([A-Z0-9\-]+)',
+            # "Invoice Number: 72007" / "Invoice Number 2005866550-001"
+            r'invoice\s+number\s*:?\s*([A-Z0-9][A-Z0-9\-]+)',
+            # "Invoice No. IN03156360" / "Invoice No.: 3463" / "INVOICE NO. SC49450"
+            r'invoice\s+no\.?\s*:?\s*([A-Z0-9][A-Z0-9\-]+)',
+            # "INVOICE# \n 347518" (number on next line)
+            r'invoice\s*#\s*(?:page\s*#)?\s*[\n\r]+\s*([A-Z0-9][A-Z0-9\-]+)',
+            # "Invoice # INV-2983843" / "INVOICE #: 260434" / "Invoice #: 010162"
+            r'invoice\s*#\s*:?\s*([A-Z0-9][A-Z0-9\-]+)',
+            # "Invoice 1503008" (no # or :, just space then number)
+            r'(?<!\w)invoice\s+([A-Z0-9][A-Z0-9\-]{3,})',
+            # "INV #: 12345"
+            r'inv\s*#\s*:?\s*([A-Z0-9][A-Z0-9\-]+)',
+            # "INVOICE NUMBER TOTAL DUE\nWT749671" — header row then value on next line
+            r'invoice\s+number\s+.+?[\n\r]+\s*([A-Z0-9][A-Z0-9\-]+)',
+            # "Order# 00160890" / "Order #: 12345"
+            r'order\s*#\s*:?\s*([A-Z0-9][A-Z0-9\-]+)',
+            # "INVOICE:526010-R" (colon directly adjacent)
+            r'invoice\s*:\s*([A-Z0-9][A-Z0-9\-]+)',
+            # "INVOICE NO.INVOICE DATE ...\n1822587 10/11/2025" (Bertch format: headers then values)
+            r'invoice\s+no\.?\s*invoice\s+date.*?[\n\r]+\s*([A-Z0-9][A-Z0-9\-]+)',
+            # "SoftLite Windows LLC 1911407-00 Required Date" (number embedded in line with vendor)
+            r'(?:LLC|Inc|Corp|Co)\s+([A-Z0-9][A-Z0-9\-]{4,})\s+(?:Required|Ship|Order)',
+            # "Order Number\nPRE-PAID 1911407-00"
+            r'order\s+number[\n\r]+.*?([A-Z0-9][A-Z0-9\-]{4,})',
         ],
         # Project/Sale/Opportunity Numbers
         'project_number': [
@@ -81,19 +102,53 @@ class FieldParser:
         ],
         # Totals
         'total': [
-            r'Total\s*:?\s*\$?([\d,]+\.?\d*)',
-            r'Grand\s+Total\s*:?\s*\$?([\d,]+\.?\d*)',
-            r'Amount\s+Due\s*:?\s*\$?([\d,]+\.?\d*)',
-            r'Balance\s+Due\s*:?\s*\$?([\d,]+\.?\d*)',
+            r'(?:Grand|Order)\s+Total\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            r'Total\s+Amount\s+Due\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            r'Total\s+Amount\s+Due\s*\$?\s*([\d,]+\.?\d*)',
+            r'Total\s+Due\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            r'Total\s+Due\s*\$\s*([\d,]+\.?\d*)',
+            r'Amount\s+Due\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            r'Balance\s+Due\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            r'Balance\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            r'BALANCE\s*\$?\s*([\d,]+\.?\d*)',
+            r'Total\s+Net\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            r'TOTAL\s+NET\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            r'Net\s+Invoice\s*(?:Amount)?\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            r'Pay\s+This\s+Amount\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            r'Total\s+Invoice\s+Amt\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            r'Invoice\s+Total\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            r'Original\s+Invoice\s+Total\s+Due\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            r'(?:^|\n)\s*Total\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            # "TOTAL AMOUNT\n5.56" (amount on next line)
+            r'Total\s+Amount\s*:?\s*[\n\r]+\s*\$?\s*([\d,]+\.?\d*)',
+            # "TOTAL PRICE $ 192.48" ($ with space)
+            r'Total\s+Price\s*:?\s*\$\s*([\d,]+\.?\d*)',
+            # "EXTENDED NET: ($821.76)" — parenthetical negatives (credit memos)
+            r'Extended\s+Net\s*:?\s*\(?\$?\s*([\d,]+\.?\d*)\)?',
+            # Handle amounts with $ separated by space: "$ 192.48"
+            r'Total\s*:?\s*\$\s+([\d,]+\.?\d*)',
+            r'Amount\s+Due\s*:?\s*\$\s+([\d,]+\.?\d*)',
+            # "Window and Door Total 4 Opening Total 4 Sub Total 1,777.52" (SoftLite)
+            # Match "Sub Total" at end of line followed by a decimal amount
+            r'Sub\s+Total\s+([\d,]+\.\d{2})\s*$',
+            # "COMMENT: TOTAL: $8,163.60" (Vytex embedded in comment line)
+            r'TOTAL\s*:\s*\$?\s*([\d,]+\.?\d*)',
+            # "BALANCE -$5,963.07" (credit memos with negative)
+            r'BALANCE\s+-?\$?\s*([\d,]+\.?\d*)',
+            # "SUBTOTAL: $7,683.39" standalone
+            r'SUBTOTAL\s*:\s*\$?\s*([\d,]+\.?\d*)',
         ],
         'subtotal': [
             r'subtotal\s*:?\s*\$?\s*([\d,]+\.?\d*)',
             r'sub\s*-?\s*total\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            r'items?\s+shipped\s*:?\s*\d+\s*subtotal\s*\$?\s*([\d,]+\.?\d*)',
         ],
         'tax': [
-            r'tax\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            r'(?:sales\s+)?tax\s*:?\s*\$?\s*([\d,]+\.?\d*)',
             r'vat\s*:?\s*\$?\s*([\d,]+\.?\d*)',
-            r'sales\s+tax\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            r'(?:state|county|city)\s+tax\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            r'tax\s+amount\s*:?\s*\$?\s*([\d,]+\.?\d*)',
+            r'Tax\s*\$\s*([\d,]+\.?\d*)',
         ],
         # Contact info
         'email': [
@@ -126,6 +181,20 @@ class FieldParser:
         'MGD Construction Services',
         'Master Gutters Installation Service',
         "Mayan's Construction Corp",
+    ]
+    
+    # Company name indicators for vendor detection
+    COMPANY_INDICATORS = [
+        'Inc', 'Inc.', 'Corp', 'Corp.', 'LLC', 'LLP', 'LLLP', 'LP', 'L.P.',
+        'Ltd', 'Ltd.', 'Co', 'Co.', 'Company',
+        'Services', 'Service', 'Construction', 'Mfg', 'Mfg.',
+        'Manufacturing', 'Products', 'Product', 'Wholesale',
+        'Systems', 'Supply', 'Supplies', 'Solutions',
+        'Industries', 'Industrial', 'IND.', 'Ind.',
+        'Enterprises', 'Enterprise', 'Group', 'International',
+        'Associates', 'Association', 'Partners',
+        'Technologies', 'Technology', 'Tech',
+        'Distributors', 'Distribution', 'Imaging',
     ]
     
     async def parse(self, text: str) -> InvoiceData:
@@ -233,7 +302,7 @@ class FieldParser:
         
         # ── Identification ──────────────────────────────────────────────
         fields["po_number"] = self._extract_po_number(text)
-        fields["invoice_number"] = self._extract_pattern(text, self.PATTERNS['invoice_number'])
+        fields["invoice_number"] = self._extract_invoice_number(text)
         
         # ── Dates ───────────────────────────────────────────────────────
         fields["order_date"] = self._extract_date(text, self.PATTERNS['order_date'])
@@ -336,6 +405,48 @@ class FieldParser:
                 return match.group(1).strip()
         return None
     
+    def _extract_invoice_number(self, text: str) -> Optional[str]:
+        """
+        Extract invoice number using smart multi-strategy approach.
+        
+        Handles many common formats:
+        - Invoice Number: 72007
+        - Invoice No. IN03156360
+        - Invoice # INV-2983843
+        - INVOICE#\\n347518
+        - INVOICE NUMBER TOTAL DUE\\nWT749671 $358.05
+        - Order# 00160890
+        - Invoice 1503008 (no separator)
+        - INVOICE:526010-R
+        """
+        # Try each invoice_number pattern in priority order
+        for pattern in self.PATTERNS['invoice_number']:
+            match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
+            if match:
+                value = match.group(1).strip()
+                # Validate: must contain at least one digit and be a real ID (not just a word)
+                if re.search(r'\d', value) and len(value) >= 2:
+                    # Filter out common false positives
+                    if value.lower() not in ('invoice', 'page', 'order', 'date', 'number',
+                                             'account', 'bill', 'custom', 'shipping', 'no',
+                                             'si', 'abc', 'cut', 'aqua'):
+                        return value
+        
+        # Fallback: look for the filename pattern in text (many files are named after invoice number)
+        # Try generic "# followed by alphanumeric ID" patterns
+        fallback_patterns = [
+            # \"#: 12345\" or \"# 12345\" standalone
+            r'#\s*:?\s*([A-Z0-9][A-Z0-9\-]{4,})',
+        ]
+        for pattern in fallback_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                value = match.group(1).strip()
+                if re.search(r'\d', value):
+                    return value
+        
+        return None
+    
     def _extract_date(self, text: str, patterns: List[str]) -> Optional[date]:
         """Extract and parse date from text."""
         date_str = self._extract_pattern(text, patterns)
@@ -352,9 +463,12 @@ class FieldParser:
         amount_str = self._extract_pattern(text, patterns)
         if amount_str:
             try:
-                # Remove commas, dollar signs, and whitespace
-                cleaned = amount_str.replace(',', '').replace('$', '').strip()
-                return Decimal(cleaned)
+                # Remove commas, dollar signs, parentheses, and whitespace
+                cleaned = amount_str.replace(',', '').replace('$', '').replace('(', '').replace(')', '').strip()
+                # Handle negative sign
+                cleaned = cleaned.lstrip('-').strip()
+                if cleaned:
+                    return Decimal(cleaned)
             except InvalidOperation:
                 pass
         return None
@@ -398,21 +512,25 @@ class FieldParser:
         return None
     
     def _extract_vendor_info(self, text: str) -> VendorInfo:
-        """Extract vendor information from text."""
+        """Extract vendor information from text using multiple strategies."""
         # Extract individual fields
         email = self._extract_pattern(text, self.PATTERNS['email'])
         phone = self._extract_pattern(text, self.PATTERNS['phone'])
         
-        # Try to find known vendor names first
         vendor_name = None
         text_lower = text.lower()
         
+        # ── Strategy 1: Known vendor names ──────────────────────────────
         for known_vendor in self.KNOWN_VENDORS:
             if known_vendor.lower() in text_lower:
                 vendor_name = known_vendor
                 break
         
-        # If no known vendor, look for vendor name after approved date line
+        # ── Strategy 2: "Remit To" / "Pay To" / "Payable To" blocks ─────
+        if not vendor_name:
+            vendor_name = self._extract_vendor_from_remit_block(text)
+        
+        # ── Strategy 3: After "Approved Date" line (PO format) ──────────
         if not vendor_name:
             match = re.search(
                 r'Approved\s+Date\s*[\n\r]+([A-Za-z][A-Za-z\s\']+(?:Inc|Corp|LLC|Services?|Construction)?[A-Za-z\s]*)',
@@ -421,14 +539,17 @@ class FieldParser:
             if match:
                 vendor_name = match.group(1).strip()
         
-        # Fallback: look for company indicators in first 15 lines
+        # ── Strategy 4: Company indicators in first 20 lines ────────────
         if not vendor_name:
-            lines = [l.strip() for l in text.split('\n') if l.strip()]
-            for line in lines[:15]:
-                if any(ind in line for ind in ['Inc', 'Corp', 'LLC', 'Services', 'Construction', 'Company']):
-                    if not any(skip in line.lower() for skip in ['purchase order', 'invoice', 'project', 'sale']):
-                        vendor_name = line
-                        break
+            vendor_name = self._extract_vendor_from_indicators(text)
+        
+        # ── Strategy 5: First substantive line (many invoices start with vendor name) ──
+        if not vendor_name:
+            vendor_name = self._extract_vendor_first_line(text)
+        
+        # ── Clean up vendor name ────────────────────────────────────────
+        if vendor_name:
+            vendor_name = self._clean_vendor_name(vendor_name)
         
         # Extract address
         address = self._extract_address(text)
@@ -439,6 +560,116 @@ class FieldParser:
             email=email,
             phone=phone
         )
+    
+    def _extract_vendor_from_remit_block(self, text: str) -> Optional[str]:
+        """Extract vendor name from Remit To / Pay To / Payable To blocks."""
+        patterns = [
+            # "Remit To: Vendor Name" or "Remit To:\nVendor Name"
+            r'(?:remit|pay(?:able)?|make\s+check\s+payable)\s+to\s*:?\s*[\n\r]*\s*([A-Z][A-Za-z0-9\s\.\,\'\&\-]+?)(?:\n|\r|\d|$)',
+            # "Pay To:\nVendor Name"
+            r'pay\s+to\s*:?\s*[\n\r]+\s*([A-Z][A-Za-z0-9\s\.\,\'\&\-]+?)(?:\n|\r|$)',
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
+            if match:
+                name = match.group(1).strip()
+                # Filter out generic text / addresses
+                if len(name) > 3 and len(name) < 80:
+                    # Don't accept if it looks like an address (starts with digits) or generic text
+                    if not re.match(r'^\d', name) and not re.match(r'^(the order|po box|p\.?o\.?)', name, re.IGNORECASE):
+                        return name
+        return None
+    
+    def _extract_vendor_from_indicators(self, text: str) -> Optional[str]:
+        """Extract vendor name by finding lines with company indicators."""
+        lines = [l.strip() for l in text.split('\n') if l.strip()]
+        skip_words = [
+            'purchase order', 'invoice', 'project', 'sale number',
+            'opportunity', 'created by', 'bill to', 'ship to',
+            'sold to', 'long roofing', 'long home', 'long fence',
+            'total', 'balance', 'amount due', 'page',
+        ]
+        
+        for line in lines[:20]:
+            line_lower = line.lower()
+            # Skip known non-vendor lines
+            if any(skip in line_lower for skip in skip_words):
+                continue
+            # Skip lines that are just numbers, dates, or too short
+            if len(line) < 4 or re.match(r'^[\d\$\.\,\/\-\s]+$', line):
+                continue
+            # Check for company indicators (case-insensitive word match)
+            for indicator in self.COMPANY_INDICATORS:
+                # Match indicator as whole word (with optional trailing period)
+                pattern = r'\b' + re.escape(indicator).replace(r'\.', r'\.?') + r'\b'
+                if re.search(pattern, line, re.IGNORECASE):
+                    return line
+        return None
+    
+    def _extract_vendor_first_line(self, text: str) -> Optional[str]:
+        """Fallback: extract vendor name from the first substantive text line.
+        
+        Many invoices start with the vendor/company name on the very first line,
+        or right after an 'INVOICE' header.
+        """
+        lines = [l.strip() for l in text.split('\n') if l.strip()]
+        
+        # Words that indicate a line is NOT a vendor name
+        skip_patterns = [
+            r'^\d+$',               # Just a number
+            r'^\$',                 # Dollar amount
+            r'^[\d/\-\.]+$',       # Just a date
+            r'^invoice$',            # Just "INVOICE" title
+            r'^purchase\s+order',
+            r'^page\s',              # Page indicators
+            r'^\*',                  # Decorators
+            r'^bill\s+to',
+            r'^ship\s+to',
+            r'^sold\s+to',
+            r'^service\s+chg',       # Service charge headers
+            r'^date\s+invoice',      # Header rows
+            r'^this\s+is\s+an',     # "THIS IS AN INVOICE"
+            r'^<+',                  # Decorators like "<<<<<"
+            r'^terms',
+            r'^account',
+        ]
+        
+        for line in lines[:10]:
+            line_lower = line.lower().strip()
+            # Skip short lines
+            if len(line) < 4:
+                continue
+            # Skip known non-vendor patterns
+            if any(re.match(p, line_lower) for p in skip_patterns):
+                continue
+            # Skip lines that are all uppercase single words like "INVOICE", "ORDER"
+            if re.match(r'^[A-Z]+$', line) and len(line) < 15:
+                continue
+            # Good candidate: line has at least 2 words and contains mostly letters
+            words = line.split()
+            if len(words) >= 2 and sum(1 for c in line if c.isalpha()) > len(line) * 0.5:
+                return line
+        
+        return None
+    
+    def _clean_vendor_name(self, name: str) -> str:
+        """Clean up extracted vendor name."""
+        # Remove trailing/leading whitespace and common artifacts
+        name = name.strip()
+        # Remove things like "- Customer # LON014" appended
+        name = re.sub(r'\s*-\s*Customer\s*#.*$', '', name, flags=re.IGNORECASE)
+        # Remove trailing phone numbers
+        name = re.sub(r'\s+\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{4}\s*$', '', name)
+        # Remove trailing email
+        name = re.sub(r'\s+[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\s*$', '', name)
+        # Remove leading/trailing commas, periods, dashes
+        name = name.strip(' ,.-')
+        # Truncate if too long (probably grabbed too much)
+        if len(name) > 60:
+            # Take just the first logical part
+            parts = re.split(r'\s{2,}|\n|\r|\t', name)
+            name = parts[0].strip()
+        return name
     
     def _extract_line_items(self, text: str) -> List[LineItem]:
         """

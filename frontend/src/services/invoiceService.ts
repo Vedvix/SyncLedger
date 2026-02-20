@@ -7,7 +7,8 @@ import type {
   InvoiceFilters,
   PaginationParams,
   ApiResponse, 
-  PagedResponse 
+  PagedResponse,
+  ExportRequest
 } from '@/types'
 
 export const invoiceService = {
@@ -115,6 +116,49 @@ export const invoiceService = {
     const response = await apiClient.post<ApiResponse<Invoice>>('/v1/invoices/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
+    return response.data.data!
+  },
+
+  // ==================== Export ====================
+
+  /**
+   * Export invoices to Excel with advanced filtering
+   */
+  async exportToExcel(request: ExportRequest): Promise<void> {
+    const response = await apiClient.post('/v1/invoices/export', request, {
+      responseType: 'blob',
+      timeout: 120000, // 2 min timeout for large exports
+    })
+
+    // Extract filename from Content-Disposition header or use default
+    const contentDisposition = response.headers['content-disposition']
+    let filename = 'SyncLedger_Invoices.xlsx'
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+      if (match?.[1]) {
+        filename = match[1].replace(/['"]/g, '')
+      }
+    }
+
+    // Create download link
+    const blob = new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  },
+
+  /**
+   * Get available export columns
+   */
+  async getExportColumns(): Promise<Record<string, string>> {
+    const response = await apiClient.get<ApiResponse<Record<string, string>>>('/v1/invoices/export/columns')
     return response.data.data!
   },
 }

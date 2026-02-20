@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Collections;
@@ -57,6 +58,8 @@ public class GraphConfig {
      */
     @Bean(name = "graphRestTemplate")
     public RestTemplate graphRestTemplate() {
-        return new RestTemplate();
+        // Use JdkClientHttpRequestFactory to support PATCH method
+        // (default SimpleClientHttpRequestFactory doesn't support PATCH)
+        return new RestTemplate(new JdkClientHttpRequestFactory());
     }
 }

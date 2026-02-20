@@ -101,6 +101,7 @@ export function VendorsPage() {
             value={String(summary.totalInvoicesAcrossVendors)}
             sub="across all vendors"
             bgColor="bg-green-50"
+            onClick={() => navigate('/invoices')}
           />
           <SummaryCard
             icon={<DollarSign className="w-5 h-5 text-purple-600" />}
@@ -108,6 +109,7 @@ export function VendorsPage() {
             value={fmt(summary.totalAmountAcrossVendors)}
             sub="all vendor invoices"
             bgColor="bg-purple-50"
+            onClick={() => navigate('/invoices')}
           />
           <SummaryCard
             icon={<TrendingUp className="w-5 h-5 text-orange-600" />}
@@ -391,11 +393,17 @@ export function VendorsPage() {
 
 // ─── Subcomponents ──────────────────────────────────────────────────
 
-function SummaryCard({ icon, label, value, sub, bgColor }: {
-  icon: React.ReactNode; label: string; value: string; sub: string; bgColor: string
+function SummaryCard({ icon, label, value, sub, bgColor, onClick }: {
+  icon: React.ReactNode; label: string; value: string; sub: string; bgColor: string; onClick?: () => void
 }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border p-5">
+    <div
+      className={`bg-white rounded-xl shadow-sm border p-5 transition-all ${onClick ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-[0.98]' : ''}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
+    >
       <div className="flex items-center gap-3">
         <div className={`w-10 h-10 rounded-lg ${bgColor} flex items-center justify-center`}>
           {icon}
