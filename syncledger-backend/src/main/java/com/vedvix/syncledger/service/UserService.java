@@ -231,6 +231,7 @@ public class UserService {
                 .organizationId(user.getOrganization() != null ? user.getOrganization().getId() : null)
                 .organizationSlug(user.getOrganization() != null ? user.getOrganization().getSlug() : null)
                 .organizationName(user.getOrganization() != null ? user.getOrganization().getName() : null)
+                .organizationStatus(user.getOrganization() != null ? user.getOrganization().getStatus().name() : null)
                 .lastLoginAt(user.getLastLoginAt())
                 .createdAt(user.getCreatedAt())
                 .build();

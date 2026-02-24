@@ -181,6 +181,40 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class MappingProfileDB(Base):
+    """Mapping profile database model — org-scoped field mapping rules."""
+    
+    __tablename__ = "mapping_profiles"
+    
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    organization_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("organizations.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    vendor_pattern: Mapped[Optional[str]] = mapped_column(String(500))
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_builtin: Mapped[bool] = mapped_column(Boolean, default=False)
+    erp_type: Mapped[Optional[str]] = mapped_column(String(20))
+    rules_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    created_by: Mapped[Optional[int]] = mapped_column(BigInteger)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        Index("idx_mapping_profiles_org_db", "organization_id"),
+        Index("idx_mapping_profiles_erp_db", "erp_type"),
+    )
+
+
+class Organization(Base):
+    """Organization model for reference (minimal, managed by Java backend)."""
+    
+    __tablename__ = "organizations"
+    
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    erp_type: Mapped[Optional[str]] = mapped_column(String(20))
+
+
 class EmailLog(Base):
     """Email processing log model."""
     

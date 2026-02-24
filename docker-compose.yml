@@ -67,6 +67,10 @@ services:
       S3_BUCKET_NAME: ${S3_BUCKET_NAME:-syncledger-invoices}
       PDF_SERVICE_URL: http://pdf-service:8001
       EMAIL_POLLING_ENABLED: ${EMAIL_POLLING_ENABLED:-false}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:8080,http://frontend}
     ports:
       - "8080:8080"

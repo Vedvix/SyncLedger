@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -33,12 +33,26 @@ export function LoginPage() {
     try {
       const response = await authService.login(data)
       login(response)
-      navigate('/dashboard')
+      // Redirect ONBOARDING orgs to the setup wizard
+      if (response.user?.organizationStatus === 'ONBOARDING') {
+        navigate('/onboarding')
+      } else {
+        navigate('/dashboard')
+      }
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error 
-        ? err.message 
-        : 'Invalid email or password'
-      setError(errorMessage)
+      // Extract the user-friendly message from the API response if available
+      const axiosError = err as { response?: { status?: number; data?: { message?: string } } }
+      const apiMessage = axiosError?.response?.data?.message
+
+      if (apiMessage) {
+        setError(apiMessage)
+      } else if (axiosError?.response?.status === 401) {
+        setError('The email or password you entered is incorrect. Please try again.')
+      } else if (axiosError?.response?.status === 403) {
+        setError('Your account has been locked. Please contact your administrator.')
+      } else {
+        setError('Unable to connect to the server. Please check your internet connection and try again.')
+      }
     }
   }
   
@@ -134,7 +148,10 @@ export function LoginPage() {
         
         {/* Footer */}
         <p className="mt-8 text-center text-sm text-gray-500">
-          Contact your administrator if you need access.
+          Don't have an account?{' '}
+          <Link to="/signup" className="text-primary-600 hover:text-primary-700 font-medium">
+            Sign up for free
+          </Link>
         </p>
         
         <div className="mt-6 text-center text-xs text-gray-400">

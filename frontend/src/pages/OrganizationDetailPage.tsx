@@ -12,9 +12,13 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Activity
+  Activity,
+  Plug,
+  Shield,
 } from 'lucide-react'
 import { organizationService } from '@/services/organizationService'
+import { ERP_TYPE_LABELS } from '@/types'
+import type { ErpType } from '@/types'
 
 export function OrganizationDetailPage() {
   const navigate = useNavigate()
@@ -227,18 +231,92 @@ export function OrganizationDetailPage() {
             </div>
           </div>
           
+          {/* Microsoft Email Integration */}
+          <div className="pt-4 border-t">
+            <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">
+              Microsoft Email Integration
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-start gap-3">
+                <Shield className="w-5 h-5 text-gray-400 mt-0.5" />
+                <div>
+                  <p className="text-sm text-gray-500">Credentials Status</p>
+                  <p className="font-medium">
+                    {organization.msCredentialsConfigured ? (
+                      organization.msCredentialsVerified ? (
+                        <span className="text-green-600 flex items-center gap-1">
+                          <CheckCircle className="w-4 h-4" /> Configured &amp; Verified
+                        </span>
+                      ) : (
+                        <span className="text-yellow-600 flex items-center gap-1">
+                          <AlertCircle className="w-4 h-4" /> Configured (Unverified)
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-gray-400 italic flex items-center gap-1">
+                        <XCircle className="w-4 h-4" /> Not configured
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <Mail className="w-5 h-5 text-gray-400 mt-0.5" />
+                <div>
+                  <p className="text-sm text-gray-500">Monitored Mailbox</p>
+                  <p className="font-medium text-gray-900">
+                    {organization.msMailboxEmail || <span className="text-gray-400 italic">Not set</span>}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <Globe className="w-5 h-5 text-gray-400 mt-0.5" />
+                <div>
+                  <p className="text-sm text-gray-500">Tenant ID</p>
+                  <p className="font-medium text-gray-900">
+                    {organization.msTenantId || <span className="text-gray-400 italic">Not set</span>}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <Activity className="w-5 h-5 text-gray-400 mt-0.5" />
+                <div>
+                  <p className="text-sm text-gray-500">Client ID</p>
+                  <p className="font-medium text-gray-900">
+                    {organization.msClientId || <span className="text-gray-400 italic">Not set</span>}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Integration Settings */}
           <div className="pt-4 border-t">
             <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">
-              Sage Integration
+              ERP Integration
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-start gap-3">
+                <Plug className="w-5 h-5 text-gray-400 mt-0.5" />
+                <div>
+                  <p className="text-sm text-gray-500">ERP System</p>
+                  <p className="font-medium text-gray-900">
+                    {organization.erpType && organization.erpType !== 'NONE'
+                      ? ERP_TYPE_LABELS[organization.erpType as ErpType] || organization.erpType
+                      : <span className="text-gray-400 italic">Not configured</span>}
+                  </p>
+                </div>
+              </div>
+
               <div className="flex items-start gap-3">
                 <Globe className="w-5 h-5 text-gray-400 mt-0.5" />
                 <div>
                   <p className="text-sm text-gray-500">API Endpoint</p>
                   <p className="font-medium text-gray-900">
-                    {organization.sageApiEndpoint || <span className="text-gray-400 italic">Not configured</span>}
+                    {organization.erpApiEndpoint || organization.sageApiEndpoint || <span className="text-gray-400 italic">Not configured</span>}
                   </p>
                 </div>
               </div>
@@ -246,11 +324,23 @@ export function OrganizationDetailPage() {
               <div className="flex items-start gap-3">
                 <Activity className="w-5 h-5 text-gray-400 mt-0.5" />
                 <div>
-                  <p className="text-sm text-gray-500">API Status</p>
+                  <p className="text-sm text-gray-500">Integration Status</p>
                   <p className="font-medium text-gray-900">
-                    {organization.sageApiEndpoint 
+                    {organization.erpConfigured
                       ? <span className="text-green-600">Configured</span>
                       : <span className="text-gray-400 italic">Not configured</span>}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <Activity className="w-5 h-5 text-gray-400 mt-0.5" />
+                <div>
+                  <p className="text-sm text-gray-500">Auto Sync</p>
+                  <p className="font-medium text-gray-900">
+                    {organization.erpAutoSync !== false
+                      ? <span className="text-green-600">Enabled</span>
+                      : <span className="text-gray-500">Disabled</span>}
                   </p>
                 </div>
               </div>

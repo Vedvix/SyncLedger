@@ -9,7 +9,8 @@ public enum OrganizationStatus {
     ACTIVE("Active", "Organization is active and can use the system"),
     INACTIVE("Inactive", "Organization is temporarily disabled"),
     SUSPENDED("Suspended", "Organization is suspended due to billing/policy issues"),
-    ONBOARDING("Onboarding", "Organization is being set up");
+    ONBOARDING("Onboarding", "Organization is being set up"),
+    TRIAL("Trial", "Organization is in free trial period");
 
     private final String displayName;
     private final String description;

@@ -15,7 +15,7 @@ from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import selectinload
 
-from models.db_models import Base, Invoice, InvoiceLineItem, EmailLog
+from models.db_models import Base, Invoice, InvoiceLineItem, EmailLog, MappingProfileDB
 from models.invoice_data import InvoiceData, LineItem
 
 logger = structlog.get_logger(__name__)
@@ -309,6 +309,44 @@ class DatabaseService:
             )
             row = result.scalar_one_or_none()
             return row is True
+    
+    # ─── Mapping Profile DB Operations ────────────────────────────────────
+    
+    async def get_mapping_profiles(self, organization_id: Optional[int] = None) -> List[MappingProfileDB]:
+        """Get mapping profiles, optionally filtered by organization."""
+        async with self.get_session() as session:
+            stmt = select(MappingProfileDB)
+            if organization_id is not None:
+                stmt = stmt.where(
+                    (MappingProfileDB.organization_id == organization_id) |
+                    (MappingProfileDB.organization_id.is_(None))
+                )
+            stmt = stmt.order_by(MappingProfileDB.is_default.desc(), MappingProfileDB.name)
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+    
+    async def get_mapping_profile(self, profile_id: str) -> Optional[MappingProfileDB]:
+        """Get a single mapping profile by ID."""
+        async with self.get_session() as session:
+            result = await session.execute(
+                select(MappingProfileDB).where(MappingProfileDB.id == profile_id)
+            )
+            return result.scalar_one_or_none()
+    
+    async def save_mapping_profile(self, profile: MappingProfileDB) -> MappingProfileDB:
+        """Save (insert or update) a mapping profile."""
+        async with self.get_session() as session:
+            merged = await session.merge(profile)
+            await session.flush()
+            return merged
+    
+    async def delete_mapping_profile(self, profile_id: str) -> bool:
+        """Delete a mapping profile by ID."""
+        async with self.get_session() as session:
+            result = await session.execute(
+                delete(MappingProfileDB).where(MappingProfileDB.id == profile_id)
+            )
+            return result.rowcount > 0
     
     async def close(self):
         """Close database connections."""

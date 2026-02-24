@@ -180,6 +180,15 @@ apiClient.interceptors.response.use(
       }
     }
     
+    // Extract backend error message from response body
+    if (error.response?.data) {
+      const data = error.response.data as Record<string, unknown>
+      const backendMessage = data.message as string | undefined
+      if (backendMessage) {
+        error.message = backendMessage
+      }
+    }
+
     return Promise.reject(error)
   }
 )

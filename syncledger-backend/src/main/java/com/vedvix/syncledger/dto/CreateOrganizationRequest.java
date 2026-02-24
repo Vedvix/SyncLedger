@@ -26,4 +26,11 @@ public class CreateOrganizationRequest {
 
     private String sageApiEndpoint;
     private String sageApiKey;
+
+    // ERP Integration
+    private String erpType;
+    private String erpApiEndpoint;
+    private String erpApiKey;
+    private String erpTenantId;
+    private String erpCompanyId;
 }

@@ -27,6 +27,7 @@ public class UserPrincipal implements UserDetails {
     private final UserRole role;
     private final Long organizationId;
     private final String organizationSlug;
+    private final String organizationStatus;
     private final boolean isActive;
     private final boolean isLocked;
     private final Collection<? extends GrantedAuthority> authorities;
@@ -40,6 +41,7 @@ public class UserPrincipal implements UserDetails {
         this.role = user.getRole();
         this.organizationId = user.getOrganization() != null ? user.getOrganization().getId() : null;
         this.organizationSlug = user.getOrganization() != null ? user.getOrganization().getSlug() : null;
+        this.organizationStatus = user.getOrganization() != null ? user.getOrganization().getStatus().name() : null;
         this.isActive = user.getIsActive();
         this.isLocked = user.isAccountLocked();
         this.authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));

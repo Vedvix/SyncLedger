@@ -4,9 +4,24 @@
  * @author vedvix
  */
 
+// ==================== ERP Types ====================
+
+export type ErpType = 'NONE' | 'SAGE' | 'NETSUITE' | 'ORACLE' | 'QUICKBOOKS' | 'SAP' | 'XERO' | 'CUSTOM'
+
+export const ERP_TYPE_LABELS: Record<ErpType, string> = {
+  NONE: 'None',
+  SAGE: 'Sage Intacct',
+  NETSUITE: 'Oracle NetSuite',
+  ORACLE: 'Oracle ERP Cloud',
+  QUICKBOOKS: 'QuickBooks',
+  SAP: 'SAP S/4HANA',
+  XERO: 'Xero',
+  CUSTOM: 'Custom',
+}
+
 // ==================== Organization Types (Multi-Tenant) ====================
 
-export type OrganizationStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'ONBOARDING'
+export type OrganizationStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'ONBOARDING' | 'TRIAL'
 
 export interface Organization {
   id: number
@@ -15,8 +30,28 @@ export interface Organization {
   emailAddress?: string
   status: OrganizationStatus
   sageApiEndpoint?: string
+  // ERP Integration
+  erpType?: ErpType
+  erpApiEndpoint?: string
+  erpTenantId?: string
+  erpCompanyId?: string
+  erpAutoSync?: boolean
+  erpConfigured?: boolean
   s3FolderPath?: string
   sqsQueueName?: string
+  contactName?: string
+  contactEmail?: string
+  contactPhone?: string
+  subscriptionPlan?: string
+  subscriptionStatus?: string
+  subscriptionExpiresAt?: string
+  remainingTrialDays?: number
+  hasAccess?: boolean
+  msCredentialsConfigured?: boolean
+  msCredentialsVerified?: boolean
+  msClientId?: string
+  msTenantId?: string
+  msMailboxEmail?: string
   createdAt: string
   updatedAt: string
 }
@@ -27,6 +62,12 @@ export interface CreateOrganizationRequest {
   emailAddress?: string
   sageApiEndpoint?: string
   sageApiKey?: string
+  // ERP Integration
+  erpType?: ErpType
+  erpApiEndpoint?: string
+  erpApiKey?: string
+  erpTenantId?: string
+  erpCompanyId?: string
 }
 
 export interface UpdateOrganizationRequest {
@@ -35,6 +76,13 @@ export interface UpdateOrganizationRequest {
   status?: OrganizationStatus
   sageApiEndpoint?: string
   sageApiKey?: string
+  // ERP Integration
+  erpType?: ErpType
+  erpApiEndpoint?: string
+  erpApiKey?: string
+  erpTenantId?: string
+  erpCompanyId?: string
+  erpAutoSync?: boolean
 }
 
 export interface OrganizationStats {
@@ -75,6 +123,7 @@ export interface User {
   organizationId?: number
   organizationSlug?: string
   organizationName?: string
+  organizationStatus?: OrganizationStatus
 }
 
 export interface CreateUserRequest {
@@ -450,7 +499,10 @@ export interface MappingProfile {
   description?: string
   vendorPattern?: string
   organizationId?: number
+  organizationName?: string
   isDefault: boolean
+  isBuiltin?: boolean
+  erpType?: ErpType
   rules: FieldMappingRule[]
   createdAt?: string
   updatedAt?: string
@@ -591,4 +643,195 @@ export interface ExportColumn {
   key: string
   label: string
   selected: boolean
+}
+
+// ==================== Subscription Types ====================
+
+export type SubscriptionPlan = 'TRIAL' | 'STARTER' | 'PROFESSIONAL' | 'BUSINESS' | 'ENTERPRISE'
+export type SubscriptionStatusType = 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELLED' | 'EXPIRED' | 'SUSPENDED'
+
+export interface Subscription {
+  id: number
+  organizationId: number
+  organizationName: string
+  plan: SubscriptionPlan
+  planDisplayName: string
+  status: SubscriptionStatusType
+  statusDisplayName: string
+  trialStartDate: string
+  trialEndDate: string
+  remainingTrialDays: number
+  subscriptionStartDate?: string
+  subscriptionEndDate?: string
+  billingCycle?: string
+  priceCents: number
+  currency: string
+  stripeCustomerId?: string
+  stripeSubscriptionId?: string
+  checkoutUrl?: string
+  checkoutSessionId?: string
+  cancelledAt?: string
+  cancellationReason?: string
+  hasAccess: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SubscriptionPlanInfo {
+  plan: string
+  displayName: string
+  description: string
+  priceInCents: number
+  priceFormatted: string
+}
+
+// ==================== Dynamic Plan Definitions ====================
+
+export interface PlanDefinition {
+  id: number
+  planKey: string
+  displayName: string
+  description: string
+  monthlyPrice: number      // cents
+  annualPrice: number        // cents
+  invoicesPerMonth: string
+  maxUsers: string
+  maxOrganizations: string
+  maxEmailInboxes: string
+  storage: string
+  approvalType: string
+  supportLevel: string
+  uptimeSla: string
+  highlight: boolean
+  sortOrder: number
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PlanDefinitionRequest {
+  planKey: string
+  displayName: string
+  description?: string
+  monthlyPrice: number
+  annualPrice: number
+  invoicesPerMonth?: string
+  maxUsers?: string
+  maxOrganizations?: string
+  maxEmailInboxes?: string
+  storage?: string
+  approvalType?: string
+  supportLevel?: string
+  uptimeSla?: string
+  highlight?: boolean
+  sortOrder?: number
+  active?: boolean
+}
+
+// ==================== Coupons ====================
+
+export type DiscountType = 'PERCENTAGE' | 'FIXED_AMOUNT'
+
+export interface Coupon {
+  id: number
+  code: string
+  description?: string
+  discountType: DiscountType
+  discountValue: number
+  applicablePlans?: string
+  maxRedemptions?: number
+  currentRedemptions: number
+  validFrom: string
+  validUntil?: string
+  active: boolean
+  valid: boolean
+  createdBy?: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CouponRequest {
+  code: string
+  description?: string
+  discountType: string
+  discountValue: number
+  applicablePlans?: string
+  maxRedemptions?: number
+  validFrom?: string
+  validUntil?: string
+  active?: boolean
+}
+
+export interface CouponValidationResponse {
+  valid: boolean
+  code: string
+  discountType?: string
+  discountValue?: number
+  originalPrice?: number
+  discountedPrice?: number
+  discountAmount?: number
+  message: string
+}
+
+export interface UpgradeSubscriptionRequest {
+  plan: string
+  billingCycle?: string
+  paymentMethodId?: string
+}
+
+// ==================== Signup Types ====================
+
+export interface OrganizationSignupRequest {
+  organizationName: string
+  organizationEmail: string
+  firstName: string
+  lastName: string
+  adminEmail: string
+  password: string
+  phone?: string
+  companyWebsite?: string
+}
+
+export interface SignupResponse {
+  organization: Organization
+  subscription: Subscription
+  auth: AuthResponse
+  message: string
+}
+
+// ==================== Microsoft Config Types ====================
+
+export interface MicrosoftConfig {
+  msClientId?: string
+  msClientSecretMasked?: string
+  msTenantId?: string
+  msMailboxEmail?: string
+  msCredentialsVerified?: boolean
+  msCredentialsVerifiedAt?: string
+}
+
+export interface UpdateMicrosoftConfigRequest {
+  msClientId: string
+  msClientSecret: string
+  msTenantId: string
+  msMailboxEmail: string
+}
+
+export interface ErpConfig {
+  erpType?: string
+  erpApiEndpoint?: string
+  erpApiKeyMasked?: string
+  erpTenantId?: string
+  erpCompanyId?: string
+  erpAutoSync?: boolean
+  erpConfigured?: boolean
+}
+
+export interface UpdateErpConfigRequest {
+  erpType?: string
+  erpApiEndpoint?: string
+  erpApiKey?: string
+  erpTenantId?: string
+  erpCompanyId?: string
+  erpAutoSync?: boolean
 }

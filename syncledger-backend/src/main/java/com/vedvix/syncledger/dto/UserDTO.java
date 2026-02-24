@@ -34,6 +34,7 @@ public class UserDTO {
     private Long organizationId;
     private String organizationSlug;
     private String organizationName;
+    private String organizationStatus;
 
     /**
      * Get full name.

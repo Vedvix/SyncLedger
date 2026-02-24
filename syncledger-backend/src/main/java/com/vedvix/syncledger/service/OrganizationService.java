@@ -6,6 +6,7 @@ import com.vedvix.syncledger.exception.ResourceNotFoundException;
 import com.vedvix.syncledger.exception.UnauthorizedException;
 import com.vedvix.syncledger.model.Organization;
 import com.vedvix.syncledger.model.OrganizationStatus;
+import com.vedvix.syncledger.model.ErpType;
 import com.vedvix.syncledger.repository.OrganizationRepository;
 import com.vedvix.syncledger.repository.UserRepository;
 import com.vedvix.syncledger.repository.InvoiceRepository;
@@ -59,6 +60,11 @@ public class OrganizationService {
                 .status(OrganizationStatus.ONBOARDING)
                 .sageApiEndpoint(request.getSageApiEndpoint())
                 .sageApiKey(request.getSageApiKey())
+                .erpType(request.getErpType() != null ? ErpType.valueOf(request.getErpType()) : ErpType.NONE)
+                .erpApiEndpoint(request.getErpApiEndpoint())
+                .erpApiKeyEncrypted(request.getErpApiKey())
+                .erpTenantId(request.getErpTenantId())
+                .erpCompanyId(request.getErpCompanyId())
                 .s3FolderPath(generateS3FolderPath(request.getSlug()))
                 .sqsQueueName(generateSqsQueueName(request.getSlug()))
                 .build();
@@ -135,6 +141,25 @@ public class OrganizationService {
         }
         if (request.getSageApiKey() != null) {
             org.setSageApiKey(request.getSageApiKey());
+        }
+        // ERP configuration
+        if (request.getErpType() != null) {
+            org.setErpType(ErpType.valueOf(request.getErpType()));
+        }
+        if (request.getErpApiEndpoint() != null) {
+            org.setErpApiEndpoint(request.getErpApiEndpoint());
+        }
+        if (request.getErpApiKey() != null) {
+            org.setErpApiKeyEncrypted(request.getErpApiKey());
+        }
+        if (request.getErpTenantId() != null) {
+            org.setErpTenantId(request.getErpTenantId());
+        }
+        if (request.getErpCompanyId() != null) {
+            org.setErpCompanyId(request.getErpCompanyId());
+        }
+        if (request.getErpAutoSync() != null) {
+            org.setErpAutoSync(request.getErpAutoSync());
         }
 
         organizationRepository.save(org);
@@ -237,18 +262,48 @@ public class OrganizationService {
     }
 
     private OrganizationDTO mapToDTO(Organization org) {
-        return OrganizationDTO.builder()
+        OrganizationDTO.OrganizationDTOBuilder builder = OrganizationDTO.builder()
                 .id(org.getId())
                 .name(org.getName())
                 .slug(org.getSlug())
                 .emailAddress(org.getEmailAddress())
                 .status(org.getStatus().name())
                 .sageApiEndpoint(org.getSageApiEndpoint())
+                .erpType(org.getErpType() != null ? org.getErpType().name() : "NONE")
+                .erpApiEndpoint(org.getErpApiEndpoint())
+                .erpTenantId(org.getErpTenantId())
+                .erpCompanyId(org.getErpCompanyId())
+                .erpAutoSync(org.getErpAutoSync())
+                .erpConfigured(org.getErpType() != null && org.getErpType() != ErpType.NONE
+                        && org.getErpApiEndpoint() != null)
                 .s3FolderPath(org.getS3FolderPath())
                 .sqsQueueName(org.getSqsQueueName())
+                .contactName(org.getContactName())
+                .contactEmail(org.getContactEmail())
+                .contactPhone(org.getContactPhone())
+                .msCredentialsConfigured(org.getMsClientId() != null && org.getMsTenantId() != null)
+                .msCredentialsVerified(org.getMsCredentialsVerified())
+                .msClientId(org.getMsClientId())
+                .msTenantId(org.getMsTenantId())
+                .msMailboxEmail(org.getMsMailboxEmail())
                 .createdAt(org.getCreatedAt())
-                .updatedAt(org.getUpdatedAt())
-                .build();
+                .updatedAt(org.getUpdatedAt());
+
+        // Include subscription info if available
+        if (org.getSubscription() != null) {
+            builder.subscriptionPlan(org.getSubscription().getPlan().name())
+                   .subscriptionStatus(org.getSubscription().getStatus().name())
+                   .remainingTrialDays(org.getSubscription().getRemainingTrialDays())
+                   .hasAccess(org.getSubscription().hasAccess());
+
+            if (org.getSubscription().getSubscriptionEndDate() != null) {
+                builder.subscriptionExpiresAt(org.getSubscription().getSubscriptionEndDate());
+            } else if (org.getSubscription().getTrialEndDate() != null) {
+                builder.subscriptionExpiresAt(org.getSubscription().getTrialEndDate());
+            }
+        }
+
+        return builder.build();
     }
 }
 

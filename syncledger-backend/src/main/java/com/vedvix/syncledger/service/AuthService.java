@@ -290,6 +290,7 @@ public class AuthService {
                 .role(principal.getRole().name())
                 .organizationId(principal.getOrganizationId())
                 .organizationSlug(principal.getOrganizationSlug())
+                .organizationStatus(principal.getOrganizationStatus())
                 .isActive(principal.isEnabled())
                 .build();
     }
@@ -304,6 +305,7 @@ public class AuthService {
                 .organizationId(user.getOrganization() != null ? user.getOrganization().getId() : null)
                 .organizationSlug(user.getOrganization() != null ? user.getOrganization().getSlug() : null)
                 .organizationName(user.getOrganization() != null ? user.getOrganization().getName() : null)
+                .organizationStatus(user.getOrganization() != null ? user.getOrganization().getStatus().name() : null)
                 .isActive(user.getIsActive())
                 .lastLoginAt(user.getLastLoginAt())
                 .createdAt(user.getCreatedAt())

@@ -5,13 +5,16 @@ Transforms raw extracted fields into the target system model based on the active
 mapping profile. Supports date transformations, default values, fallback sources,
 and vendor-pattern-based auto-profile selection.
 
+Profiles are persisted in PostgreSQL (mapping_profiles table) and cached in memory.
+
 Author: vedvix
 """
 
+import json
 import re
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 import structlog
 
@@ -26,6 +29,9 @@ from models.mapping_config import (
     get_standard_invoice_profile,
 )
 
+if TYPE_CHECKING:
+    from services.database_service import DatabaseService
+
 logger = structlog.get_logger(__name__)
 
 
@@ -38,12 +44,102 @@ class MappingEngine:
     2. Matches the best mapping profile (by vendor pattern or explicit selection)
     3. Applies each mapping rule: source lookup → fallback → default → transform
     4. Returns a mapped InvoiceData plus any additional mapped fields
+    
+    Profiles are cached in-memory but persisted to PostgreSQL via DatabaseService.
     """
     
-    def __init__(self):
-        """Initialize with built-in profiles."""
+    def __init__(self, db_service: Optional["DatabaseService"] = None):
+        """Initialize with built-in profiles and optional DB backing."""
         self._profiles: Dict[str, InvoiceMappingProfile] = {}
+        self._db_service = db_service
         self._load_builtin_profiles()
+    
+    def set_db_service(self, db_service: "DatabaseService"):
+        """Set the database service for persistence."""
+        self._db_service = db_service
+    
+    async def load_profiles_from_db(self):
+        """Load all profiles from database into memory cache."""
+        if not self._db_service:
+            logger.warning("No DB service configured, skipping DB profile load")
+            return
+        
+        try:
+            from models.db_models import MappingProfileDB
+            db_profiles = await self._db_service.get_mapping_profiles()
+            loaded = 0
+            for db_p in db_profiles:
+                profile = self._db_profile_to_pydantic(db_p)
+                if profile and profile.id:
+                    self._profiles[profile.id] = profile
+                    loaded += 1
+            logger.info("Loaded mapping profiles from DB", count=loaded)
+        except Exception as e:
+            logger.error("Failed to load profiles from DB", error=str(e))
+    
+    async def save_profile_to_db(self, profile: InvoiceMappingProfile) -> None:
+        """Persist a profile to the database."""
+        if not self._db_service:
+            logger.warning("No DB service configured, profile only in memory")
+            return
+        
+        try:
+            from models.db_models import MappingProfileDB
+            db_profile = self._pydantic_to_db_profile(profile)
+            await self._db_service.save_mapping_profile(db_profile)
+            logger.info("Saved mapping profile to DB", profile_id=profile.id)
+        except Exception as e:
+            logger.error("Failed to save profile to DB", error=str(e), profile_id=profile.id)
+    
+    async def delete_profile_from_db(self, profile_id: str) -> bool:
+        """Delete a profile from the database."""
+        if not self._db_service:
+            return False
+        try:
+            return await self._db_service.delete_mapping_profile(profile_id)
+        except Exception as e:
+            logger.error("Failed to delete profile from DB", error=str(e), profile_id=profile_id)
+            return False
+    
+    @staticmethod
+    def _db_profile_to_pydantic(db_profile) -> Optional[InvoiceMappingProfile]:
+        """Convert a DB model to a Pydantic InvoiceMappingProfile."""
+        try:
+            rules = []
+            if db_profile.rules_json:
+                rules_data = json.loads(db_profile.rules_json)
+                rules = [FieldMappingRule(**r) for r in rules_data]
+            
+            return InvoiceMappingProfile(
+                id=db_profile.id,
+                name=db_profile.name,
+                description=db_profile.description,
+                vendor_pattern=db_profile.vendor_pattern,
+                is_default=db_profile.is_default or False,
+                organization_id=db_profile.organization_id,
+                rules=rules,
+            )
+        except Exception as e:
+            logger.error("Failed to convert DB profile", error=str(e), profile_id=db_profile.id)
+            return None
+    
+    @staticmethod
+    def _pydantic_to_db_profile(profile: InvoiceMappingProfile):
+        """Convert a Pydantic profile to a DB model."""
+        from models.db_models import MappingProfileDB
+        
+        rules_json = json.dumps([r.dict() for r in profile.rules]) if profile.rules else "[]"
+        
+        return MappingProfileDB(
+            id=profile.id,
+            organization_id=profile.organization_id,
+            name=profile.name,
+            description=profile.description,
+            vendor_pattern=profile.vendor_pattern,
+            is_default=profile.is_default,
+            is_builtin=profile.id and (profile.id.startswith("default-") or profile.id.startswith("standard-")),
+            rules_json=rules_json,
+        )
     
     def _load_builtin_profiles(self):
         """Load the built-in mapping profiles."""

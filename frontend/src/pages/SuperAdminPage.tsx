@@ -5,6 +5,8 @@ import {
   Users, 
   FileText, 
   Plus,
+  Package,
+  Ticket,
   MoreHorizontal,
   CheckCircle,
   XCircle,
@@ -13,7 +15,8 @@ import {
   RefreshCw,
   Wifi,
   WifiOff,
-  Loader2
+  Loader2,
+  Server
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -198,6 +201,14 @@ export default function SuperAdminPage() {
             )}
             Poll All Emails
           </Button>
+          <Button variant="outline" onClick={() => navigate('/super-admin/plans')}>
+            <Package className="w-4 h-4 mr-2" />
+            Manage Plans
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/super-admin/coupons')}>
+            <Ticket className="w-4 h-4 mr-2" />
+            Manage Coupons
+          </Button>
           <Button onClick={() => navigate('/super-admin/organizations/new')}>
             <Plus className="w-4 h-4 mr-2" />
             Add Organization
@@ -296,6 +307,8 @@ export default function SuperAdminPage() {
                 <TableHead>Slug</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Email Config</TableHead>
+                <TableHead>ERP Config</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
@@ -307,6 +320,34 @@ export default function SuperAdminPage() {
                   <TableCell>{org.slug}</TableCell>
                   <TableCell>{org.emailAddress || '-'}</TableCell>
                   <TableCell>{getStatusBadge(org.status)}</TableCell>
+                  <TableCell>
+                    {org.msCredentialsConfigured ? (
+                      org.msCredentialsVerified ? (
+                        <Badge className="bg-green-100 text-green-800">
+                          <CheckCircle className="w-3 h-3 mr-1" />Verified
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-yellow-100 text-yellow-800">
+                          <AlertCircle className="w-3 h-3 mr-1" />Unverified
+                        </Badge>
+                      )
+                    ) : (
+                      <Badge className="bg-gray-100 text-gray-500">
+                        <XCircle className="w-3 h-3 mr-1" />Not Set
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {org.erpConfigured ? (
+                      <Badge className="bg-green-100 text-green-800">
+                        <Server className="w-3 h-3 mr-1" />{org.erpType || 'Configured'}
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-gray-100 text-gray-500">
+                        <XCircle className="w-3 h-3 mr-1" />Not Set
+                      </Badge>
+                    )}
+                  </TableCell>
                   <TableCell>
                     {new Date(org.createdAt).toLocaleDateString()}
                   </TableCell>
@@ -389,7 +430,7 @@ export default function SuperAdminPage() {
               ))}
               {organizations.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     No organizations yet. Click "Add Organization" to create one.
                   </TableCell>
                 </TableRow>

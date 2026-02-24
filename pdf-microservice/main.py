@@ -96,6 +96,10 @@ async def lifespan(app: FastAPI):
     try:
         db_service = await init_db_service()
         logger.info("Database service initialized")
+        
+        # Connect mapping engine to DB and load persisted profiles
+        mapping_engine.set_db_service(db_service)
+        await mapping_engine.load_profiles_from_db()
     except Exception as e:
         logger.warning("Database service initialization failed - running without DB", error=str(e))
         db_service = None
@@ -905,6 +909,7 @@ async def create_mapping_profile(request: MappingProfileCreateRequest):
     
     Custom mapping profiles allow organizations to define how extracted invoice
     fields map to the target system model for different vendor invoice formats.
+    Profiles are persisted in the database and scoped per organization.
     """
     import uuid
     
@@ -919,6 +924,9 @@ async def create_mapping_profile(request: MappingProfileCreateRequest):
     )
     
     mapping_engine.register_profile(profile)
+    
+    # Persist to database
+    await mapping_engine.save_profile_to_db(profile)
     
     logger.info("Mapping profile created", profile_id=profile.id, name=profile.name)
     return {"success": True, "profile": profile.dict()}
@@ -948,6 +956,9 @@ async def update_mapping_profile(profile_id: str, request: MappingProfileUpdateR
     
     mapping_engine.register_profile(existing)
     
+    # Persist to database
+    await mapping_engine.save_profile_to_db(existing)
+    
     logger.info("Mapping profile updated", profile_id=profile_id)
     return {"success": True, "profile": existing.dict()}
 
@@ -967,6 +978,9 @@ async def delete_mapping_profile(profile_id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Mapping profile '{profile_id}' not found"
         )
+    
+    # Remove from database
+    await mapping_engine.delete_profile_from_db(profile_id)
     
     return {"success": True, "message": f"Profile '{profile_id}' deleted"}
 

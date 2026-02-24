@@ -58,6 +58,11 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints
                 .requestMatchers("/v1/auth/**").permitAll()
+                .requestMatchers("/v1/signup", "/v1/signup/**").permitAll()
+                .requestMatchers("/v1/subscriptions/plans").permitAll()
+                .requestMatchers("/v1/plan-definitions/active").permitAll()
+                .requestMatchers("/v1/coupons/validate").permitAll()
+                .requestMatchers("/v1/webhooks/**").permitAll()
                 .requestMatchers("/v1/health").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
                 // Allow file access for local storage (PDF service needs this)

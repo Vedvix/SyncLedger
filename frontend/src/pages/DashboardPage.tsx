@@ -12,14 +12,45 @@ import {
   DollarSign,
   TrendingUp,
   Upload,
-  Download,
-  Sparkles,
   Eye,
-  BarChart3,
-  PieChart,
   Building,
-  Shield
+  Shield,
+  ArrowUpRight,
+  ArrowDownRight,
 } from 'lucide-react'
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell,
+  BarChart, Bar,
+  RadialBarChart, RadialBar,
+} from 'recharts'
+
+// Color palette aligned with primary blue theme
+const COLORS = {
+  primary: '#3b82f6',
+  primaryLight: '#93c5fd',
+  success: '#22c55e',
+  successLight: '#bbf7d0',
+  warning: '#f59e0b',
+  warningLight: '#fde68a',
+  danger: '#ef4444',
+  dangerLight: '#fecaca',
+  purple: '#8b5cf6',
+  purpleLight: '#c4b5fd',
+  indigo: '#6366f1',
+  cyan: '#06b6d4',
+  slate: '#64748b',
+}
+
+const STATUS_COLORS = [
+  COLORS.warning,   // Pending
+  COLORS.primary,   // Under Review
+  COLORS.success,   // Approved
+  COLORS.danger,    // Rejected
+  COLORS.purple,    // Synced
+  '#f97316',        // Sync Failed (orange)
+  '#dc2626',        // Overdue (dark red)
+]
 
 export function DashboardPage() {
   const { user } = useAuthStore()
@@ -27,7 +58,7 @@ export function DashboardPage() {
   const { data: stats, isLoading, error, refetch } = useQuery({
     queryKey: ['dashboardStats'],
     queryFn: () => dashboardService.getStats(),
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30000,
   })
   
   if (isLoading) {
@@ -43,95 +74,68 @@ export function DashboardPage() {
       <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
         <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
         <p className="text-red-600 mb-4">Failed to load dashboard statistics</p>
-        <button
-          onClick={() => refetch()}
-          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-        >
+        <button onClick={() => refetch()} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
           Retry
         </button>
       </div>
     )
   }
   
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount)
-  }
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount)
 
-  // Calculate auto-approved (high confidence) vs manual review needed
+  const formatCompact = (n: number) =>
+    n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
+
+  const totalProcessed = stats?.totalInvoices || 0
   const autoApproved = stats?.approvedInvoices || 0
   const needsReview = (stats?.pendingInvoices || 0) + (stats?.underReviewInvoices || 0)
-  const totalProcessed = (stats?.totalInvoices || 0)
-  const autoApprovalRate = totalProcessed > 0 ? ((autoApproved / totalProcessed) * 100).toFixed(1) : '0'
+  const autoApprovalRate = totalProcessed > 0 ? (autoApproved / totalProcessed) * 100 : 0
+  const syncRate = (stats?.syncSuccessRate || 0) * 100
 
-  // Status cards for main metrics
-  const statusCards = [
-    {
-      label: 'Total Invoices',
-      value: stats?.totalInvoices || 0,
-      icon: FileText,
-      color: 'bg-gradient-to-br from-blue-500 to-blue-600',
-      textColor: 'text-blue-600',
-      bgLight: 'bg-blue-50',
-      navigateTo: '/invoices',
-    },
-    {
-      label: 'Pending Review',
-      value: needsReview,
-      icon: Clock,
-      color: 'bg-gradient-to-br from-yellow-500 to-orange-500',
-      textColor: 'text-yellow-600',
-      bgLight: 'bg-yellow-50',
-      badge: needsReview > 0 ? 'Needs Attention' : null,
-      navigateTo: '/invoices?status=PENDING',
-    },
-    {
-      label: 'Approved',
-      value: stats?.approvedInvoices || 0,
-      icon: CheckCircle,
-      color: 'bg-gradient-to-br from-green-500 to-emerald-600',
-      textColor: 'text-green-600',
-      bgLight: 'bg-green-50',
-      navigateTo: '/invoices?status=APPROVED',
-    },
-    {
-      label: 'Synced to Sage',
-      value: stats?.syncedInvoices || 0,
-      icon: Upload,
-      color: 'bg-gradient-to-br from-purple-500 to-indigo-600',
-      textColor: 'text-purple-600',
-      bgLight: 'bg-purple-50',
-      navigateTo: '/invoices?status=SYNCED',
-    },
-    {
-      label: 'Rejected',
-      value: stats?.rejectedInvoices || 0,
-      icon: XCircle,
-      color: 'bg-gradient-to-br from-red-500 to-red-600',
-      textColor: 'text-red-600',
-      bgLight: 'bg-red-50',
-      navigateTo: '/invoices?status=REJECTED',
-    },
-    {
-      label: 'Overdue',
-      value: stats?.overdueInvoices || 0,
-      icon: AlertTriangle,
-      color: 'bg-gradient-to-br from-orange-500 to-red-500',
-      textColor: 'text-orange-600',
-      bgLight: 'bg-orange-50',
-      badge: (stats?.overdueInvoices || 0) > 0 ? 'Critical' : null,
-      navigateTo: '/invoices?overdue=true',
-    },
+  // --- Chart Data ---
+
+  // Status distribution for donut
+  const statusData = [
+    { name: 'Pending', value: stats?.pendingInvoices || 0 },
+    { name: 'Under Review', value: stats?.underReviewInvoices || 0 },
+    { name: 'Approved', value: stats?.approvedInvoices || 0 },
+    { name: 'Rejected', value: stats?.rejectedInvoices || 0 },
+    { name: 'Synced', value: stats?.syncedInvoices || 0 },
+    { name: 'Sync Failed', value: stats?.failedSyncs || 0 },
+    { name: 'Overdue', value: stats?.overdueInvoices || 0 },
+  ].filter(d => d.value > 0)
+
+  // Monthly trends for area chart
+  const trendData = (stats?.monthlyTrends || []).map(m => ({
+    name: m.monthName?.slice(0, 3) || `${m.month}`,
+    invoices: m.invoiceCount,
+    amount: m.totalAmount,
+  }))
+
+  // Top vendors for bar chart
+  const vendorData = (stats?.topVendors || []).slice(0, 8).map(v => ({
+    name: v.vendorName.length > 20 ? v.vendorName.slice(0, 20) + '…' : v.vendorName,
+    invoices: v.invoiceCount,
+    amount: v.totalAmount,
+  }))
+
+  // Financial breakdown for horizontal bar
+  const financialData = [
+    { name: 'Pending', value: stats?.pendingAmount || 0, fill: COLORS.warning },
+    { name: 'Approved', value: stats?.approvedAmount || 0, fill: COLORS.success },
+    { name: 'Synced', value: stats?.syncedAmount || 0, fill: COLORS.purple },
   ]
 
-  // Processing pipeline visualization
-  const pipelineStages = [
-    { label: 'Received', value: stats?.totalInvoices || 0, icon: Download, color: 'bg-blue-500' },
-    { label: 'Extracted', value: stats?.totalInvoices || 0, icon: Eye, color: 'bg-indigo-500' },
-    { label: 'Auto-Approved', value: autoApproved, icon: Sparkles, color: 'bg-green-500' },
-    { label: 'Pushed to Sage', value: stats?.syncedInvoices || 0, icon: Upload, color: 'bg-purple-500' },
+  // Radial gauge data for KPI cards
+  const approvalGauge = [{ name: 'rate', value: autoApprovalRate, fill: COLORS.success }]
+  const syncGauge = [{ name: 'rate', value: syncRate, fill: COLORS.primary }]
+
+  // Processing throughput mini-bar data
+  const throughputData = [
+    { name: 'Today', value: stats?.invoicesProcessedToday || 0 },
+    { name: 'Week', value: stats?.invoicesProcessedThisWeek || 0 },
+    { name: 'Month', value: stats?.invoicesProcessedThisMonth || 0 },
   ]
 
   return (
@@ -159,270 +163,400 @@ export function DashboardPage() {
           <span className="text-sm text-gray-500">
             Last updated: {new Date().toLocaleTimeString()}
           </span>
-          <button
-            onClick={() => refetch()}
-            className="flex items-center px-3 py-2 text-sm border rounded-lg hover:bg-gray-50"
-          >
+          <button onClick={() => refetch()} className="flex items-center px-3 py-2 text-sm border rounded-lg hover:bg-gray-50">
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </button>
         </div>
       </div>
 
-      {/* Quick Stats Banner */}
-      <div className="bg-gradient-to-r from-primary-600 to-primary-800 rounded-xl p-6 text-white">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div>
-            <p className="text-primary-200 text-sm">Auto-Approval Rate</p>
-            <p className="text-3xl font-bold">{autoApprovalRate}%</p>
-            <p className="text-primary-200 text-xs mt-1">High confidence invoices</p>
+      {/* ─── KPI Cards Row with Mini Charts ─── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+        {/* Total Invoices with trend sparkline */}
+        <div
+          onClick={() => navigate('/invoices')}
+          className="bg-white rounded-xl shadow-sm p-5 cursor-pointer hover:shadow-md transition-all group"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 rounded-lg bg-blue-50 text-primary-500">
+              <FileText className="w-5 h-5" />
+            </div>
+            {trendData.length > 1 && (
+              <span className="flex items-center text-xs font-medium text-green-600">
+                <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" />
+                {trendData.length > 0 ? trendData[trendData.length - 1].invoices : 0} latest
+              </span>
+            )}
           </div>
-          <div>
-            <p className="text-primary-200 text-sm">Processed Today</p>
-            <p className="text-3xl font-bold">{stats?.invoicesProcessedToday || 0}</p>
-            <p className="text-primary-200 text-xs mt-1">invoices</p>
+          <p className="text-sm text-gray-500 mb-0.5">Total Invoices</p>
+          <p className="text-3xl font-bold text-gray-900">{formatCompact(totalProcessed)}</p>
+          {trendData.length > 1 && (
+            <div className="mt-3 h-12">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={trendData}>
+                  <defs>
+                    <linearGradient id="sparkBlue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={COLORS.primary} stopOpacity={0.3} />
+                      <stop offset="100%" stopColor={COLORS.primary} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <Area type="monotone" dataKey="invoices" stroke={COLORS.primary} strokeWidth={2} fill="url(#sparkBlue)" dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        {/* Needs Review with radial indicator */}
+        <div
+          onClick={() => navigate('/invoices?status=PENDING')}
+          className="bg-white rounded-xl shadow-sm p-5 cursor-pointer hover:shadow-md transition-all"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 rounded-lg bg-amber-50 text-amber-500">
+              <Clock className="w-5 h-5" />
+            </div>
+            {needsReview > 0 && (
+              <span className="px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700 rounded-full uppercase tracking-wide">
+                Needs Attention
+              </span>
+            )}
           </div>
-          <div>
-            <p className="text-primary-200 text-sm">Sync Success Rate</p>
-            <p className="text-3xl font-bold">{((stats?.syncSuccessRate || 0) * 100).toFixed(1)}%</p>
-            <p className="text-primary-200 text-xs mt-1">to Sage Intacct</p>
+          <p className="text-sm text-gray-500 mb-0.5">Pending Review</p>
+          <div className="flex items-end justify-between">
+            <p className="text-3xl font-bold text-gray-900">{needsReview}</p>
+            <div className="w-14 h-14">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadialBarChart cx="50%" cy="50%" innerRadius="70%" outerRadius="100%" data={[{ value: totalProcessed > 0 ? (needsReview / totalProcessed) * 100 : 0, fill: COLORS.warning }]} startAngle={90} endAngle={-270} barSize={6}>
+                  <RadialBar background={{ fill: '#f3f4f6' }} dataKey="value" cornerRadius={4} />
+                </RadialBarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <div>
-            <p className="text-primary-200 text-sm">Total Value</p>
-            <p className="text-3xl font-bold">{formatCurrency(stats?.totalAmount || 0)}</p>
-            <p className="text-primary-200 text-xs mt-1">all invoices</p>
+        </div>
+
+        {/* Approval Rate gauge */}
+        <div
+          onClick={() => navigate('/invoices?status=APPROVED')}
+          className="bg-white rounded-xl shadow-sm p-5 cursor-pointer hover:shadow-md transition-all"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 rounded-lg bg-green-50 text-green-500">
+              <CheckCircle className="w-5 h-5" />
+            </div>
+            <span className="flex items-center text-xs font-medium text-green-600">
+              {autoApproved} approved
+            </span>
+          </div>
+          <p className="text-sm text-gray-500 mb-0.5">Approval Rate</p>
+          <div className="flex items-end justify-between">
+            <p className="text-3xl font-bold text-gray-900">{autoApprovalRate.toFixed(1)}%</p>
+            <div className="w-14 h-14">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadialBarChart cx="50%" cy="50%" innerRadius="70%" outerRadius="100%" data={approvalGauge} startAngle={90} endAngle={-270} barSize={6}>
+                  <RadialBar background={{ fill: '#f3f4f6' }} dataKey="value" cornerRadius={4} />
+                </RadialBarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Sync Rate gauge */}
+        <div
+          onClick={() => navigate('/invoices?status=SYNCED')}
+          className="bg-white rounded-xl shadow-sm p-5 cursor-pointer hover:shadow-md transition-all"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 rounded-lg bg-purple-50 text-purple-500">
+              <Upload className="w-5 h-5" />
+            </div>
+            <span className="flex items-center text-xs font-medium text-purple-600">
+              {stats?.syncedInvoices || 0} synced
+            </span>
+          </div>
+          <p className="text-sm text-gray-500 mb-0.5">Sync Success Rate</p>
+          <div className="flex items-end justify-between">
+            <p className="text-3xl font-bold text-gray-900">{syncRate.toFixed(1)}%</p>
+            <div className="w-14 h-14">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadialBarChart cx="50%" cy="50%" innerRadius="70%" outerRadius="100%" data={syncGauge} startAngle={90} endAngle={-270} barSize={6}>
+                  <RadialBar background={{ fill: '#f3f4f6' }} dataKey="value" cornerRadius={4} />
+                </RadialBarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Processing Pipeline */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <BarChart3 className="w-5 h-5 mr-2 text-primary-500" />
-          Invoice Processing Pipeline
-        </h2>
-        <div className="flex items-center justify-between">
-          {pipelineStages.map((stage, index) => (
-            <div key={stage.label} className="flex items-center flex-1">
-              <div className="flex flex-col items-center flex-1">
-                <div className={`${stage.color} p-3 rounded-full mb-2`}>
-                  <stage.icon className="w-6 h-6 text-white" />
-                </div>
-                <p className="text-2xl font-bold text-gray-900">{stage.value}</p>
-                <p className="text-sm text-gray-500">{stage.label}</p>
+      {/* ─── Row 2: Monthly Trend + Status Distribution ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Monthly Volume Trend - Area chart */}
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm p-6">
+          <h2 className="text-base font-semibold text-gray-900 mb-1">Invoice Volume Trend</h2>
+          <p className="text-xs text-gray-400 mb-4">Monthly invoice count & value</p>
+          {trendData.length > 0 ? (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={trendData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="gradBlue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={COLORS.primary} stopOpacity={0.2} />
+                      <stop offset="100%" stopColor={COLORS.primary} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradGreen" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={COLORS.success} stopOpacity={0.15} />
+                      <stop offset="100%" stopColor={COLORS.success} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <YAxis yAxisId="left" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `$${(v/1000).toFixed(0)}k`} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                    formatter={(value: number, name: string) => [name === 'amount' ? formatCurrency(value) : value, name === 'amount' ? 'Value' : 'Invoices']}
+                  />
+                  <Area yAxisId="left" type="monotone" dataKey="invoices" stroke={COLORS.primary} strokeWidth={2.5} fill="url(#gradBlue)" dot={{ r: 3, fill: COLORS.primary }} activeDot={{ r: 5 }} />
+                  <Area yAxisId="right" type="monotone" dataKey="amount" stroke={COLORS.success} strokeWidth={2} fill="url(#gradGreen)" dot={false} strokeDasharray="5 3" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-72 flex items-center justify-center text-gray-400 text-sm">
+              No trend data available yet
+            </div>
+          )}
+        </div>
+
+        {/* Status Distribution - Donut */}
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h2 className="text-base font-semibold text-gray-900 mb-1">Status Distribution</h2>
+          <p className="text-xs text-gray-400 mb-4">Current invoice breakdown</p>
+          {statusData.length > 0 ? (
+            <>
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={statusData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={80}
+                      paddingAngle={3}
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      {statusData.map((_entry, index) => (
+                        <Cell key={`cell-${index}`} fill={STATUS_COLORS[
+                          ['Pending', 'Under Review', 'Approved', 'Rejected', 'Synced', 'Sync Failed', 'Overdue'].indexOf(_entry.name)
+                        ] || COLORS.slate} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
-              {index < pipelineStages.length - 1 && (
-                <div className="flex-shrink-0 w-16 h-1 bg-gray-200 mx-2">
-                  <div 
-                    className="h-full bg-primary-500 transition-all"
-                    style={{ 
-                      width: `${stage.value > 0 ? (pipelineStages[index + 1].value / stage.value) * 100 : 0}%` 
+              <div className="space-y-2 mt-2">
+                {statusData.map((item) => (
+                  <div
+                    key={item.name}
+                    onClick={() => {
+                      const routes: Record<string, string> = {
+                        'Pending': '/invoices?status=PENDING',
+                        'Under Review': '/invoices?status=UNDER_REVIEW',
+                        'Approved': '/invoices?status=APPROVED',
+                        'Rejected': '/invoices?status=REJECTED',
+                        'Synced': '/invoices?status=SYNCED',
+                        'Sync Failed': '/invoices?status=SYNC_FAILED',
+                        'Overdue': '/invoices?overdue=true',
+                      }
+                      navigate(routes[item.name] || '/invoices')
                     }}
-                  />
-                </div>
-              )}
+                    className="flex items-center justify-between text-sm cursor-pointer hover:bg-gray-50 rounded px-2 py-1 -mx-2 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[['Pending', 'Under Review', 'Approved', 'Rejected', 'Synced', 'Sync Failed', 'Overdue'].indexOf(item.name)] || COLORS.slate }} />
+                      <span className="text-gray-600">{item.name}</span>
+                    </div>
+                    <span className="font-semibold text-gray-900">{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="h-52 flex items-center justify-center text-gray-400 text-sm">
+              No invoice data yet
             </div>
-          ))}
+          )}
         </div>
       </div>
-      
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {statusCards.map((card) => (
-          <div
-            key={card.label}
-            onClick={() => card.navigateTo && navigate(card.navigateTo)}
-            className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && card.navigateTo && navigate(card.navigateTo)}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className={`${card.color} p-3 rounded-lg`}>
-                  <card.icon className="w-6 h-6 text-white" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm text-gray-500">{card.label}</p>
-                  <p className="text-2xl font-bold text-gray-900">{card.value}</p>
-                </div>
-              </div>
-              {card.badge && (
-                <span className={`px-2 py-1 text-xs rounded-full ${
-                  card.badge === 'Critical' 
-                    ? 'bg-red-100 text-red-700' 
-                    : 'bg-yellow-100 text-yellow-700'
-                }`}>
-                  {card.badge}
-                </span>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-      
-      {/* Financial Summary & Processing Metrics */}
+
+      {/* ─── Row 3: Top Vendors + Financial Breakdown ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Vendors bar chart */}
         <div className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <DollarSign className="w-5 h-5 mr-2 text-green-500" />
-            Financial Summary
-          </h2>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center py-3 border-b">
-              <span className="text-gray-600">Total Invoice Value</span>
-              <span className="font-semibold text-lg">{formatCurrency(stats?.totalAmount || 0)}</span>
-            </div>
-            <div className="flex justify-between items-center py-3 border-b">
-              <div className="flex items-center">
-                <div className="w-3 h-3 rounded-full bg-yellow-500 mr-2" />
-                <span className="text-gray-600">Pending Approval</span>
-              </div>
-              <span className="font-semibold text-yellow-600">
-                {formatCurrency(stats?.pendingAmount || 0)}
-              </span>
-            </div>
-            <div className="flex justify-between items-center py-3 border-b">
-              <div className="flex items-center">
-                <div className="w-3 h-3 rounded-full bg-green-500 mr-2" />
-                <span className="text-gray-600">Approved Value</span>
-              </div>
-              <span className="font-semibold text-green-600">
-                {formatCurrency(stats?.approvedAmount || 0)}
-              </span>
-            </div>
-            <div className="flex justify-between items-center py-3">
-              <div className="flex items-center">
-                <div className="w-3 h-3 rounded-full bg-purple-500 mr-2" />
-                <span className="text-gray-600">Synced to Sage</span>
-              </div>
-              <span className="font-semibold text-purple-600">
-                {formatCurrency(stats?.syncedAmount || 0)}
-              </span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <TrendingUp className="w-5 h-5 mr-2 text-blue-500" />
-            Processing Metrics
-          </h2>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center py-3 border-b">
-              <span className="text-gray-600">Processed Today</span>
-              <span className="font-semibold">{stats?.invoicesProcessedToday || 0}</span>
-            </div>
-            <div className="flex justify-between items-center py-3 border-b">
-              <span className="text-gray-600">This Week</span>
-              <span className="font-semibold">{stats?.invoicesProcessedThisWeek || 0}</span>
-            </div>
-            <div className="flex justify-between items-center py-3 border-b">
-              <span className="text-gray-600">This Month</span>
-              <span className="font-semibold">{stats?.invoicesProcessedThisMonth || 0}</span>
-            </div>
-            <div className="flex justify-between items-center py-3 border-b">
-              <span className="text-gray-600">Avg Processing Time</span>
-              <span className="font-semibold">
-                {stats?.averageProcessingTimeMs 
-                  ? `${(stats.averageProcessingTimeMs / 1000).toFixed(1)}s` 
-                  : 'N/A'}
-              </span>
-            </div>
-            <div className="flex justify-between items-center py-3">
-              <span className="text-gray-600">Sync Success Rate</span>
-              <div className="flex items-center">
-                <div className="w-24 h-2 bg-gray-200 rounded-full mr-2">
-                  <div 
-                    className="h-full bg-green-500 rounded-full"
-                    style={{ width: `${(stats?.syncSuccessRate || 0) * 100}%` }}
+          <h2 className="text-base font-semibold text-gray-900 mb-1">Top Vendors</h2>
+          <p className="text-xs text-gray-400 mb-4">By invoice count</p>
+          {vendorData.length > 0 ? (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={vendorData} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} width={130} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                    formatter={(value: number, name: string) => [name === 'amount' ? formatCurrency(value) : value, name === 'amount' ? 'Total Value' : 'Invoices']}
                   />
-                </div>
-                <span className="font-semibold text-green-600">
-                  {((stats?.syncSuccessRate || 0) * 100).toFixed(1)}%
-                </span>
-              </div>
+                  <Bar dataKey="invoices" fill={COLORS.primary} radius={[0, 4, 4, 0]} barSize={18} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
+          ) : (
+            <div className="h-72 flex items-center justify-center text-gray-400 text-sm">
+              No vendor data yet
+            </div>
+          )}
+        </div>
+
+        {/* Financial Breakdown */}
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-base font-semibold text-gray-900">Financial Summary</h2>
+            <DollarSign className="w-5 h-5 text-green-500" />
+          </div>
+          <p className="text-xs text-gray-400 mb-5">Value by invoice status</p>
+
+          <div className="mb-6 text-center">
+            <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Total Invoice Value</p>
+            <p className="text-3xl font-bold text-gray-900">{formatCurrency(stats?.totalAmount || 0)}</p>
+          </div>
+
+          <div className="space-y-4">
+            {financialData.map(item => {
+              const pct = (stats?.totalAmount || 0) > 0 ? (item.value / (stats?.totalAmount || 1)) * 100 : 0
+              return (
+                <div key={item.name}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.fill }} />
+                      <span className="text-sm text-gray-600">{item.name}</span>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900">{formatCurrency(item.value)}</span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{ width: `${pct}%`, backgroundColor: item.fill }}
+                    />
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-0.5 text-right">{pct.toFixed(1)}%</p>
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>
 
-      {/* Status Distribution Chart (Simple) */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <PieChart className="w-5 h-5 mr-2 text-primary-500" />
-          Invoice Status Distribution
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          {[
-            { label: 'Pending', value: stats?.pendingInvoices || 0, color: 'bg-yellow-500', navigateTo: '/invoices?status=PENDING' },
-            { label: 'Under Review', value: stats?.underReviewInvoices || 0, color: 'bg-blue-500', navigateTo: '/invoices?status=UNDER_REVIEW' },
-            { label: 'Approved', value: stats?.approvedInvoices || 0, color: 'bg-green-500', navigateTo: '/invoices?status=APPROVED' },
-            { label: 'Rejected', value: stats?.rejectedInvoices || 0, color: 'bg-red-500', navigateTo: '/invoices?status=REJECTED' },
-            { label: 'Synced', value: stats?.syncedInvoices || 0, color: 'bg-purple-500', navigateTo: '/invoices?status=SYNCED' },
-            { label: 'Sync Failed', value: stats?.failedSyncs || 0, color: 'bg-orange-500', navigateTo: '/invoices?status=SYNC_FAILED' },
-            { label: 'Overdue', value: stats?.overdueInvoices || 0, color: 'bg-red-600', navigateTo: '/invoices?overdue=true' },
-          ].map((item) => (
-            <div
-              key={item.label}
-              onClick={() => navigate(item.navigateTo)}
-              className="text-center p-4 rounded-lg bg-gray-50 cursor-pointer hover:bg-gray-100 hover:shadow-sm transition-all active:scale-95"
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && navigate(item.navigateTo)}
-            >
-              <div className={`w-4 h-4 ${item.color} rounded-full mx-auto mb-2`} />
-              <p className="text-2xl font-bold text-gray-900">{item.value}</p>
-              <p className="text-xs text-gray-500">{item.label}</p>
-            </div>
-          ))}
+      {/* ─── Row 4: Processing Throughput + Alert Cards ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Processing Throughput */}
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-base font-semibold text-gray-900">Processing Throughput</h2>
+            <TrendingUp className="w-5 h-5 text-primary-500" />
+          </div>
+          <p className="text-xs text-gray-400 mb-4">Invoices processed</p>
+          <div className="h-40">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={throughputData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+                <Bar dataKey="value" fill={COLORS.indigo} radius={[4, 4, 0, 0]} barSize={32} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          {stats?.averageProcessingTimeMs != null && stats.averageProcessingTimeMs > 0 && (
+            <p className="text-xs text-gray-400 mt-3 text-center">
+              Avg processing time: <span className="font-medium text-gray-600">{(stats.averageProcessingTimeMs / 1000).toFixed(1)}s</span>
+            </p>
+          )}
         </div>
-      </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <button 
-            onClick={() => navigate('/invoices?status=PENDING')}
-            className="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors text-left w-full"
+        {/* Alert / Action Cards */}
+        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div
+            onClick={() => navigate('/invoices?status=REJECTED')}
+            className="bg-white rounded-xl shadow-sm p-5 cursor-pointer hover:shadow-md transition-all border-l-4 border-red-400"
           >
-            <Clock className="w-8 h-8 text-yellow-500 mr-3 flex-shrink-0" />
-            <div>
-              <p className="font-medium">Review Pending</p>
-              <p className="text-sm text-gray-500">{stats?.pendingInvoices || 0} invoices</p>
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-red-50 rounded-lg text-red-500">
+                <XCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Rejected Invoices</p>
+                <p className="text-2xl font-bold text-gray-900">{stats?.rejectedInvoices || 0}</p>
+                {(stats?.rejectedInvoices || 0) > 0 && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <ArrowDownRight className="w-3 h-3" /> Requires attention
+                  </p>
+                )}
+              </div>
             </div>
-          </button>
-          <button 
-            onClick={() => navigate('/invoices?status=UNDER_REVIEW')}
-            className="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors text-left w-full"
+          </div>
+
+          <div
+            onClick={() => navigate('/invoices?overdue=true')}
+            className="bg-white rounded-xl shadow-sm p-5 cursor-pointer hover:shadow-md transition-all border-l-4 border-orange-400"
           >
-            <Eye className="w-8 h-8 text-blue-500 mr-3 flex-shrink-0" />
-            <div>
-              <p className="font-medium">Manual Review</p>
-              <p className="text-sm text-gray-500">Low confidence</p>
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-orange-50 rounded-lg text-orange-500">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Overdue Invoices</p>
+                <p className="text-2xl font-bold text-gray-900">{stats?.overdueInvoices || 0}</p>
+                {(stats?.overdueInvoices || 0) > 0 && (
+                  <span className="inline-block mt-1 px-2 py-0.5 text-[10px] font-semibold bg-red-100 text-red-700 rounded-full uppercase">Critical</span>
+                )}
+              </div>
             </div>
-          </button>
-          <button 
+          </div>
+
+          <div
             onClick={() => navigate('/invoices?status=SYNC_FAILED')}
-            className="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors text-left w-full"
+            className="bg-white rounded-xl shadow-sm p-5 cursor-pointer hover:shadow-md transition-all border-l-4 border-amber-400"
           >
-            <AlertTriangle className="w-8 h-8 text-red-500 mr-3 flex-shrink-0" />
-            <div>
-              <p className="font-medium">Failed Syncs</p>
-              <p className="text-sm text-gray-500">{stats?.failedSyncs || 0} to retry</p>
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-amber-50 rounded-lg text-amber-500">
+                <RefreshCw className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Failed Syncs</p>
+                <p className="text-2xl font-bold text-gray-900">{stats?.failedSyncs || 0}</p>
+                <p className="text-xs text-gray-400 mt-1">Retry available</p>
+              </div>
             </div>
-          </button>
-          <button 
-            onClick={() => navigate('/invoices')}
-            className="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors text-left w-full"
+          </div>
+
+          <div
+            onClick={() => navigate('/invoices?status=UNDER_REVIEW')}
+            className="bg-white rounded-xl shadow-sm p-5 cursor-pointer hover:shadow-md transition-all border-l-4 border-blue-400"
           >
-            <FileText className="w-8 h-8 text-primary-500 mr-3 flex-shrink-0" />
-            <div>
-              <p className="font-medium">All Invoices</p>
-              <p className="text-sm text-gray-500">View all</p>
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-blue-50 rounded-lg text-blue-500">
+                <Eye className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Manual Review</p>
+                <p className="text-2xl font-bold text-gray-900">{stats?.underReviewInvoices || 0}</p>
+                <p className="text-xs text-gray-400 mt-1">Low confidence flags</p>
+              </div>
             </div>
-          </button>
+          </div>
         </div>
       </div>
     </div>

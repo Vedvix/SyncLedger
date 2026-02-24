@@ -54,7 +54,7 @@ public class Organization {
     @Column(length = 50)
     private String contactPhone;
 
-    // Sage Integration Configuration
+    // Sage Integration Configuration (legacy — use ERP fields instead)
     @Column(length = 500)
     private String sageApiEndpoint;
 
@@ -64,6 +64,31 @@ public class Organization {
     @Column
     @Builder.Default
     private Boolean sageAutoSync = true;
+
+    // ─── Generic ERP Integration Configuration ──────────────────────────
+    @Enumerated(EnumType.STRING)
+    @Column(name = "erp_type", length = 20)
+    @Builder.Default
+    private ErpType erpType = ErpType.NONE;
+
+    @Column(name = "erp_api_endpoint", length = 500)
+    private String erpApiEndpoint;
+
+    @Column(name = "erp_api_key_encrypted", length = 1000)
+    private String erpApiKeyEncrypted;
+
+    @Column(name = "erp_tenant_id", length = 255)
+    private String erpTenantId;
+
+    @Column(name = "erp_company_id", length = 255)
+    private String erpCompanyId;
+
+    @Column(name = "erp_auto_sync")
+    @Builder.Default
+    private Boolean erpAutoSync = true;
+
+    @Column(name = "erp_config_json", columnDefinition = "TEXT")
+    private String erpConfigJson;
 
     // AWS Resource References
     @Column(name = "s3_folder_path", length = 500)
@@ -78,6 +103,30 @@ public class Organization {
 
     @Column
     private LocalDateTime subscriptionExpiresAt;
+
+    // Microsoft Graph API Credentials (per-organization)
+    @Column(length = 500)
+    private String msClientId;
+
+    @Column(name = "ms_client_secret_encrypted", length = 1000)
+    private String msClientSecretEncrypted;
+
+    @Column(length = 500)
+    private String msTenantId;
+
+    @Column(length = 255)
+    private String msMailboxEmail;
+
+    @Column
+    @Builder.Default
+    private Boolean msCredentialsVerified = false;
+
+    @Column
+    private LocalDateTime msCredentialsVerifiedAt;
+
+    // Subscription relationship
+    @OneToOne(mappedBy = "organization", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Subscription subscription;
 
     // Audit fields
     @CreationTimestamp

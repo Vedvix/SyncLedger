@@ -12,7 +12,9 @@ import {
   X,
   Shield,
   GitCompareArrows,
-  Building2
+  Building2,
+  CreditCard,
+  Mail
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -45,6 +47,8 @@ export function DashboardLayout() {
 
   const systemNavItems = [
     ...(isAdmin ? [{ to: '/mapping', icon: GitCompareArrows, label: 'Mapping' }] : []),
+    ...(isAdmin ? [{ to: '/subscription', icon: CreditCard, label: 'Subscription' }] : []),
+    ...(isAdmin ? [{ to: '/microsoft-config', icon: Mail, label: 'Email Config' }] : []),
     { to: '/settings', icon: Settings, label: 'Settings' },
     ...(isSuperAdmin ? [{ to: '/super-admin', icon: Shield, label: 'Platform Admin' }] : []),
   ]
@@ -69,22 +73,22 @@ export function DashboardLayout() {
         lg:translate-x-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}
-        style={{ backgroundColor: '#141414' }}
+        style={{ backgroundColor: '#0f172a' }}
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between px-6 pt-6 pb-4">
             <div>
               <h1 className="text-xl font-bold">
-                <span className="text-orange-400">Sync</span>
+                <span className="text-primary-400">Sync</span>
                 <span className="text-white italic">Ledger</span>
               </h1>
-              <p className="text-[10px] font-semibold tracking-[0.2em] text-gray-500 uppercase mt-0.5">
+              <p className="text-[10px] font-semibold tracking-[0.2em] text-slate-500 uppercase mt-0.5">
                 Accounts Payable
               </p>
             </div>
             <button 
-              className="lg:hidden text-gray-400 hover:text-white"
+              className="lg:hidden text-slate-400 hover:text-white"
               onClick={() => setSidebarOpen(false)}
             >
               <X className="w-5 h-5" />
@@ -94,7 +98,7 @@ export function DashboardLayout() {
           {/* Navigation */}
           <nav className="flex-1 px-4 pt-4 overflow-y-auto">
             {/* CORE section */}
-            <p className="px-3 mb-2 text-[10px] font-semibold tracking-[0.15em] text-gray-600 uppercase">
+            <p className="px-3 mb-2 text-[10px] font-semibold tracking-[0.15em] text-slate-500 uppercase">
               Core
             </p>
             <div className="space-y-1 mb-6">
@@ -106,21 +110,21 @@ export function DashboardLayout() {
                   className={({ isActive }) => `
                     group flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
                     ${isActive 
-                      ? 'bg-white/10 text-orange-400' 
-                      : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                      ? 'bg-primary-500/10 text-primary-400' 
+                      : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
                     }
                   `}
                 >
                   {({ isActive }) => (
                     <>
                       <div className="flex items-center">
-                        <item.icon className={`w-[18px] h-[18px] mr-3 ${isActive ? 'text-orange-400' : 'text-gray-500 group-hover:text-gray-300'}`} />
+                        <item.icon className={`w-[18px] h-[18px] mr-3 ${isActive ? 'text-primary-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
                         {item.label}
                       </div>
                       {'badge' in item && item.badge != null && item.badge > 0 && (
                         <span className={`
                           min-w-[24px] h-5 flex items-center justify-center px-1.5 rounded-md text-[11px] font-bold
-                          ${isActive ? 'bg-orange-500/20 text-orange-400' : 'bg-white/10 text-gray-400'}
+                          ${isActive ? 'bg-primary-500/20 text-primary-400' : 'bg-white/10 text-slate-400'}
                         `}>
                           {item.badge}
                         </span>
@@ -132,7 +136,7 @@ export function DashboardLayout() {
             </div>
 
             {/* SYSTEM section */}
-            <p className="px-3 mb-2 text-[10px] font-semibold tracking-[0.15em] text-gray-600 uppercase">
+            <p className="px-3 mb-2 text-[10px] font-semibold tracking-[0.15em] text-slate-500 uppercase">
               System
             </p>
             <div className="space-y-1">
@@ -144,14 +148,14 @@ export function DashboardLayout() {
                   className={({ isActive }) => `
                     group flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
                     ${isActive 
-                      ? 'bg-white/10 text-orange-400' 
-                      : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                      ? 'bg-primary-500/10 text-primary-400' 
+                      : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
                     }
                   `}
                 >
                   {({ isActive }) => (
                     <div className="flex items-center">
-                      <item.icon className={`w-[18px] h-[18px] mr-3 ${isActive ? 'text-orange-400' : 'text-gray-500 group-hover:text-gray-300'}`} />
+                      <item.icon className={`w-[18px] h-[18px] mr-3 ${isActive ? 'text-primary-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
                       {item.label}
                     </div>
                   )}
@@ -161,21 +165,21 @@ export function DashboardLayout() {
           </nav>
           
           {/* User info & Logout */}
-          <div className="p-4 border-t border-white/10">
+          <div className="p-4 border-t border-slate-700/50">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                style={{ backgroundColor: '#e65100' }}
+                style={{ backgroundColor: '#2563eb' }}
               >
                 {userInitials}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-200 truncate">{userFullName}</p>
-                <p className="text-[10px] font-semibold tracking-wider text-gray-500 uppercase">{userRoleLabel}</p>
+                <p className="text-sm font-medium text-slate-200 truncate">{userFullName}</p>
+                <p className="text-[10px] font-semibold tracking-wider text-slate-500 uppercase">{userRoleLabel}</p>
               </div>
               <button
                 onClick={handleLogout}
                 title="Logout"
-                className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-white/5 transition-colors flex-shrink-0"
+                className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-white/5 transition-colors flex-shrink-0"
               >
                 <LogOut className="w-4 h-4" />
               </button>

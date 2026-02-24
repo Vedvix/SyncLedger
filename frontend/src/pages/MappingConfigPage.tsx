@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { mappingService } from '@/services/mappingService'
+import { organizationService } from '@/services/organizationService'
+import { useAuthStore } from '@/store/authStore'
 import type {
   MappingProfile,
   MappingProfileCreateRequest,
   FieldMappingRule,
   DateTransform,
+  Organization,
 } from '@/types'
+import { ERP_TYPE_LABELS } from '@/types'
 import {
   Plus,
   Pencil,
@@ -19,6 +23,8 @@ import {
   ArrowRight,
   Copy,
   AlertCircle,
+  Lock,
+  Building2,
 } from 'lucide-react'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -40,14 +46,29 @@ const DATE_TRANSFORMS: { value: DateTransform; label: string }[] = [
 
 export function MappingConfigPage() {
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  const organizationId = user?.organizationId
+  const [selectedOrgId, setSelectedOrgId] = useState<number | undefined>(undefined)
   const [editingProfile, setEditingProfile] = useState<MappingProfile | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [expandedProfile, setExpandedProfile] = useState<string | null>(null)
 
-  // Fetch profiles
+  // The effective org ID: for super admin, use selected filter; for regular user, use their own org
+  const effectiveOrgId = isSuperAdmin ? selectedOrgId : organizationId
+
+  // Fetch organizations for super admin org selector
+  const { data: orgsData } = useQuery({
+    queryKey: ['mapping-orgs'],
+    queryFn: () => organizationService.getOrganizations(0, 200),
+    enabled: isSuperAdmin,
+  })
+  const organizations: Organization[] = orgsData?.content ?? []
+
+  // Fetch profiles scoped to the effective organization (or all if undefined)
   const { data: profiles = [], isLoading, error } = useQuery({
-    queryKey: ['mappingProfiles'],
-    queryFn: () => mappingService.getProfiles(),
+    queryKey: ['mappingProfiles', effectiveOrgId],
+    queryFn: () => mappingService.getProfiles(effectiveOrgId),
   })
 
   // Fetch available fields
@@ -106,7 +127,19 @@ export function MappingConfigPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Mapping Profiles</h1>
           <p className="text-gray-500 mt-1">
-            Configure how extracted invoice fields are mapped to your system fields.
+            {isSuperAdmin ? (
+              'Manage mapping profiles across all organizations.'
+            ) : (
+              <>
+                Configure how extracted invoice fields are mapped to your{' '}
+                {user?.organizationName ? (
+                  <span className="font-medium text-gray-700">{user.organizationName}</span>
+                ) : (
+                  "organization's"
+                )}{' '}
+                system fields.
+              </>
+            )}
           </p>
         </div>
         <button
@@ -117,6 +150,7 @@ export function MappingConfigPage() {
               name: '',
               description: '',
               vendorPattern: '',
+              organizationId: effectiveOrgId,
               isDefault: false,
               rules: [],
             })
@@ -128,6 +162,33 @@ export function MappingConfigPage() {
         </button>
       </div>
 
+      {/* Super Admin: Organization filter */}
+      {isSuperAdmin && (
+        <div className="bg-white rounded-xl shadow-sm p-4 flex items-center gap-4">
+          <Building2 className="w-5 h-5 text-primary-600 flex-shrink-0" />
+          <div className="flex-1 max-w-xs">
+            <select
+              value={selectedOrgId ?? ''}
+              onChange={(e) =>
+                setSelectedOrgId(e.target.value ? Number(e.target.value) : undefined)
+              }
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:outline-none text-sm"
+            >
+              <option value="">All Organizations</option>
+              {organizations.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <span className="text-sm text-gray-500">
+            {profiles.length} profile{profiles.length !== 1 ? 's' : ''}
+            {selectedOrgId ? '' : ' across all orgs'}
+          </span>
+        </div>
+      )}
+
       {/* Profile Editor */}
       {(isCreating || editingProfile) && (
         <ProfileEditor
@@ -135,6 +196,8 @@ export function MappingConfigPage() {
           isNew={isCreating}
           sourceFields={fieldInfo?.sourceFields || []}
           targetFields={fieldInfo?.targetFields || []}
+          organizations={isSuperAdmin ? organizations : []}
+          isSuperAdmin={isSuperAdmin}
           onSave={() => {
             setEditingProfile(null)
             setIsCreating(false)
@@ -176,6 +239,21 @@ export function MappingConfigPage() {
                     {profile.isDefault && (
                       <span className="px-2 py-0.5 bg-primary-100 text-primary-700 text-xs rounded-full font-medium">
                         Default
+                      </span>
+                    )}
+                    {profile.isBuiltin && (
+                      <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full font-medium flex items-center gap-1">
+                        <Lock className="w-3 h-3" /> Built-in
+                      </span>
+                    )}
+                    {profile.erpType && profile.erpType !== 'NONE' && (
+                      <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full font-medium">
+                        {ERP_TYPE_LABELS[profile.erpType] || profile.erpType}
+                      </span>
+                    )}
+                    {isSuperAdmin && profile.organizationName && (
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium flex items-center gap-1">
+                        <Building2 className="w-3 h-3" /> {profile.organizationName}
                       </span>
                     )}
                     {profile.rules.length === 0 && (
@@ -305,28 +383,32 @@ export function MappingConfigPage() {
                     <Copy className="w-4 h-4 mr-1" />
                     Duplicate
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setIsCreating(false)
-                      setEditingProfile(profile)
-                    }}
-                    className="flex items-center px-3 py-1.5 text-sm text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50"
-                  >
-                    <Pencil className="w-4 h-4 mr-1" />
-                    Edit
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDelete(profile)
-                    }}
-                    disabled={deleteMutation.isPending}
-                    className="flex items-center px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50"
-                  >
-                    <Trash2 className="w-4 h-4 mr-1" />
-                    Delete
-                  </button>
+                  {!profile.isBuiltin && (
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setIsCreating(false)
+                          setEditingProfile(profile)
+                        }}
+                        className="flex items-center px-3 py-1.5 text-sm text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50"
+                      >
+                        <Pencil className="w-4 h-4 mr-1" />
+                        Edit
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDelete(profile)
+                        }}
+                        disabled={deleteMutation.isPending}
+                        className="flex items-center px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Delete
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -344,6 +426,8 @@ function ProfileEditor({
   isNew,
   sourceFields,
   targetFields,
+  organizations,
+  isSuperAdmin,
   onSave,
   onCancel,
 }: {
@@ -351,6 +435,8 @@ function ProfileEditor({
   isNew: boolean
   sourceFields: string[]
   targetFields: string[]
+  organizations: Organization[]
+  isSuperAdmin: boolean
   onSave: () => void
   onCancel: () => void
 }) {
@@ -359,6 +445,7 @@ function ProfileEditor({
     name: profile.name,
     description: profile.description || '',
     vendorPattern: profile.vendorPattern || '',
+    organizationId: profile.organizationId,
     isDefault: profile.isDefault,
     rules: profile.rules.length > 0 ? [...profile.rules] : [],
   })
@@ -428,6 +515,28 @@ function ProfileEditor({
         )}
 
         {/* Profile Basics */}
+        {isSuperAdmin && isNew && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Organization *</label>
+            <select
+              value={form.organizationId ?? ''}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  organizationId: e.target.value ? Number(e.target.value) : undefined,
+                }))
+              }
+              className="w-full max-w-md px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            >
+              <option value="">Select organization…</option>
+              {organizations.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Profile Name *</label>

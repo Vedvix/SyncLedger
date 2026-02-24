@@ -1,0 +1,31 @@
+package com.vedvix.syncledger.notification.enums;
+
+public enum NotificationEventType {
+    CREATED,
+    QUEUED,
+    SENT,
+    SMS_SENT,
+    EMAIL_SENT,
+    PUSH_SENT,
+    DELIVERED,
+    READ,
+    FAILED,
+    RETRIED,
+    CANCELLED,
+    CLICKED,
+    DISMISSED,
+
+    // Subscription lifecycle events
+    TRIAL_WELCOME,
+    TRIAL_EXPIRING_3D,
+    TRIAL_EXPIRING_1D,
+    TRIAL_EXPIRED,
+    SUBSCRIPTION_ACTIVATED,
+    SUBSCRIPTION_EXPIRING_7D,
+    SUBSCRIPTION_EXPIRING_3D,
+    SUBSCRIPTION_EXPIRED,
+    SUBSCRIPTION_CANCELLED,
+    SUBSCRIPTION_PAYMENT_SUCCEEDED,
+    SUBSCRIPTION_PAYMENT_FAILED,
+    NEW_ORG_SIGNUP_ADMIN
+}
