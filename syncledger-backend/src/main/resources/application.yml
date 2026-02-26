@@ -221,6 +221,9 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+  health:
+    mail:
+      enabled: false
 
 # =============================================================================
 # SPRINGDOC OPENAPI (SWAGGER) CONFIGURATION

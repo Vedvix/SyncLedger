@@ -21,7 +21,9 @@ import type { UpdateMicrosoftConfigRequest } from '@/types'
 export function MicrosoftConfigPage() {
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
-  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN'
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  const isAdmin = user?.role === 'ADMIN' || isSuperAdmin
+  const isOrgAdmin = user?.role === 'ADMIN'
 
   const [showSecret, setShowSecret] = useState(false)
   const [formData, setFormData] = useState<UpdateMicrosoftConfigRequest>({
@@ -39,7 +41,7 @@ export function MicrosoftConfigPage() {
   } = useQuery({
     queryKey: ['microsoft-config'],
     queryFn: () => microsoftConfigService.getMicrosoftConfig(),
-    enabled: isAdmin,
+    enabled: isOrgAdmin,
   })
 
   const updateMutation = useMutation({
@@ -79,6 +81,15 @@ export function MicrosoftConfigPage() {
       <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-xl text-yellow-800">
         <AlertTriangle className="w-5 h-5 inline mr-2" />
         Only admins can manage Microsoft Graph integration settings.
+      </div>
+    )
+  }
+
+  if (isSuperAdmin) {
+    return (
+      <div className="p-6 bg-blue-50 border border-blue-200 rounded-xl text-blue-800">
+        <Info className="w-5 h-5 inline mr-2" />
+        As Super Admin, please manage Microsoft Graph settings for each organization from the Super Admin panel.
       </div>
     )
   }

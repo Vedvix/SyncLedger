@@ -2,6 +2,7 @@ package com.vedvix.syncledger.controller;
 
 import com.vedvix.syncledger.dto.*;
 import com.vedvix.syncledger.exception.BadRequestException;
+import com.vedvix.syncledger.exception.ForbiddenException;
 import com.vedvix.syncledger.exception.ResourceNotFoundException;
 import com.vedvix.syncledger.exception.UnauthorizedException;
 import com.vedvix.syncledger.model.Organization;
@@ -341,7 +342,7 @@ public class OrganizationSettingsController {
     private Organization resolveOrganization(UserPrincipal currentUser) {
         Long orgId = currentUser.getOrganizationId();
         if (orgId == null) {
-            throw new UnauthorizedException("Super Admin must use admin-specific endpoints for org management");
+            throw new ForbiddenException("Super Admin must use admin-specific endpoints for org management");
         }
         return organizationRepository.findById(orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
