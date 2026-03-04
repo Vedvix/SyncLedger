@@ -156,7 +156,7 @@ export function InvoiceDetailPage() {
         <div className="flex items-center">
           <button
             onClick={() => navigate('/invoices')}
-            className="mr-4 p-2 hover:bg-gray-100 rounded-lg"
+            className="mr-4 p-2 hover:bg-gray-100 rounded-xl transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -164,11 +164,11 @@ export function InvoiceDetailPage() {
             <h1 className="text-2xl font-bold text-gray-900">
               Invoice #{invoice.invoiceNumber}
             </h1>
-            <p className="text-gray-500">{invoice.vendorName}</p>
+            <p className="text-sm text-gray-500 mt-0.5">{invoice.vendorName}</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <span className={`px-4 py-2 rounded-lg border ${STATUS_COLORS[invoice.status]}`}>
+          <span className={`px-4 py-2 rounded-xl border ${STATUS_COLORS[invoice.status]}`}>
             {invoice.status.replace('_', ' ')}
           </span>
           {invoice.confidenceScore !== undefined && (
@@ -189,7 +189,7 @@ export function InvoiceDetailPage() {
             <button
               onClick={() => approveMutation.mutate('APPROVED')}
               disabled={approveMutation.isPending}
-              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              className="flex items-center px-4 py-2.5 bg-gradient-to-r from-green-600 to-green-500 text-white rounded-xl hover:from-green-700 hover:to-green-600 disabled:opacity-50 shadow-sm active:scale-[0.98] transition-all font-medium text-sm"
             >
               <CheckCircle className="w-5 h-5 mr-2" />
               Approve
@@ -197,7 +197,7 @@ export function InvoiceDetailPage() {
             <button
               onClick={() => approveMutation.mutate('REJECTED')}
               disabled={approveMutation.isPending}
-              className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+              className="flex items-center px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-xl hover:from-red-700 hover:to-red-600 disabled:opacity-50 shadow-sm active:scale-[0.98] transition-all font-medium text-sm"
             >
               <XCircle className="w-5 h-5 mr-2" />
               Reject
@@ -208,7 +208,7 @@ export function InvoiceDetailPage() {
           <button
             onClick={() => syncMutation.mutate()}
             disabled={syncMutation.isPending}
-            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+            className="flex items-center px-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 text-white rounded-xl hover:from-purple-700 hover:to-purple-600 disabled:opacity-50 shadow-sm active:scale-[0.98] transition-all font-medium text-sm"
           >
             <Send className="w-5 h-5 mr-2" />
             Sync to Sage
@@ -224,14 +224,14 @@ export function InvoiceDetailPage() {
             a.click()
             window.URL.revokeObjectURL(url)
           }}
-          className="flex items-center px-4 py-2 border rounded-lg hover:bg-gray-50"
+          className="flex items-center px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-sm"
         >
           <Download className="w-5 h-5 mr-2" />
           Download
         </button>
         <button
           onClick={() => setShowPdf(!showPdf)}
-          className="flex items-center px-4 py-2 border rounded-lg hover:bg-gray-50"
+          className="flex items-center px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-sm"
         >
           {showPdf ? <EyeOff className="w-5 h-5 mr-2" /> : <Eye className="w-5 h-5 mr-2" />}
           {showPdf ? 'Hide PDF' : 'Show PDF'}

@@ -194,11 +194,11 @@ function SuperAdminSubscriptionView() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+        <h1 className="page-header flex items-center gap-2">
           <BadgeDollarSign className="w-7 h-7 text-primary-600" />
           Subscription Management
         </h1>
-        <p className="text-gray-500 text-sm mt-1">
+        <p className="page-subtitle">
           View and manage subscriptions for all organizations.
         </p>
       </div>
@@ -665,11 +665,11 @@ function OrgAdminSubscriptionView() {
     <div className="space-y-8">
       {/* ============ Page Header ============ */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+        <h1 className="page-header flex items-center gap-2">
           <BadgeDollarSign className="w-7 h-7 text-primary-600" />
           Pricing Plans
         </h1>
-        <p className="text-gray-500 text-sm mt-1">
+        <p className="page-subtitle">
           Choose the plan that fits your business. Upgrade, downgrade, or cancel
           at any time.
         </p>

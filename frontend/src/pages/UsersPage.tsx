@@ -80,12 +80,12 @@ export function UsersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-500 text-sm mt-1">Manage system users and their permissions</p>
+          <h1 className="page-header">User Management</h1>
+          <p className="page-subtitle">Manage system users and their permissions</p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          className="flex items-center px-4 py-2.5 bg-gradient-to-r from-primary-600 to-primary-500 text-white rounded-xl hover:from-primary-700 hover:to-primary-600 transition-all shadow-lg shadow-primary-200 active:scale-[0.98] font-medium text-sm"
         >
           <UserPlus className="w-5 h-5 mr-2" />
           Add User
@@ -93,7 +93,7 @@ export function UsersPage() {
       </div>
       
       {/* Search and Filters */}
-      <div className="bg-white rounded-xl shadow-sm p-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
         <div className="flex gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -105,12 +105,12 @@ export function UsersPage() {
                 setSearchQuery(e.target.value)
                 setPage(0)
               }}
-              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
             />
           </div>
           <button
             onClick={() => refetch()}
-            className="flex items-center px-4 py-2 border rounded-lg hover:bg-gray-50"
+            className="flex items-center px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-600 transition-colors"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
@@ -120,51 +120,51 @@ export function UsersPage() {
       
       {/* Stats Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow-sm p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
           <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
+            <div className="p-2.5 bg-blue-50 rounded-xl">
               <UsersIcon className="w-5 h-5 text-blue-600" />
             </div>
             <div className="ml-3">
-              <p className="text-sm text-gray-500">Total Users</p>
-              <p className="text-xl font-bold">{data?.totalElements || 0}</p>
+              <p className="text-xs font-medium text-gray-500">Total Users</p>
+              <p className="text-xl font-bold text-gray-900">{data?.totalElements || 0}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-sm p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
           <div className="flex items-center">
-            <div className="p-2 bg-purple-100 rounded-lg">
+            <div className="p-2.5 bg-purple-50 rounded-xl">
               <Shield className="w-5 h-5 text-purple-600" />
             </div>
             <div className="ml-3">
-              <p className="text-sm text-gray-500">Admins</p>
-              <p className="text-xl font-bold">
+              <p className="text-xs font-medium text-gray-500">Admins</p>
+              <p className="text-xl font-bold text-gray-900">
                 {data?.content.filter(u => u.role === 'ADMIN').length || 0}
               </p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-sm p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
           <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
+            <div className="p-2.5 bg-green-50 rounded-xl">
               <CheckCircle className="w-5 h-5 text-green-600" />
             </div>
             <div className="ml-3">
-              <p className="text-sm text-gray-500">Active</p>
-              <p className="text-xl font-bold">
+              <p className="text-xs font-medium text-gray-500">Active</p>
+              <p className="text-xl font-bold text-gray-900">
                 {data?.content.filter(u => u.isActive).length || 0}
               </p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-sm p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
           <div className="flex items-center">
-            <div className="p-2 bg-red-100 rounded-lg">
+            <div className="p-2.5 bg-red-50 rounded-xl">
               <XCircle className="w-5 h-5 text-red-600" />
             </div>
             <div className="ml-3">
-              <p className="text-sm text-gray-500">Inactive</p>
-              <p className="text-xl font-bold">
+              <p className="text-xs font-medium text-gray-500">Inactive</p>
+              <p className="text-xl font-bold text-gray-900">
                 {data?.content.filter(u => !u.isActive).length || 0}
               </p>
             </div>
@@ -173,18 +173,20 @@ export function UsersPage() {
       </div>
       
       {/* Users Table */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <RefreshCw className="w-8 h-8 animate-spin text-primary-500" />
           </div>
         ) : data?.content.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-            <UsersIcon className="w-12 h-12 mb-4" />
-            <p>No users found</p>
+          <div className="empty-state">
+            <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+              <UsersIcon className="w-8 h-8 text-gray-400" />
+            </div>
+            <p className="text-gray-500 font-medium">No users found</p>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="mt-4 text-primary-600 hover:underline"
+              className="mt-3 text-primary-600 hover:text-primary-700 font-medium text-sm"
             >
               Add your first user
             </button>
@@ -192,38 +194,38 @@ export function UsersPage() {
         ) : (
           <>
             <table className="w-full">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-gray-50/80 border-b border-gray-100">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="table-header px-6 py-3 text-left">
                     User
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="table-header px-6 py-3 text-left">
                     Role
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="table-header px-6 py-3 text-left">
                     Organization
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="table-header px-6 py-3 text-left">
                     Department
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="table-header px-6 py-3 text-left">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="table-header px-6 py-3 text-left">
                     Last Login
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  <th className="table-header px-6 py-3 text-right">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-100">
                 {data?.content.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
+                  <tr key={user.id} className="hover:bg-primary-50/30 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
-                          <span className="text-primary-600 font-medium">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-100 to-primary-50 flex items-center justify-center">
+                          <span className="text-primary-600 font-semibold text-sm">
                             {user.firstName[0]}{user.lastName[0]}
                           </span>
                         </div>
@@ -300,22 +302,22 @@ export function UsersPage() {
             
             {/* Pagination */}
             {data && data.totalPages > 1 && (
-              <div className="px-6 py-4 border-t flex items-center justify-between">
+              <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
                 <p className="text-sm text-gray-500">
-                  Showing {page * 10 + 1} to {Math.min((page + 1) * 10, data.totalElements)} of {data.totalElements} users
+                  Showing {page * 10 + 1} – {Math.min((page + 1) * 10, data.totalElements)} of {data.totalElements} users
                 </p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setPage(p => Math.max(0, p - 1))}
                     disabled={page === 0}
-                    className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50"
+                    className="px-3 py-1.5 border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 text-sm transition-colors"
                   >
                     Previous
                   </button>
                   <button
                     onClick={() => setPage(p => p + 1)}
                     disabled={page >= data.totalPages - 1}
-                    className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50"
+                    className="px-3 py-1.5 border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 text-sm transition-colors"
                   >
                     Next
                   </button>
@@ -468,7 +470,7 @@ function CreateUserModal({ isOpen, onClose, onSubmit, isLoading, error }: Create
     <Modal isOpen={isOpen} onClose={onClose} title="Create New User" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+          <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm">
             {error}
           </div>
         )}
@@ -483,7 +485,7 @@ function CreateUserModal({ isOpen, onClose, onSubmit, isLoading, error }: Create
               required
               value={formData.firstName}
               onChange={(e) => handleChange('firstName', e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
             />
           </div>
           <div>
@@ -495,7 +497,7 @@ function CreateUserModal({ isOpen, onClose, onSubmit, isLoading, error }: Create
               required
               value={formData.lastName}
               onChange={(e) => handleChange('lastName', e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
             />
           </div>
         </div>
@@ -510,7 +512,7 @@ function CreateUserModal({ isOpen, onClose, onSubmit, isLoading, error }: Create
             required
             value={formData.email}
             onChange={(e) => handleChange('email', e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
           />
         </div>
         
@@ -525,7 +527,7 @@ function CreateUserModal({ isOpen, onClose, onSubmit, isLoading, error }: Create
               minLength={8}
               value={formData.password}
               onChange={(e) => handleChange('password', e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 pr-10"
+              className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors pr-10"
               placeholder="Minimum 8 characters"
             />
             <button
@@ -547,7 +549,7 @@ function CreateUserModal({ isOpen, onClose, onSubmit, isLoading, error }: Create
             required
             value={formData.role}
             onChange={(e) => handleChange('role', e.target.value as UserRole)}
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
           >
             <option value="VIEWER">Viewer - Can view invoices only</option>
             <option value="APPROVER">Approver - Can approve/reject invoices</option>
@@ -570,7 +572,7 @@ function CreateUserModal({ isOpen, onClose, onSubmit, isLoading, error }: Create
             Organization {!isSuperAdminRole ? '*' : ''}
           </label>
           {isSuperAdminRole ? (
-            <div className="px-4 py-2 border rounded-lg bg-indigo-50 text-indigo-700 text-sm">
+            <div className="px-4 py-2 border border-gray-200 rounded-xl bg-indigo-50 text-indigo-700 text-sm">
               <Shield className="w-4 h-4 inline mr-1" />
               Super Admins belong to the <strong>SyncLedger Platform</strong> team and are not linked to any organization.
             </div>
@@ -581,7 +583,7 @@ function CreateUserModal({ isOpen, onClose, onSubmit, isLoading, error }: Create
                 value={formData.organizationId || ''}
                 onChange={(e) => handleChange('organizationId', e.target.value ? parseInt(e.target.value) : '')}
                 disabled={orgsLoading || orgsFetching}
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors disabled:opacity-50"
               >
                 <option value="">
                   {orgsLoading || orgsFetching
@@ -608,7 +610,7 @@ function CreateUserModal({ isOpen, onClose, onSubmit, isLoading, error }: Create
               type="text"
               disabled
               value={currentUser?.organizationName || 'Your Organization'}
-              className="w-full px-4 py-2 border rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+              className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-gray-100 text-gray-600 cursor-not-allowed"
             />
           )}
         </div>
@@ -623,7 +625,7 @@ function CreateUserModal({ isOpen, onClose, onSubmit, isLoading, error }: Create
               type="tel"
               value={formData.phone}
               onChange={(e) => handleChange('phone', e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
             />
           </div>
           <div>
@@ -635,7 +637,7 @@ function CreateUserModal({ isOpen, onClose, onSubmit, isLoading, error }: Create
               type="text"
               value={formData.department}
               onChange={(e) => handleChange('department', e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
             />
           </div>
         </div>
@@ -648,7 +650,7 @@ function CreateUserModal({ isOpen, onClose, onSubmit, isLoading, error }: Create
             type="text"
             value={formData.jobTitle}
             onChange={(e) => handleChange('jobTitle', e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
           />
         </div>
         
@@ -657,14 +659,14 @@ function CreateUserModal({ isOpen, onClose, onSubmit, isLoading, error }: Create
             type="button"
             onClick={onClose}
             disabled={isLoading}
-            className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+            className="px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isLoading}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+            className="px-4 py-2.5 bg-gradient-to-r from-primary-600 to-primary-500 text-white rounded-xl hover:from-primary-700 hover:to-primary-600 shadow-sm active:scale-[0.98] transition-all disabled:opacity-50 font-medium"
           >
             {isLoading ? 'Creating...' : 'Create User'}
           </button>
@@ -710,13 +712,13 @@ function EditUserModal({ isOpen, onClose, user, onSubmit, isLoading, error }: Ed
     <Modal isOpen={isOpen} onClose={onClose} title="Edit User" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+          <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm">
             {error}
           </div>
         )}
         
         {/* User info header */}
-        <div className="p-3 bg-gray-50 rounded-lg mb-4 space-y-1">
+        <div className="p-3 bg-gray-50 rounded-xl mb-4 space-y-1">
           <p className="text-sm text-gray-600">
             <Mail className="w-4 h-4 inline mr-1" />
             {user.email}
@@ -743,7 +745,7 @@ function EditUserModal({ isOpen, onClose, user, onSubmit, isLoading, error }: Ed
               required
               value={formData.firstName}
               onChange={(e) => handleChange('firstName', e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
             />
           </div>
           <div>
@@ -755,7 +757,7 @@ function EditUserModal({ isOpen, onClose, user, onSubmit, isLoading, error }: Ed
               required
               value={formData.lastName}
               onChange={(e) => handleChange('lastName', e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
             />
           </div>
         </div>
@@ -770,7 +772,7 @@ function EditUserModal({ isOpen, onClose, user, onSubmit, isLoading, error }: Ed
               required
               value={formData.role}
               onChange={(e) => handleChange('role', e.target.value as UserRole)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
               disabled={user.role === 'SUPER_ADMIN' && !isSuperAdmin}
             >
               <option value="VIEWER">Viewer</option>
@@ -788,7 +790,7 @@ function EditUserModal({ isOpen, onClose, user, onSubmit, isLoading, error }: Ed
             <select
               value={formData.isActive ? 'true' : 'false'}
               onChange={(e) => handleChange('isActive', e.target.value === 'true')}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
             >
               <option value="true">Active</option>
               <option value="false">Inactive</option>
@@ -806,7 +808,7 @@ function EditUserModal({ isOpen, onClose, user, onSubmit, isLoading, error }: Ed
               type="tel"
               value={formData.phone || ''}
               onChange={(e) => handleChange('phone', e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
             />
           </div>
           <div>
@@ -818,7 +820,7 @@ function EditUserModal({ isOpen, onClose, user, onSubmit, isLoading, error }: Ed
               type="text"
               value={formData.department || ''}
               onChange={(e) => handleChange('department', e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
             />
           </div>
         </div>
@@ -831,7 +833,7 @@ function EditUserModal({ isOpen, onClose, user, onSubmit, isLoading, error }: Ed
             type="text"
             value={formData.jobTitle || ''}
             onChange={(e) => handleChange('jobTitle', e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
           />
         </div>
         
@@ -840,14 +842,14 @@ function EditUserModal({ isOpen, onClose, user, onSubmit, isLoading, error }: Ed
             type="button"
             onClick={onClose}
             disabled={isLoading}
-            className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+            className="px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isLoading}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+            className="px-4 py-2.5 bg-gradient-to-r from-primary-600 to-primary-500 text-white rounded-xl hover:from-primary-700 hover:to-primary-600 shadow-sm active:scale-[0.98] transition-all disabled:opacity-50 font-medium"
           >
             {isLoading ? 'Saving...' : 'Save Changes'}
           </button>

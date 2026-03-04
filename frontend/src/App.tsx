@@ -24,6 +24,7 @@ import { VendorsPage } from '@/pages/VendorsPage'
 import { VendorDetailPage } from '@/pages/VendorDetailPage'
 import ManagePlansPage from '@/pages/ManagePlansPage'
 import ManageCouponsPage from '@/pages/ManageCouponsPage'
+import AiUsagePage from '@/pages/AiUsagePage'
 import { OnboardingPage } from '@/pages/OnboardingPage'
 
 // Protected Route wrapper
@@ -193,6 +194,14 @@ function App() {
             element={
               <SuperAdminRoute>
                 <ManageCouponsPage />
+              </SuperAdminRoute>
+            }
+          />
+          <Route
+            path="super-admin/ai-usage"
+            element={
+              <SuperAdminRoute>
+                <AiUsagePage />
               </SuperAdminRoute>
             }
           />

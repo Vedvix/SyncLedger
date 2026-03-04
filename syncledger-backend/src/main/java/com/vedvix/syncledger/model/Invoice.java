@@ -174,6 +174,26 @@ public class Invoice {
     @Column(columnDefinition = "TEXT")
     private String rawExtractedData;
 
+    // ==================== AI Usage Metadata ====================
+
+    @Column(name = "ai_tier_used", length = 30)
+    private String aiTierUsed;
+
+    @Column(name = "ai_model_name", length = 50)
+    private String aiModelName;
+
+    @Column(name = "ai_input_tokens")
+    private Integer aiInputTokens;
+
+    @Column(name = "ai_output_tokens")
+    private Integer aiOutputTokens;
+
+    @Column(name = "ai_total_tokens")
+    private Integer aiTotalTokens;
+
+    @Column(name = "ai_cost_usd", precision = 10, scale = 6)
+    private BigDecimal aiCostUsd;
+
     // ==================== Sage Integration ====================
     
     @Column(length = 100)

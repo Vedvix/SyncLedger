@@ -125,7 +125,7 @@ export function MappingConfigPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Mapping Profiles</h1>
+          <h1 className="page-header">Mapping Profiles</h1>
           <p className="text-gray-500 mt-1">
             {isSuperAdmin ? (
               'Manage mapping profiles across all organizations.'
@@ -155,7 +155,7 @@ export function MappingConfigPage() {
               rules: [],
             })
           }}
-          className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+          className="flex items-center px-4 py-2.5 bg-gradient-to-r from-primary-600 to-primary-500 text-white rounded-xl hover:from-primary-700 hover:to-primary-600 shadow-lg shadow-primary-200 active:scale-[0.98] transition-all font-medium text-sm"
         >
           <Plus className="w-5 h-5 mr-2" />
           New Profile

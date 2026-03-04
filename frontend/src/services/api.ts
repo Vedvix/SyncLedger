@@ -45,8 +45,27 @@ const isTokenExpiringSoon = (token: string): boolean => {
 }
 
 // Perform token refresh
+const getLatestPersistedTokens = (): { accessToken: string | null; refreshToken: string | null } => {
+  try {
+    const raw = localStorage.getItem('syncledger-auth')
+    if (!raw) return { accessToken: null, refreshToken: null }
+
+    const parsed = JSON.parse(raw) as {
+      state?: { accessToken?: string | null; refreshToken?: string | null }
+    }
+
+    return {
+      accessToken: parsed?.state?.accessToken ?? null,
+      refreshToken: parsed?.state?.refreshToken ?? null,
+    }
+  } catch {
+    return { accessToken: null, refreshToken: null }
+  }
+}
+
 const performTokenRefresh = async (): Promise<string | null> => {
-  const refreshToken = useAuthStore.getState().refreshToken
+  const persisted = getLatestPersistedTokens()
+  const refreshToken = persisted.refreshToken ?? useAuthStore.getState().refreshToken
   if (!refreshToken) return null
 
   try {
@@ -73,7 +92,10 @@ export const apiClient = axios.create({
 // Request interceptor to add auth token and proactively refresh if expiring
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    const { accessToken, refreshToken } = useAuthStore.getState()
+    const persisted = getLatestPersistedTokens()
+    const state = useAuthStore.getState()
+    const accessToken = persisted.accessToken ?? state.accessToken
+    const refreshToken = persisted.refreshToken ?? state.refreshToken
     
     // Skip token handling for auth endpoints
     const isAuthEndpoint = config.url?.includes('/v1/auth/')

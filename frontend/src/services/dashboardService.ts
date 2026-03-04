@@ -3,10 +3,13 @@ import type { DashboardStats, ApiResponse } from '@/types'
 
 export const dashboardService = {
   /**
-   * Get dashboard statistics
+   * Get dashboard statistics, optionally filtered by date range
    */
-  async getStats(): Promise<DashboardStats> {
-    const response = await apiClient.get<ApiResponse<DashboardStats>>('/v1/dashboard/stats')
+  async getStats(startDate?: string, endDate?: string): Promise<DashboardStats> {
+    const params: Record<string, string> = {}
+    if (startDate) params.startDate = startDate
+    if (endDate) params.endDate = endDate
+    const response = await apiClient.get<ApiResponse<DashboardStats>>('/v1/dashboard/stats', { params })
     return response.data.data!
   },
   

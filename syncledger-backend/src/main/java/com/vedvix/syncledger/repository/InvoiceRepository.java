@@ -82,6 +82,15 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long>, JpaSpec
     List<Object[]> getInvoiceStatsByStatusForOrganization(@Param("orgId") Long orgId);
 
     /**
+     * Get dashboard statistics for organization with date range filter.
+     */
+    @Query("SELECT i.status, COUNT(i), COALESCE(SUM(i.totalAmount), 0) FROM Invoice i WHERE i.organization.id = :orgId AND i.invoiceDate BETWEEN :startDate AND :endDate GROUP BY i.status")
+    List<Object[]> getInvoiceStatsByStatusForOrganizationAndDateRange(
+            @Param("orgId") Long orgId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
+
+    /**
      * Find overdue invoices for organization.
      */
     @Query("SELECT i FROM Invoice i WHERE i.organization.id = :orgId AND i.dueDate < :today AND i.status NOT IN ('SYNCED', 'ARCHIVED')")
@@ -201,6 +210,14 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long>, JpaSpec
      */
     @Query("SELECT i.status, COUNT(i), COALESCE(SUM(i.totalAmount), 0) FROM Invoice i GROUP BY i.status")
     List<Object[]> getInvoiceStatsByStatus();
+
+    /**
+     * Get dashboard statistics with date range filter.
+     */
+    @Query("SELECT i.status, COUNT(i), COALESCE(SUM(i.totalAmount), 0) FROM Invoice i WHERE i.invoiceDate BETWEEN :startDate AND :endDate GROUP BY i.status")
+    List<Object[]> getInvoiceStatsByStatusAndDateRange(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 
     /**
      * Find invoices created in date range.

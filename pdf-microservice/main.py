@@ -11,6 +11,10 @@ import time
 from contextlib import asynccontextmanager
 from typing import List, Optional
 
+# Load .env file for local development (no-op when env vars are already set via Docker)
+from dotenv import load_dotenv
+load_dotenv()
+
 import structlog
 from fastapi import FastAPI, File, HTTPException, UploadFile, status, Query, Body
 from fastapi.middleware.cors import CORSMiddleware

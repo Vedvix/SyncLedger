@@ -7,6 +7,7 @@ import {
   Plus,
   Package,
   Ticket,
+  Cpu,
   MoreHorizontal,
   CheckCircle,
   XCircle,
@@ -53,6 +54,12 @@ export default function SuperAdminPage() {
   const [pollingOrgId, setPollingOrgId] = useState<number | null>(null)
   const [testingOrgId, setTestingOrgId] = useState<number | null>(null)
   const [pollingAll, setPollingAll] = useState(false)
+
+  const maskValue = (value?: string) => {
+    if (!value) return '-'
+    if (value.length <= 8) return value
+    return `${value.slice(0, 4)}...${value.slice(-4)}`
+  }
 
   useEffect(() => {
     // Redirect non-super admins
@@ -183,8 +190,8 @@ export default function SuperAdminPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Super Admin Dashboard</h1>
-          <p className="text-muted-foreground">
+          <h1 className="page-header">Super Admin Dashboard</h1>
+          <p className="page-subtitle">
             Platform-wide management and organization overview
           </p>
         </div>
@@ -208,6 +215,10 @@ export default function SuperAdminPage() {
           <Button variant="outline" onClick={() => navigate('/super-admin/coupons')}>
             <Ticket className="w-4 h-4 mr-2" />
             Manage Coupons
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/super-admin/ai-usage')}>
+            <Cpu className="w-4 h-4 mr-2" />
+            AI Usage
           </Button>
           <Button onClick={() => navigate('/super-admin/organizations/new')}>
             <Plus className="w-4 h-4 mr-2" />
@@ -322,15 +333,22 @@ export default function SuperAdminPage() {
                   <TableCell>{getStatusBadge(org.status)}</TableCell>
                   <TableCell>
                     {org.msCredentialsConfigured ? (
-                      org.msCredentialsVerified ? (
-                        <Badge className="bg-green-100 text-green-800">
-                          <CheckCircle className="w-3 h-3 mr-1" />Verified
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-yellow-100 text-yellow-800">
-                          <AlertCircle className="w-3 h-3 mr-1" />Unverified
-                        </Badge>
-                      )
+                      <div className="space-y-1">
+                        {org.msCredentialsVerified ? (
+                          <Badge className="bg-green-100 text-green-800">
+                            <CheckCircle className="w-3 h-3 mr-1" />Verified
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-yellow-100 text-yellow-800">
+                            <AlertCircle className="w-3 h-3 mr-1" />Unverified
+                          </Badge>
+                        )}
+                        <div className="text-xs text-muted-foreground">
+                          <div>Mailbox: {org.msMailboxEmail || '-'}</div>
+                          <div>Tenant: {maskValue(org.msTenantId)}</div>
+                          <div>Client: {maskValue(org.msClientId)}</div>
+                        </div>
+                      </div>
                     ) : (
                       <Badge className="bg-gray-100 text-gray-500">
                         <XCircle className="w-3 h-3 mr-1" />Not Set
@@ -373,19 +391,21 @@ export default function SuperAdminPage() {
                         <DropdownMenuSeparator />
                         
                         {/* Email Polling Actions */}
-                        {org.emailAddress && org.status === 'ACTIVE' && (
+                        {org.msCredentialsConfigured && (
                           <>
-                            <DropdownMenuItem 
-                              onClick={() => handlePollOrganization(org.id, org.name)}
-                              disabled={pollingOrgId === org.id}
-                            >
-                              {pollingOrgId === org.id ? (
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              ) : (
-                                <Mail className="w-4 h-4 mr-2" />
-                              )}
-                              Poll Emails
-                            </DropdownMenuItem>
+                            {org.status === 'ACTIVE' && (
+                              <DropdownMenuItem 
+                                onClick={() => handlePollOrganization(org.id, org.name)}
+                                disabled={pollingOrgId === org.id}
+                              >
+                                {pollingOrgId === org.id ? (
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                ) : (
+                                  <Mail className="w-4 h-4 mr-2" />
+                                )}
+                                Poll Emails
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem 
                               onClick={() => handleTestConnection(org.id, org.name)}
                               disabled={testingOrgId === org.id}
@@ -399,10 +419,10 @@ export default function SuperAdminPage() {
                             </DropdownMenuItem>
                           </>
                         )}
-                        {!org.emailAddress && (
+                        {!org.msCredentialsConfigured && (
                           <DropdownMenuItem disabled>
                             <WifiOff className="w-4 h-4 mr-2 text-muted-foreground" />
-                            <span className="text-muted-foreground">No email configured</span>
+                            <span className="text-muted-foreground">No Microsoft config</span>
                           </DropdownMenuItem>
                         )}
                         

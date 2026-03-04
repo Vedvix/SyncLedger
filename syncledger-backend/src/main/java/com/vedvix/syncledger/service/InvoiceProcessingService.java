@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vedvix.syncledger.model.*;
+import com.vedvix.syncledger.repository.AiUsageLogRepository;
 import com.vedvix.syncledger.repository.InvoiceRepository;
 import com.vedvix.syncledger.repository.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class InvoiceProcessingService {
 
     private final InvoiceRepository invoiceRepository;
     private final OrganizationRepository organizationRepository;
+    private final AiUsageLogRepository aiUsageLogRepository;
     private final StorageService storageService;
     private final VendorService vendorService;
     private final RestTemplate restTemplate;
@@ -329,6 +331,63 @@ public class InvoiceProcessingService {
             }
             invoice.setExtractedAt(LocalDateTime.now());
             
+            // ── AI usage metadata (from top-level result) ─────────────────
+            String aiTier = null;
+            Integer inputTokens = null;
+            Integer outputTokens = null;
+            Integer totalTokens = null;
+            BigDecimal aiCost = null;
+
+            if (result.has("ai_tier_used") && !result.get("ai_tier_used").isNull()) {
+                aiTier = result.get("ai_tier_used").asText();
+                invoice.setAiTierUsed(aiTier);
+            }
+            if (result.has("ai_model_name") && !result.get("ai_model_name").isNull()) {
+                invoice.setAiModelName(result.get("ai_model_name").asText());
+            }
+            if (result.has("ai_cost_usd") && !result.get("ai_cost_usd").isNull()) {
+                aiCost = toBigDecimal(result.get("ai_cost_usd"));
+                invoice.setAiCostUsd(aiCost);
+            }
+            JsonNode tokenUsage = result.get("ai_token_usage");
+            if (tokenUsage != null && !tokenUsage.isNull()) {
+                if (tokenUsage.has("input") && !tokenUsage.get("input").isNull()) {
+                    inputTokens = tokenUsage.get("input").asInt();
+                    invoice.setAiInputTokens(inputTokens);
+                }
+                if (tokenUsage.has("output") && !tokenUsage.get("output").isNull()) {
+                    outputTokens = tokenUsage.get("output").asInt();
+                    invoice.setAiOutputTokens(outputTokens);
+                }
+                totalTokens = (inputTokens != null ? inputTokens : 0) + (outputTokens != null ? outputTokens : 0);
+                invoice.setAiTotalTokens(totalTokens);
+            }
+
+            // Persist AI usage log for billing/metering
+            try {
+                Integer processingTimeMs = null;
+                if (result.has("processing_time_ms") && !result.get("processing_time_ms").isNull()) {
+                    processingTimeMs = result.get("processing_time_ms").asInt();
+                }
+                AiUsageLog usageLog = AiUsageLog.builder()
+                        .organization(invoice.getOrganization())
+                        .invoice(invoice)
+                        .aiTier(aiTier != null ? aiTier : "unknown")
+                        .modelName(invoice.getAiModelName())
+                        .inputTokens(inputTokens != null ? inputTokens : 0)
+                        .outputTokens(outputTokens != null ? outputTokens : 0)
+                        .totalTokens(totalTokens != null ? totalTokens : 0)
+                        .estimatedCostUsd(aiCost != null ? aiCost : BigDecimal.ZERO)
+                        .processingTimeMs(processingTimeMs)
+                        .success(true)
+                        .build();
+                aiUsageLogRepository.save(usageLog);
+                log.info("Saved AI usage log for invoice {} — tier={}, tokens={}, cost={}",
+                        invoice.getId(), aiTier, totalTokens, aiCost);
+            } catch (Exception ex) {
+                log.warn("Failed to save AI usage log for invoice {}: {}", invoice.getId(), ex.getMessage());
+            }
+
             // ── Status based on confidence ────────────────────────────────
             if (invoice.getRequiresManualReview() != null && invoice.getRequiresManualReview()) {
                 invoice.setStatus(InvoiceStatus.UNDER_REVIEW);

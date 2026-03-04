@@ -104,109 +104,158 @@ export function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-primary-500 to-primary-700">
+    <div className="min-h-screen flex">
       {/* Left Panel - Benefits */}
-      <div className="hidden lg:flex lg:w-1/2 items-center justify-center p-12">
-        <div className="max-w-md text-white">
-          <h1 className="text-4xl font-bold mb-6">SyncLedger</h1>
-          <p className="text-primary-100 text-lg mb-10">
-            Automate your invoice processing with AI-powered extraction and seamless ERP integration.
-          </p>
+      <div className="hidden lg:flex lg:w-[50%] bg-gradient-to-br from-slate-900 via-primary-900 to-indigo-900 relative overflow-hidden">
+        {/* Decorative shapes */}
+        <div className="absolute inset-0">
+          <div className="absolute top-20 left-20 w-72 h-72 bg-primary-500/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-20 right-20 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
+            backgroundSize: '32px 32px'
+          }} />
+        </div>
 
-          <div className="space-y-6">
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                <Clock className="w-5 h-5" />
+        <div className="relative flex flex-col justify-between p-12 w-full">
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center shadow-lg shadow-primary-500/30">
+              <Zap className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white">
+                <span className="text-primary-400">Sync</span>Ledger
+              </h1>
+              <p className="text-[10px] tracking-[0.2em] text-slate-400 uppercase">Accounts Payable Automation</p>
+            </div>
+          </div>
+
+          {/* Hero content */}
+          <div>
+            <h2 className="text-3xl font-bold text-white leading-tight mb-4">
+              Start automating<br />
+              <span className="bg-gradient-to-r from-primary-400 to-cyan-400 bg-clip-text text-transparent">
+                in minutes
+              </span>
+            </h2>
+            <p className="text-lg text-slate-300 max-w-md mb-10">
+              Join hundreds of companies saving time on accounts payable with AI-powered invoice processing.
+            </p>
+
+            <div className="space-y-4">
+              <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500/20 to-indigo-500/20 flex items-center justify-center flex-shrink-0">
+                  <Clock className="w-5 h-5 text-primary-300" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white mb-0.5">15-Day Free Trial</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">Full access to all features. No credit card required.</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold text-lg">15-Day Free Trial</h3>
-                <p className="text-primary-100 text-sm">
-                  Full access to all features. No credit card required.
-                </p>
+
+              <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500/20 to-indigo-500/20 flex items-center justify-center flex-shrink-0">
+                  <Zap className="w-5 h-5 text-primary-300" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white mb-0.5">AI-Powered OCR</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">Extract invoice data automatically with industry-leading accuracy.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500/20 to-indigo-500/20 flex items-center justify-center flex-shrink-0">
+                  <Shield className="w-5 h-5 text-primary-300" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white mb-0.5">Enterprise Security</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">AES-256 encryption at rest, SOC 2 compliant infrastructure.</p>
+                </div>
               </div>
             </div>
+          </div>
 
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                <Zap className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg">AI-Powered OCR</h3>
-                <p className="text-primary-100 text-sm">
-                  Extract invoice data automatically with industry-leading accuracy.
-                </p>
-              </div>
+          {/* Social proof */}
+          <div className="flex items-center gap-6 text-slate-400 text-sm">
+            <div>
+              <p className="text-2xl font-bold text-white">99%+</p>
+              <p className="text-xs">Extraction accuracy</p>
             </div>
-
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                <Shield className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg">Enterprise Security</h3>
-                <p className="text-primary-100 text-sm">
-                  AES-256 encryption at rest, SOC 2 compliant infrastructure.
-                </p>
-              </div>
+            <div className="w-px h-10 bg-slate-700" />
+            <div>
+              <p className="text-2xl font-bold text-white">80%</p>
+              <p className="text-xs">Time saved on AP</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Right Panel - Sign Up Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6">
-        <div className="max-w-lg w-full bg-white rounded-2xl shadow-xl p-8">
-          {/* Header */}
-          <div className="text-center mb-6">
-            <div className="lg:hidden mb-4">
-              <h1 className="text-2xl font-bold text-primary-600">SyncLedger</h1>
+      <div className="flex-1 flex items-center justify-center bg-gray-50 p-6">
+        <div className="max-w-lg w-full">
+          {/* Mobile logo */}
+          <div className="lg:hidden text-center mb-6">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center mx-auto shadow-lg shadow-primary-200 mb-3">
+              <Zap className="w-6 h-6 text-white" />
             </div>
-            <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Building2 className="w-6 h-6 text-primary-600" />
-            </div>
-            <h2 className="text-xl font-bold text-gray-900">Create your account</h2>
-            <p className="text-gray-500 text-sm mt-1">
-              Start your 15-day free trial. No credit card needed.
-            </p>
+            <h1 className="text-2xl font-bold">
+              <span className="text-primary-600">Sync</span><span className="text-gray-900">Ledger</span>
+            </h1>
           </div>
+
+          <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 p-8">
+            {/* Header */}
+            <div className="text-center mb-6">
+              <div className="w-12 h-12 bg-primary-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <Building2 className="w-6 h-6 text-primary-600" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900">Create your account</h2>
+              <p className="text-gray-500 text-sm mt-1">
+                Start your 15-day free trial. No credit card needed.
+              </p>
+            </div>
 
           {/* Step indicators */}
           <div className="flex items-center justify-center mb-8">
             <div className="flex items-center gap-2">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm font-medium transition-colors ${
                   step >= 1
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-200 text-gray-500'
+                    ? 'bg-gradient-to-br from-primary-600 to-primary-500 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-500'
                 }`}
               >
                 {step > 1 ? <CheckCircle className="w-5 h-5" /> : '1'}
               </div>
-              <span className="text-sm text-gray-500">Organization</span>
-              <div className="w-12 h-0.5 bg-gray-200 mx-1">
+              <span className="text-xs font-medium text-gray-500">Organization</span>
+              <div className="w-12 h-0.5 bg-gray-200 mx-1 rounded-full overflow-hidden">
                 <div
-                  className={`h-full transition-all ${
-                    step >= 2 ? 'bg-primary-600 w-full' : 'w-0'
+                  className={`h-full transition-all bg-primary-500 rounded-full ${
+                    step >= 2 ? 'w-full' : 'w-0'
                   }`}
                 />
               </div>
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm font-medium transition-colors ${
                   step >= 2
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-200 text-gray-500'
+                    ? 'bg-gradient-to-br from-primary-600 to-primary-500 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-500'
                 }`}
               >
                 2
               </div>
-              <span className="text-sm text-gray-500">Admin Account</span>
+              <span className="text-xs font-medium text-gray-500">Admin Account</span>
             </div>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             {error && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                {error}
+              <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm flex items-start gap-2">
+                <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-xs font-bold">!</span>
+                </div>
+                <span>{error}</span>
               </div>
             )}
 
@@ -220,8 +269,8 @@ export function SignupPage() {
                   <input
                     type="text"
                     {...register('organizationName')}
-                    className={`w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                      errors.organizationName ? 'border-red-300' : 'border-gray-300'
+                    className={`w-full px-4 py-3 rounded-xl bg-gray-50 border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white ${
+                      errors.organizationName ? 'border-red-300 bg-red-50/30' : 'border-gray-200'
                     }`}
                     placeholder="Acme Corporation"
                   />
@@ -239,8 +288,8 @@ export function SignupPage() {
                   <input
                     type="email"
                     {...register('organizationEmail')}
-                    className={`w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                      errors.organizationEmail ? 'border-red-300' : 'border-gray-300'
+                    className={`w-full px-4 py-3 rounded-xl bg-gray-50 border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white ${
+                      errors.organizationEmail ? 'border-red-300 bg-red-50/30' : 'border-gray-200'
                     }`}
                     placeholder="billing@acmecorp.com"
                   />
@@ -258,8 +307,8 @@ export function SignupPage() {
                   <input
                     type="url"
                     {...register('companyWebsite')}
-                    className={`w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                      errors.companyWebsite ? 'border-red-300' : 'border-gray-300'
+                    className={`w-full px-4 py-3 rounded-xl bg-gray-50 border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white ${
+                      errors.companyWebsite ? 'border-red-300 bg-red-50/30' : 'border-gray-200'
                     }`}
                     placeholder="https://acmecorp.com"
                   />
@@ -273,7 +322,7 @@ export function SignupPage() {
                 <button
                   type="button"
                   onClick={handleNextStep}
-                  className="w-full py-3 px-4 rounded-lg font-medium text-white bg-primary-600 hover:bg-primary-700 transition-colors flex items-center justify-center"
+                  className="w-full py-3 px-4 rounded-xl font-semibold text-white bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 shadow-lg shadow-primary-200 transition-all active:scale-[0.98] flex items-center justify-center"
                 >
                   Continue
                   <ArrowRight className="w-4 h-4 ml-2" />
@@ -292,8 +341,8 @@ export function SignupPage() {
                     <input
                       type="text"
                       {...register('firstName')}
-                      className={`w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                        errors.firstName ? 'border-red-300' : 'border-gray-300'
+                      className={`w-full px-4 py-3 rounded-xl bg-gray-50 border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white ${
+                        errors.firstName ? 'border-red-300 bg-red-50/30' : 'border-gray-200'
                       }`}
                       placeholder="John"
                     />
@@ -310,8 +359,8 @@ export function SignupPage() {
                     <input
                       type="text"
                       {...register('lastName')}
-                      className={`w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                        errors.lastName ? 'border-red-300' : 'border-gray-300'
+                      className={`w-full px-4 py-3 rounded-xl bg-gray-50 border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white ${
+                        errors.lastName ? 'border-red-300 bg-red-50/30' : 'border-gray-200'
                       }`}
                       placeholder="Doe"
                     />
@@ -330,8 +379,8 @@ export function SignupPage() {
                   <input
                     type="email"
                     {...register('adminEmail')}
-                    className={`w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                      errors.adminEmail ? 'border-red-300' : 'border-gray-300'
+                    className={`w-full px-4 py-3 rounded-xl bg-gray-50 border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white ${
+                      errors.adminEmail ? 'border-red-300 bg-red-50/30' : 'border-gray-200'
                     }`}
                     placeholder="john@acmecorp.com"
                   />
@@ -349,7 +398,7 @@ export function SignupPage() {
                   <input
                     type="tel"
                     {...register('phone')}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white"
                     placeholder="+1 (555) 000-0000"
                   />
                 </div>
@@ -362,15 +411,15 @@ export function SignupPage() {
                     <input
                       type={showPassword ? 'text' : 'password'}
                       {...register('password')}
-                      className={`w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                        errors.password ? 'border-red-300' : 'border-gray-300'
+                      className={`w-full px-4 py-3 rounded-xl bg-gray-50 border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white ${
+                        errors.password ? 'border-red-300 bg-red-50/30' : 'border-gray-200'
                       }`}
                       placeholder="••••••••"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
                     >
                       {showPassword ? (
                         <EyeOff className="w-5 h-5" />
@@ -394,15 +443,15 @@ export function SignupPage() {
                     <input
                       type={showConfirmPassword ? 'text' : 'password'}
                       {...register('confirmPassword')}
-                      className={`w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                        errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
+                      className={`w-full px-4 py-3 rounded-xl bg-gray-50 border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white ${
+                        errors.confirmPassword ? 'border-red-300 bg-red-50/30' : 'border-gray-200'
                       }`}
                       placeholder="••••••••"
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
                     >
                       {showConfirmPassword ? (
                         <EyeOff className="w-5 h-5" />
@@ -422,7 +471,7 @@ export function SignupPage() {
                   <button
                     type="button"
                     onClick={() => setStep(1)}
-                    className="px-6 py-3 rounded-lg font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors flex items-center"
+                    className="px-6 py-3 rounded-xl font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-all active:scale-[0.98] flex items-center"
                   >
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Back
@@ -430,10 +479,10 @@ export function SignupPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className={`flex-1 py-3 px-4 rounded-lg font-medium text-white transition-colors ${
+                    className={`flex-1 py-3 px-4 rounded-xl font-semibold text-white transition-all active:scale-[0.98] ${
                       isSubmitting
                         ? 'bg-primary-400 cursor-not-allowed'
-                        : 'bg-primary-600 hover:bg-primary-700'
+                        : 'bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 shadow-lg shadow-primary-200'
                     }`}
                   >
                     {isSubmitting ? (
@@ -449,6 +498,7 @@ export function SignupPage() {
               </div>
             )}
           </form>
+          </div>
 
           {/* Footer */}
           <div className="mt-6 text-center">
@@ -456,19 +506,19 @@ export function SignupPage() {
               Already have an account?{' '}
               <Link
                 to="/login"
-                className="text-primary-600 hover:text-primary-700 font-medium"
+                className="text-primary-600 hover:text-primary-700 font-semibold"
               >
                 Sign in
               </Link>
             </p>
           </div>
 
-          <div className="mt-4 text-center text-xs text-gray-400">
+          <div className="mt-3 text-center text-xs text-gray-400">
             By signing up, you agree to our Terms of Service and Privacy Policy.
           </div>
 
-          <div className="mt-4 text-center text-xs text-gray-400">
-            &copy; {new Date().getFullYear()} vedvix. All rights reserved.
+          <div className="mt-3 text-center text-xs text-gray-400">
+            &copy; {new Date().getFullYear()} SyncLedger by Vedvix. All rights reserved.
           </div>
         </div>
       </div>

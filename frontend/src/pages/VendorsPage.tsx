@@ -71,14 +71,14 @@ export function VendorsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Vendor Management</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="page-header">Vendor Management</h1>
+          <p className="page-subtitle">
             Manage vendors and view analytics across your organization
           </p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors"
+          className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-medium rounded-xl hover:from-primary-700 hover:to-primary-600 transition-all shadow-lg shadow-primary-200 active:scale-[0.98]"
         >
           <Plus className="w-4 h-4 mr-2" />
           Add Vendor
@@ -126,7 +126,7 @@ export function VendorsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Top by Count */}
           {summary.topVendorsByCount?.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border p-6">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <div className="flex items-center gap-2 mb-4">
                 <BarChart3 className="w-5 h-5 text-blue-600" />
                 <h3 className="text-sm font-semibold text-gray-900">Top Vendors by Invoice Count</h3>
@@ -140,7 +140,7 @@ export function VendorsPage() {
           )}
           {/* Top by Amount */}
           {summary.topVendorsByAmount?.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border p-6">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <div className="flex items-center gap-2 mb-4">
                 <DollarSign className="w-5 h-5 text-green-600" />
                 <h3 className="text-sm font-semibold text-gray-900">Top Vendors by Total Amount</h3>
@@ -156,8 +156,8 @@ export function VendorsPage() {
       )}
 
       {/* Search + Vendor List */}
-      <div className="bg-white rounded-xl shadow-sm border">
-        <div className="p-4 border-b">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
+        <div className="p-4 border-b border-gray-100">
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -165,7 +165,7 @@ export function VendorsPage() {
               placeholder="Search vendors by name, email, code..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-              className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:bg-white transition-colors"
             />
           </div>
         </div>
@@ -173,10 +173,12 @@ export function VendorsPage() {
         {vendorsLoading ? (
           <div className="p-8 text-center text-gray-500">Loading vendors...</div>
         ) : !vendorsData?.content?.length ? (
-          <div className="p-8 text-center text-gray-500">
-            <Building2 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p className="font-medium">No vendors found</p>
-            <p className="text-sm mt-1">
+          <div className="empty-state">
+            <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
+              <Building2 className="w-8 h-8 text-gray-400" />
+            </div>
+            <p className="font-medium text-gray-600">No vendors found</p>
+            <p className="text-sm text-gray-400 mt-1">
               {search ? 'Try a different search term' : 'Vendors are auto-created when invoices are processed'}
             </p>
           </div>
@@ -185,13 +187,13 @@ export function VendorsPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b bg-gray-50">
-                    <th className="px-6 py-3">Vendor</th>
-                    <th className="px-6 py-3">Contact</th>
-                    <th className="px-6 py-3">Tax ID</th>
-                    <th className="px-6 py-3">Status</th>
-                    <th className="px-6 py-3">Created</th>
-                    <th className="px-6 py-3"></th>
+                  <tr className="text-left border-b bg-gray-50/80 border-gray-100">
+                    <th className="table-header px-6 py-3">Vendor</th>
+                    <th className="table-header px-6 py-3">Contact</th>
+                    <th className="table-header px-6 py-3">Tax ID</th>
+                    <th className="table-header px-6 py-3">Status</th>
+                    <th className="table-header px-6 py-3">Created</th>
+                    <th className="table-header px-6 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -199,11 +201,11 @@ export function VendorsPage() {
                     <tr
                       key={vendor.id}
                       onClick={() => navigate(`/vendors/${vendor.id}`)}
-                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      className="hover:bg-primary-50/30 cursor-pointer transition-colors"
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                          <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
                             <Building2 className="w-4 h-4 text-blue-600" />
                           </div>
                           <div>
@@ -237,7 +239,7 @@ export function VendorsPage() {
 
             {/* Pagination */}
             {vendorsData.totalPages > 1 && (
-              <div className="p-4 border-t flex items-center justify-between">
+              <div className="p-4 border-t border-gray-100 flex items-center justify-between">
                 <span className="text-sm text-gray-500">
                   Page {vendorsData.page + 1} of {vendorsData.totalPages} ({vendorsData.totalElements} vendors)
                 </span>
@@ -245,14 +247,14 @@ export function VendorsPage() {
                   <button
                     onClick={() => setPage((p) => Math.max(0, p - 1))}
                     disabled={vendorsData.first}
-                    className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50"
+                    className="px-3 py-1.5 text-sm border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-colors"
                   >
                     Previous
                   </button>
                   <button
                     onClick={() => setPage((p) => p + 1)}
                     disabled={vendorsData.last}
-                    className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50"
+                    className="px-3 py-1.5 text-sm border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-colors"
                   >
                     Next
                   </button>
@@ -265,11 +267,11 @@ export function VendorsPage() {
 
       {/* Create Vendor Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto animate-scale-in">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900">Add New Vendor</h2>
-              <button onClick={() => setShowCreateModal(false)}>
+              <button onClick={() => setShowCreateModal(false)} className="p-1.5 rounded-xl hover:bg-gray-100 transition-colors">
                 <X className="w-5 h-5 text-gray-400 hover:text-gray-600" />
               </button>
             </div>
@@ -289,7 +291,7 @@ export function VendorsPage() {
                   required
                   value={createForm.name}
                   onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
                   placeholder="e.g., ABC Roofing Inc."
                 />
               </div>
@@ -300,7 +302,7 @@ export function VendorsPage() {
                     type="text"
                     value={createForm.code || ''}
                     onChange={(e) => setCreateForm({ ...createForm, code: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
                     placeholder="e.g., VND-001"
                   />
                 </div>
@@ -310,7 +312,7 @@ export function VendorsPage() {
                     type="text"
                     value={createForm.taxId || ''}
                     onChange={(e) => setCreateForm({ ...createForm, taxId: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
                     placeholder="EIN / TIN"
                   />
                 </div>
@@ -321,7 +323,7 @@ export function VendorsPage() {
                   type="email"
                   value={createForm.email || ''}
                   onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
                   placeholder="vendor@example.com"
                 />
               </div>
@@ -331,7 +333,7 @@ export function VendorsPage() {
                   type="text"
                   value={createForm.phone || ''}
                   onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
                 />
               </div>
               <div>
@@ -339,7 +341,7 @@ export function VendorsPage() {
                 <textarea
                   value={createForm.address || ''}
                   onChange={(e) => setCreateForm({ ...createForm, address: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
                   rows={2}
                 />
               </div>
@@ -349,7 +351,7 @@ export function VendorsPage() {
                   type="text"
                   value={createForm.paymentTerms || ''}
                   onChange={(e) => setCreateForm({ ...createForm, paymentTerms: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
                   placeholder="e.g., Net 30"
                 />
               </div>
@@ -358,7 +360,7 @@ export function VendorsPage() {
                 <textarea
                   value={createForm.notes || ''}
                   onChange={(e) => setCreateForm({ ...createForm, notes: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
                   rows={2}
                 />
               </div>
@@ -366,14 +368,14 @@ export function VendorsPage() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 text-sm text-gray-700 border rounded-lg hover:bg-gray-50"
+                  className="px-4 py-2.5 text-sm text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={createMutation.isPending}
-                  className="px-4 py-2 text-sm text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                  className="px-4 py-2.5 text-sm text-white bg-gradient-to-r from-primary-600 to-primary-500 rounded-xl hover:from-primary-700 hover:to-primary-600 disabled:opacity-50 shadow-sm active:scale-[0.98] transition-all font-medium"
                 >
                   {createMutation.isPending ? 'Creating...' : 'Create Vendor'}
                 </button>
@@ -398,14 +400,14 @@ function SummaryCard({ icon, label, value, sub, bgColor, onClick }: {
 }) {
   return (
     <div
-      className={`bg-white rounded-xl shadow-sm border p-5 transition-all ${onClick ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-[0.98]' : ''}`}
+      className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-5 transition-all ${onClick ? 'cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98]' : ''}`}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
     >
       <div className="flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-lg ${bgColor} flex items-center justify-center`}>
+        <div className={`w-10 h-10 rounded-xl ${bgColor} flex items-center justify-center`}>
           {icon}
         </div>
         <div>

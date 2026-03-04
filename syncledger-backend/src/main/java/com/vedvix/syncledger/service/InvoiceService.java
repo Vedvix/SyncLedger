@@ -251,18 +251,24 @@ public class InvoiceService {
     }
 
     /**
-     * Get dashboard statistics for organization.
+     * Get dashboard statistics for organization, optionally filtered by date range.
      */
     @Transactional(readOnly = true)
-    public DashboardStatsDTO getDashboardStats(UserPrincipal currentUser) {
+    public DashboardStatsDTO getDashboardStats(UserPrincipal currentUser, LocalDate startDate, LocalDate endDate) {
+        boolean hasDateFilter = startDate != null && endDate != null;
+
         if (currentUser.isSuperAdmin()) {
             // Platform-wide stats
-            List<Object[]> stats = invoiceRepository.getInvoiceStatsByStatus();
+            List<Object[]> stats = hasDateFilter
+                    ? invoiceRepository.getInvoiceStatsByStatusAndDateRange(startDate, endDate)
+                    : invoiceRepository.getInvoiceStatsByStatus();
             return buildDashboardStats(stats);
         } else {
             // Organization stats
             Long orgId = currentUser.getOrganizationId();
-            List<Object[]> stats = invoiceRepository.getInvoiceStatsByStatusForOrganization(orgId);
+            List<Object[]> stats = hasDateFilter
+                    ? invoiceRepository.getInvoiceStatsByStatusForOrganizationAndDateRange(orgId, startDate, endDate)
+                    : invoiceRepository.getInvoiceStatsByStatusForOrganization(orgId);
             return buildDashboardStats(stats);
         }
     }

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { microsoftConfigService } from '@/services/subscriptionService'
+import { organizationService } from '@/services/organizationService'
+import { emailService } from '@/services/emailService'
 import { useAuthStore } from '@/store/authStore'
 import {
   Mail,
@@ -16,7 +18,7 @@ import {
   ExternalLink,
   Info,
 } from 'lucide-react'
-import type { UpdateMicrosoftConfigRequest } from '@/types'
+import type { Organization, UpdateMicrosoftConfigRequest } from '@/types'
 
 export function MicrosoftConfigPage() {
   const { user } = useAuthStore()
@@ -26,6 +28,8 @@ export function MicrosoftConfigPage() {
   const isOrgAdmin = user?.role === 'ADMIN'
 
   const [showSecret, setShowSecret] = useState(false)
+  const [testingOrgId, setTestingOrgId] = useState<number | null>(null)
+  const [testResults, setTestResults] = useState<Record<number, boolean>>({})
   const [formData, setFormData] = useState<UpdateMicrosoftConfigRequest>({
     msClientId: '',
     msClientSecret: '',
@@ -42,6 +46,18 @@ export function MicrosoftConfigPage() {
     queryKey: ['microsoft-config'],
     queryFn: () => microsoftConfigService.getMicrosoftConfig(),
     enabled: isOrgAdmin,
+  })
+
+  const {
+    data: superAdminOrgs = [],
+    isLoading: superAdminOrgsLoading,
+  } = useQuery({
+    queryKey: ['super-admin-orgs-email-config'],
+    queryFn: async (): Promise<Organization[]> => {
+      const response = await organizationService.getOrganizations()
+      return response.content
+    },
+    enabled: isSuperAdmin,
   })
 
   const updateMutation = useMutation({
@@ -76,6 +92,22 @@ export function MicrosoftConfigPage() {
     updateMutation.mutate(formData)
   }
 
+  const handleSuperAdminTestConnection = async (org: Organization) => {
+    try {
+      setTestingOrgId(org.id)
+      const connected = await emailService.testEmailConnection(org.id)
+      setTestResults((prev) => ({ ...prev, [org.id]: connected }))
+    } finally {
+      setTestingOrgId(null)
+    }
+  }
+
+  const maskValue = (value?: string) => {
+    if (!value) return '-'
+    if (value.length <= 8) return value
+    return `${value.slice(0, 4)}...${value.slice(-4)}`
+  }
+
   if (!isAdmin) {
     return (
       <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-xl text-yellow-800">
@@ -87,9 +119,87 @@ export function MicrosoftConfigPage() {
 
   if (isSuperAdmin) {
     return (
-      <div className="p-6 bg-blue-50 border border-blue-200 rounded-xl text-blue-800">
-        <Info className="w-5 h-5 inline mr-2" />
-        As Super Admin, please manage Microsoft Graph settings for each organization from the Super Admin panel.
+      <div className="space-y-6">
+        <div>
+          <h1 className="page-header">Organization Email Configurations</h1>
+          <p className="page-subtitle">
+            View Microsoft Graph configuration and test mailbox connection for each organization
+          </p>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-6 overflow-x-auto">
+          {superAdminOrgsLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left">
+                  <th className="py-3 pr-4 font-medium text-gray-600">Organization</th>
+                  <th className="py-3 pr-4 font-medium text-gray-600">Status</th>
+                  <th className="py-3 pr-4 font-medium text-gray-600">Mailbox</th>
+                  <th className="py-3 pr-4 font-medium text-gray-600">Tenant ID</th>
+                  <th className="py-3 pr-4 font-medium text-gray-600">Client ID</th>
+                  <th className="py-3 pr-4 font-medium text-gray-600">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {superAdminOrgs.map((org) => {
+                  const hasConfig = !!(org.msClientId && org.msTenantId && org.msMailboxEmail)
+                  const testResult = testResults[org.id]
+                  return (
+                    <tr key={org.id} className="border-b last:border-b-0">
+                      <td className="py-3 pr-4">
+                        <div className="font-medium text-gray-900">{org.name}</div>
+                        <div className="text-xs text-gray-500">{org.slug}</div>
+                      </td>
+                      <td className="py-3 pr-4">
+                        {hasConfig ? (
+                          org.msCredentialsVerified ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-100 text-green-800 text-xs">
+                              <CheckCircle className="w-3 h-3" /> Verified
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs">
+                              <AlertTriangle className="w-3 h-3" /> Unverified
+                            </span>
+                          )
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-gray-100 text-gray-600 text-xs">
+                            <Info className="w-3 h-3" /> Not Configured
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4 text-gray-700">{org.msMailboxEmail || '-'}</td>
+                      <td className="py-3 pr-4 font-mono text-xs text-gray-700">{maskValue(org.msTenantId)}</td>
+                      <td className="py-3 pr-4 font-mono text-xs text-gray-700">{maskValue(org.msClientId)}</td>
+                      <td className="py-3 pr-4">
+                        <button
+                          onClick={() => handleSuperAdminTestConnection(org)}
+                          disabled={!hasConfig || testingOrgId === org.id}
+                          className="px-3 py-1.5 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 rounded-lg transition-colors flex items-center gap-1"
+                        >
+                          {testingOrgId === org.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-3 h-3" />
+                          )}
+                          Test Connection
+                        </button>
+                        {testResult !== undefined && (
+                          <div className={`mt-1 text-xs ${testResult ? 'text-green-600' : 'text-red-600'}`}>
+                            {testResult ? 'Connection successful' : 'Connection failed'}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
     )
   }
@@ -108,8 +218,8 @@ export function MicrosoftConfigPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Microsoft Integration</h1>
-        <p className="text-gray-500 text-sm mt-1">
+        <h1 className="page-header">Microsoft Integration</h1>
+        <p className="page-subtitle">
           Configure Microsoft Graph API credentials for email polling
         </p>
       </div>

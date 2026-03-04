@@ -119,12 +119,12 @@ export function VendorDetailPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <button onClick={() => navigate('/vendors')} className="p-2 hover:bg-gray-100 rounded-lg">
+        <button onClick={() => navigate('/vendors')} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center">
               <Building2 className="w-6 h-6 text-blue-600" />
             </div>
             <div>
@@ -144,10 +144,10 @@ export function VendorDetailPage() {
         <button
           onClick={isEditing ? handleSave : startEditing}
           disabled={updateMutation.isPending}
-          className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+          className={`inline-flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all active:scale-[0.98] ${
             isEditing
-              ? 'bg-green-600 text-white hover:bg-green-700'
-              : 'bg-white border text-gray-700 hover:bg-gray-50'
+              ? 'bg-gradient-to-r from-green-600 to-green-500 text-white hover:from-green-700 hover:to-green-600 shadow-sm'
+              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
           }`}
         >
           {isEditing ? (

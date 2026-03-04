@@ -357,7 +357,7 @@ public class InvoiceController {
     public ResponseEntity<ApiResponseDto<DashboardStatsDTO>> getDashboardStats(
             @Parameter(hidden = true)
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        DashboardStatsDTO stats = invoiceService.getDashboardStats(currentUser);
+        DashboardStatsDTO stats = invoiceService.getDashboardStats(currentUser, null, null);
         return ResponseEntity.ok(ApiResponseDto.success(stats));
     }
 

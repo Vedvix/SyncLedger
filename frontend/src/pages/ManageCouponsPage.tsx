@@ -166,11 +166,11 @@ export default function ManageCouponsPage() {
             <ArrowLeft className="w-4 h-4 mr-1" /> Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <h1 className="page-header flex items-center gap-2">
               <Ticket className="w-6 h-6 text-primary-600" />
               Manage Coupons
             </h1>
-            <p className="text-muted-foreground text-sm">
+            <p className="page-subtitle">
               Create promotional vouchers and coupon codes to offer discounts on subscription plans.
             </p>
           </div>

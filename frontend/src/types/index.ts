@@ -102,6 +102,49 @@ export interface PlatformStats {
   totalInvoices: number
 }
 
+// ==================== AI Usage Types ====================
+
+export interface OrgAiUsageSummary {
+  organizationId: number
+  organizationName: string
+  totalExtractions: number
+  totalInputTokens: number
+  totalOutputTokens: number
+  totalTokens: number
+  totalCostUsd: number
+}
+
+export interface AiDailyUsage {
+  date: string
+  extractions: number
+  totalTokens: number
+  costUsd: number
+}
+
+export interface AiTierBreakdown {
+  tier: string
+  extractions: number
+  totalTokens: number
+  costUsd: number
+}
+
+export interface OrgAiUsageDetail {
+  organizationId: number
+  organizationName: string
+  summary: OrgAiUsageSummary
+  dailyUsage: AiDailyUsage[]
+  tierBreakdown: AiTierBreakdown[]
+}
+
+export interface PlatformAiUsageSummary {
+  totalExtractions: number
+  totalInputTokens: number
+  totalOutputTokens: number
+  totalTokens: number
+  totalCostUsd: number
+  organizationUsage: OrgAiUsageSummary[]
+}
+
 // ==================== User Types ====================
 
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'APPROVER' | 'VIEWER'

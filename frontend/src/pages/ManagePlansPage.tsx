@@ -168,11 +168,11 @@ export default function ManagePlansPage() {
             <ArrowLeft className="w-4 h-4 mr-1" /> Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <h1 className="page-header flex items-center gap-2">
               <Package className="w-6 h-6 text-primary-600" />
               Manage Plans
             </h1>
-            <p className="text-muted-foreground text-sm">
+            <p className="page-subtitle">
               Create, edit, or deactivate subscription plans — changes are reflected on the pricing page immediately.
             </p>
           </div>

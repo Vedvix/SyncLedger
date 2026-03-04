@@ -152,14 +152,14 @@ export function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-500 text-sm mt-1">Manage your account settings and preferences</p>
+        <h1 className="page-header">Settings</h1>
+        <p className="page-subtitle">Manage your account settings and preferences</p>
       </div>
       
       {/* Tabs */}
-      <div className="bg-white rounded-xl shadow-sm">
-        <div className="border-b">
-          <nav className="flex -mb-px">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
+        <div className="border-b border-gray-100">
+          <nav className="flex -mb-px gap-1 px-2">
             <button
               onClick={() => setActiveTab('profile')}
               className={`px-6 py-3 border-b-2 text-sm font-medium transition-colors ${
@@ -341,7 +341,7 @@ export function SettingsPage() {
               </p>
               
               {passwordSuccess && (
-                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start">
+                <div className="mb-6 p-4 bg-green-50 border border-green-100 rounded-xl flex items-start">
                   <CheckCircle className="w-5 h-5 text-green-500 mr-3 mt-0.5" />
                   <div>
                     <p className="text-green-800 font-medium">Password changed successfully!</p>
@@ -351,7 +351,7 @@ export function SettingsPage() {
               )}
               
               {passwordErrors.length > 0 && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl">
                   <div className="flex items-start">
                     <AlertCircle className="w-5 h-5 text-red-500 mr-3 mt-0.5" />
                     <div>
