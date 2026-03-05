@@ -100,9 +100,9 @@ export function DashboardGrid({ widgets, stats, editMode, onEditWidget }: Dashbo
 
   if (sortedWidgets.length === 0) {
     return (
-      <div className="bg-white rounded-xl border-2 border-dashed border-gray-300 p-12 text-center">
-        <p className="text-gray-500 text-lg mb-2">No widgets added yet</p>
-        <p className="text-gray-400 text-sm">Click "Add Widget" to start building your dashboard</p>
+      <div className="bg-[#181824] rounded-lg border-2 border-dashed border-gray-700 p-12 text-center">
+        <p className="text-gray-400 text-lg mb-2">No widgets added yet</p>
+        <p className="text-gray-500 text-sm">Click "Add Widget" to start building your dashboard</p>
       </div>
     )
   }
@@ -126,11 +126,11 @@ export function DashboardGrid({ widgets, stats, editMode, onEditWidget }: Dashbo
           onDrop={e => handleDrop(e, widget.id)}
           onDragEnd={handleDragEnd}
           className={`relative group transition-all ${
-            editMode ? 'ring-1 ring-gray-200 ring-offset-2 rounded-xl' : ''
+            editMode ? 'ring-1 ring-gray-600/50 ring-offset-1 ring-offset-[#111119] rounded-lg' : ''
           } ${
             draggedId === widget.id ? 'opacity-40 scale-95' : ''
           } ${
-            dropTargetId === widget.id ? 'ring-2 ring-primary-400 ring-offset-2' : ''
+            dropTargetId === widget.id ? 'ring-2 ring-blue-500/60 ring-offset-2 ring-offset-[#111119]' : ''
           }`}
         >
           {/* Edit overlay controls */}
@@ -138,28 +138,28 @@ export function DashboardGrid({ widgets, stats, editMode, onEditWidget }: Dashbo
             <div className="absolute top-2 right-2 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={() => cycleSizeDown(widget)}
-                className="p-1.5 bg-white rounded-md shadow-sm border border-gray-200 hover:bg-gray-50 text-gray-500"
+                className="p-1.5 bg-[#1e1e2f] rounded-md shadow-sm border border-gray-600/50 hover:bg-[#252538] text-gray-400"
                 title="Shrink"
               >
                 <Minimize2 className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => cycleSizeUp(widget)}
-                className="p-1.5 bg-white rounded-md shadow-sm border border-gray-200 hover:bg-gray-50 text-gray-500"
+                className="p-1.5 bg-[#1e1e2f] rounded-md shadow-sm border border-gray-600/50 hover:bg-[#252538] text-gray-400"
                 title="Expand"
               >
                 <Maximize2 className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => onEditWidget(widget)}
-                className="p-1.5 bg-white rounded-md shadow-sm border border-gray-200 hover:bg-blue-50 text-blue-500"
+                className="p-1.5 bg-[#1e1e2f] rounded-md shadow-sm border border-gray-600/50 hover:bg-blue-900/30 text-blue-400"
                 title="Edit"
               >
                 <Pencil className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => removeWidget(widget.id)}
-                className="p-1.5 bg-white rounded-md shadow-sm border border-gray-200 hover:bg-red-50 text-red-500"
+                className="p-1.5 bg-[#1e1e2f] rounded-md shadow-sm border border-gray-600/50 hover:bg-red-900/30 text-red-400"
                 title="Remove"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -170,7 +170,7 @@ export function DashboardGrid({ widgets, stats, editMode, onEditWidget }: Dashbo
           {/* Drag handle */}
           {editMode && (
             <div className="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
-              <div className="p-1.5 bg-white rounded-md shadow-sm border border-gray-200 text-gray-400">
+              <div className="p-1.5 bg-[#1e1e2f] rounded-md shadow-sm border border-gray-600/50 text-gray-500">
                 <GripVertical className="w-3.5 h-3.5" />
               </div>
             </div>

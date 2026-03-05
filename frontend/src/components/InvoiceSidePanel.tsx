@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   Loader2,
 } from 'lucide-react'
+import { InvoiceAuditTimeline } from './InvoiceAuditTimeline'
 
 const STATUS_COLORS: Record<InvoiceStatus, string> = {
   PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-300',
@@ -49,7 +50,7 @@ export function InvoiceSidePanel({
 }: InvoiceSidePanelProps) {
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<'summary' | 'lineItems' | 'attachments'>('summary')
+  const [activeTab, setActiveTab] = useState<'summary' | 'lineItems' | 'activity'>('summary')
   const [pdfZoom, setPdfZoom] = useState(100)
   const [pdfMaximized, setPdfMaximized] = useState(false)
   const [editMode, setEditMode] = useState(false)
@@ -354,7 +355,7 @@ export function InvoiceSidePanel({
             <div className="w-[420px] xl:w-[480px] flex-shrink-0 border-r flex flex-col overflow-hidden">
               {/* Tabs */}
               <div className="flex border-b px-5 flex-shrink-0">
-                {(['summary', 'lineItems', 'attachments'] as const).map((tab) => (
+                {(['summary', 'lineItems', 'activity'] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
@@ -368,7 +369,7 @@ export function InvoiceSidePanel({
                       ? 'Summary'
                       : tab === 'lineItems'
                       ? `Line Items (${invoice.lineItems?.length || 0})`
-                      : 'Attachments (0)'}
+                      : 'Activity'}
                   </button>
                 ))}
               </div>
@@ -393,11 +394,8 @@ export function InvoiceSidePanel({
                     formatCurrency={formatCurrency}
                   />
                 )}
-                {activeTab === 'attachments' && (
-                  <div className="text-center text-gray-400 py-12">
-                    <FileText className="w-10 h-10 mx-auto mb-3 opacity-40" />
-                    No attachments
-                  </div>
+                {activeTab === 'activity' && (
+                  <InvoiceAuditTimeline invoiceId={invoiceId} compact />
                 )}
               </div>
             </div>

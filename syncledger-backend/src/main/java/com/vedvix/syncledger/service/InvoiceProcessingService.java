@@ -40,6 +40,7 @@ public class InvoiceProcessingService {
     private final AiUsageLogRepository aiUsageLogRepository;
     private final StorageService storageService;
     private final VendorService vendorService;
+    private final InvoiceAuditService invoiceAuditService;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
@@ -79,6 +80,9 @@ public class InvoiceProcessingService {
         
         invoiceRepository.save(invoice);
         log.info("Created pending invoice record: {}", invoice.getId());
+
+        // Audit: received via email
+        invoiceAuditService.logReceivedViaEmail(invoice, emailFrom, emailSubject);
         
         // Trigger async extraction
         processInvoiceAsync(invoice.getId());
@@ -116,6 +120,9 @@ public class InvoiceProcessingService {
         
         invoiceRepository.save(invoice);
         log.info("Created invoice from upload: {}, s3Key: {}", invoice.getId(), s3Key);
+
+        // Audit: received via upload
+        invoiceAuditService.logReceivedViaUpload(invoice, null);
         
         // Trigger extraction
         processInvoiceAsync(invoice.getId());
@@ -133,6 +140,9 @@ public class InvoiceProcessingService {
                     .orElseThrow(() -> new RuntimeException("Invoice not found: " + invoiceId));
 
             log.info("Processing invoice {} through PDF service, s3Key: {}", invoiceId, invoice.getS3Key());
+
+            // Audit: extraction started
+            invoiceAuditService.logExtractionStarted(invoice);
             
             // Get URL for PDF service to download (presigned for S3, direct for local)
             String fileUrl = storageService.generatePresignedUrl(invoice.getS3Key());
@@ -243,6 +253,7 @@ public class InvoiceProcessingService {
                     invoice.setVendor(matchedVendor);
                     log.info("Linked invoice {} to vendor {} (id={})", 
                             invoice.getId(), matchedVendor.getName(), matchedVendor.getId());
+                    invoiceAuditService.logVendorLinked(invoice, matchedVendor.getName(), matchedVendor.getId());
                 }
             } catch (Exception e) {
                 log.warn("Failed to auto-link vendor for invoice {}: {}", invoice.getId(), e.getMessage());
@@ -402,6 +413,12 @@ public class InvoiceProcessingService {
             log.info("Updated invoice {} with extraction results — vendor={}, total={}, confidence={}, lineItems={}", 
                     invoice.getId(), invoice.getVendorName(), invoice.getTotalAmount(), 
                     invoice.getConfidenceScore(), invoice.getLineItems().size());
+
+            // Audit: extraction completed
+            invoiceAuditService.logExtractionCompleted(invoice,
+                    invoice.getConfidenceScore(),
+                    invoice.getExtractionMethod(),
+                    invoice.getLineItems() != null ? invoice.getLineItems().size() : 0);
             
         } catch (Exception e) {
             log.error("Error updating invoice from extraction: {}", e.getMessage(), e);
@@ -441,6 +458,9 @@ public class InvoiceProcessingService {
         invoice.setRequiresManualReview(true);
         invoice.setReviewNotes("Extraction failed: " + errorMessage);
         invoiceRepository.save(invoice);
+
+        // Audit: extraction failed
+        invoiceAuditService.logExtractionFailed(invoice, errorMessage);
     }
 
     // Inner class for extraction request - uses snake_case for Python API

@@ -287,6 +287,165 @@ public class SubscriptionEmailService {
         log.info("Payment failed email queued for org: {}", org.getName());
     }
 
+    // ==================== Invoice Notifications ====================
+
+    /**
+     * Send notification when an invoice is approved.
+     */
+    @Async
+    public void sendInvoiceApprovedEmail(Organization org, String invoiceNumber, String vendorName,
+                                         String totalAmount, String currency, String approverName,
+                                         String notes, Long invoiceId) {
+        String email = resolveOrgEmail(org);
+        sendNotification(
+                "invoice_approved",
+                email,
+                org,
+                NotificationPriority.MEDIUM,
+                Map.of(
+                        "invoiceNumber", invoiceNumber != null ? invoiceNumber : "",
+                        "vendorName", vendorName != null ? vendorName : "Unknown",
+                        "totalAmount", totalAmount != null ? totalAmount : "0.00",
+                        "currency", currency != null ? currency : "USD",
+                        "approverName", approverName,
+                        "notes", notes != null && !notes.isBlank() ? notes : "No notes",
+                        "invoiceId", invoiceId != null ? invoiceId.toString() : "",
+                        "appName", appName,
+                        "baseUrl", appBaseUrl
+                )
+        );
+        log.info("Invoice approved email queued for org: {} invoice: {}", org.getName(), invoiceNumber);
+    }
+
+    /**
+     * Send notification when an invoice is rejected.
+     */
+    @Async
+    public void sendInvoiceRejectedEmail(Organization org, String invoiceNumber, String vendorName,
+                                          String totalAmount, String currency, String approverName,
+                                          String reason, Long invoiceId) {
+        String email = resolveOrgEmail(org);
+        sendNotification(
+                "invoice_rejected",
+                email,
+                org,
+                NotificationPriority.HIGH,
+                Map.of(
+                        "invoiceNumber", invoiceNumber != null ? invoiceNumber : "",
+                        "vendorName", vendorName != null ? vendorName : "Unknown",
+                        "totalAmount", totalAmount != null ? totalAmount : "0.00",
+                        "currency", currency != null ? currency : "USD",
+                        "approverName", approverName,
+                        "reason", reason != null && !reason.isBlank() ? reason : "No reason provided",
+                        "invoiceId", invoiceId != null ? invoiceId.toString() : "",
+                        "appName", appName,
+                        "baseUrl", appBaseUrl
+                )
+        );
+        log.info("Invoice rejected email queued for org: {} invoice: {}", org.getName(), invoiceNumber);
+    }
+
+    // ==================== User Notifications ====================
+
+    /**
+     * Send welcome email when a new user is created within an organization.
+     */
+    @Async
+    public void sendUserWelcomeEmail(Organization org, String userEmail, String firstName,
+                                      String roleName, String tempPassword) {
+        sendNotification(
+                "user_welcome",
+                userEmail,
+                org,
+                NotificationPriority.HIGH,
+                Map.of(
+                        "firstName", firstName,
+                        "orgName", org.getName(),
+                        "roleName", roleName,
+                        "email", userEmail,
+                        "tempPassword", tempPassword,
+                        "appName", appName,
+                        "baseUrl", appBaseUrl
+                )
+        );
+        log.info("User welcome email queued for: {} in org: {}", userEmail, org.getName());
+    }
+
+    /**
+     * Send password changed confirmation email.
+     */
+    @Async
+    public void sendPasswordChangedEmail(String userEmail, String firstName) {
+        NotificationRequest request = NotificationRequest.builder()
+                .channel(NotificationChannel.EMAIL)
+                .templateName("password_changed")
+                .recipients(List.of(new Recipient(userEmail, null, null, Map.of())))
+                .parameters(Map.of(
+                        "firstName", firstName,
+                        "appName", appName,
+                        "baseUrl", appBaseUrl
+                ))
+                .priority(NotificationPriority.HIGH)
+                .metadata(Map.of("eventType", "PASSWORD_CHANGED"))
+                .build();
+
+        try {
+            String notificationId = notificationService.sendNotificationDirectly(request);
+            log.info("Password changed email queued [{}] for: {}", notificationId, userEmail);
+        } catch (Exception e) {
+            log.error("Failed to queue password changed email to {}: {}", userEmail, e.getMessage());
+        }
+    }
+
+    // ==================== Additional Subscription Notifications ====================
+
+    /**
+     * Send notification when a subscription is reactivated.
+     */
+    @Async
+    public void sendSubscriptionReactivatedEmail(Organization org, String planName, String expiresAt) {
+        String email = resolveOrgEmail(org);
+        sendNotification(
+                "subscription_reactivated",
+                email,
+                org,
+                NotificationPriority.HIGH,
+                Map.of(
+                        "orgName", org.getName(),
+                        "planName", planName,
+                        "expiresAt", expiresAt,
+                        "appName", appName,
+                        "baseUrl", appBaseUrl
+                )
+        );
+        log.info("Subscription reactivated email queued for org: {}", org.getName());
+    }
+
+    /**
+     * Send notification when subscription plan is changed by admin.
+     */
+    @Async
+    public void sendSubscriptionPlanChangedEmail(Organization org, String oldPlanName,
+                                                  String newPlanName, String expiresAt) {
+        String email = resolveOrgEmail(org);
+        sendNotification(
+                "subscription_plan_changed",
+                email,
+                org,
+                NotificationPriority.MEDIUM,
+                Map.of(
+                        "orgName", org.getName(),
+                        "oldPlanName", oldPlanName,
+                        "newPlanName", newPlanName,
+                        "expiresAt", expiresAt,
+                        "appName", appName,
+                        "baseUrl", appBaseUrl
+                )
+        );
+        log.info("Subscription plan changed email queued for org: {} ({} -> {})",
+                org.getName(), oldPlanName, newPlanName);
+    }
+
     // ==================== Internal Helpers ====================
 
     /**

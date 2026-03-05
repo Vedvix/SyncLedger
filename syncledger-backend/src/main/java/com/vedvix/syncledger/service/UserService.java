@@ -34,6 +34,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final OrganizationRepository organizationRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SubscriptionEmailService emailService;
 
     /**
      * Get users for current user's organization (or all for Super Admin).
@@ -129,6 +130,21 @@ public class UserService {
 
         userRepository.save(user);
         log.info("User created: {} by {}", user.getEmail(), currentUser.getEmail());
+
+        // Send welcome email to the new user (if they belong to an org)
+        if (organization != null) {
+            try {
+                emailService.sendUserWelcomeEmail(
+                        organization,
+                        user.getEmail(),
+                        user.getFirstName(),
+                        role.name(),
+                        request.getPassword()  // temporary password shown in welcome email
+                );
+            } catch (Exception e) {
+                log.warn("Failed to send welcome email to {} (non-blocking): {}", user.getEmail(), e.getMessage());
+            }
+        }
 
         return mapToDTO(user);
     }

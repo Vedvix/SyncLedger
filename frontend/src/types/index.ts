@@ -352,6 +352,42 @@ export interface ApprovalRequest {
   rejectionReason?: string
 }
 
+// ==================== Invoice Audit Trail Types ====================
+
+export type InvoiceAuditEventType =
+  | 'RECEIVED_VIA_EMAIL'
+  | 'RECEIVED_VIA_UPLOAD'
+  | 'EXTRACTION_STARTED'
+  | 'EXTRACTION_COMPLETED'
+  | 'EXTRACTION_FAILED'
+  | 'STATUS_CHANGED'
+  | 'FIELD_UPDATED'
+  | 'SUBMITTED_FOR_REVIEW'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'SYNC_STARTED'
+  | 'SYNC_COMPLETED'
+  | 'SYNC_FAILED'
+  | 'ASSIGNED'
+  | 'EXPORTED'
+  | 'ARCHIVED'
+  | 'NOTE_ADDED'
+  | 'VENDOR_LINKED'
+
+export interface InvoiceAuditEvent {
+  id: number
+  invoiceId: number
+  eventType: InvoiceAuditEventType
+  eventDisplayName: string
+  fromStatus?: string
+  toStatus?: string
+  performedByUserId?: number
+  performedByName?: string
+  description: string
+  metadata?: Record<string, unknown>
+  createdAt: string
+}
+
 // ==================== Dashboard Types ====================
 
 export interface MonthlyStats {
@@ -366,6 +402,12 @@ export interface VendorStats {
   vendorName: string
   invoiceCount: number
   totalAmount: number
+}
+
+export interface VendorStatusStats {
+  vendorName: string
+  status: string
+  invoiceCount: number
 }
 
 export interface DashboardStats {
@@ -408,6 +450,7 @@ export interface DashboardStats {
   // Charts
   monthlyTrends: MonthlyStats[]
   topVendors: VendorStats[]
+  vendorStatusBreakdown: VendorStatusStats[]
   invoicesByStatus: Record<string, number>
 }
 

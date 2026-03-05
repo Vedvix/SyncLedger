@@ -1,26 +1,28 @@
 # =============================================================================
 # SYNCLEDGER - BUILD & PUSH DOCKER IMAGES
-# Builds all 3 services and pushes to GitHub Container Registry (GHCR)
-# Triggered on push to main or manual dispatch
+# Triggered on push to main/develop/release/* or manual dispatch
+# Tags images with branch name for environment-based deployments
 # =============================================================================
 
 name: Build & Push Images
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - develop
+      - 'release/**'
     paths:
       - 'frontend/**'
       - 'syncledger-backend/**'
       - 'pdf-microservice/**'
-      - 'docker-compose.yml'
       - '.github/workflows/build.yml'
   workflow_dispatch:
     inputs:
       services:
-        description: 'Services to build (comma-separated: frontend,backend,pdf)'
+        description: 'Services to build (comma-separated: frontend,backend,pdf or all)'
         required: false
-        default: 'frontend,backend,pdf'
+        default: 'all'
 
 env:
   REGISTRY: ghcr.io
@@ -31,7 +33,7 @@ permissions:
   packages: write
 
 jobs:
-  # ---- Detect which services changed ----
+  # ---- Detect changes ----
   changes:
     name: Detect Changes
     runs-on: ubuntu-latest
@@ -39,8 +41,10 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       backend: ${{ steps.filter.outputs.backend }}
       pdf: ${{ steps.filter.outputs.pdf }}
+      branch_tag: ${{ steps.meta.outputs.branch_tag }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: dorny/paths-filter@v3
         id: filter
         if: github.event_name == 'push'
@@ -53,103 +57,119 @@ jobs:
             pdf:
               - 'pdf-microservice/**'
 
-  # ---- Build Frontend Image ----
+      - name: Compute branch tag
+        id: meta
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          # Sanitize branch name for Docker tag (replace / with -)
+          BRANCH_TAG=$(echo "$BRANCH" | sed 's|/|-|g')
+          echo "branch_tag=$BRANCH_TAG" >> $GITHUB_OUTPUT
+          echo "Branch: $BRANCH -> Tag prefix: $BRANCH_TAG"
+
+  # ---- Build Frontend ----
   build-frontend:
     name: Build Frontend
     runs-on: ubuntu-latest
     needs: changes
     if: >
-      github.event_name == 'workflow_dispatch' || 
+      github.event_name == 'workflow_dispatch' ||
       needs.changes.outputs.frontend == 'true'
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & Push Frontend
+      - name: Build & Push
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
-          file: ./frontend/Dockerfile
           push: true
           tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-frontend:${{ needs.changes.outputs.branch_tag }}-latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-frontend:${{ needs.changes.outputs.branch_tag }}-${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-frontend:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-frontend:${{ github.sha }}
           build-args: |
             VITE_API_URL=/api
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # ---- Build Backend Image ----
+  # ---- Build Backend ----
   build-backend:
     name: Build Backend
     runs-on: ubuntu-latest
     needs: changes
     if: >
-      github.event_name == 'workflow_dispatch' || 
+      github.event_name == 'workflow_dispatch' ||
       needs.changes.outputs.backend == 'true'
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & Push Backend
+      - name: Build & Push
         uses: docker/build-push-action@v5
         with:
           context: ./syncledger-backend
-          file: ./syncledger-backend/Dockerfile
           push: true
           tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-backend:${{ needs.changes.outputs.branch_tag }}-latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-backend:${{ needs.changes.outputs.branch_tag }}-${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-backend:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-backend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # ---- Build PDF Microservice Image ----
+  # ---- Build PDF Service ----
   build-pdf:
     name: Build PDF Service
     runs-on: ubuntu-latest
     needs: changes
     if: >
-      github.event_name == 'workflow_dispatch' || 
+      github.event_name == 'workflow_dispatch' ||
       needs.changes.outputs.pdf == 'true'
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & Push PDF Service
+      - name: Build & Push
         uses: docker/build-push-action@v5
         with:
           context: ./pdf-microservice
-          file: ./pdf-microservice/Dockerfile
           push: true
           tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-pdf:${{ needs.changes.outputs.branch_tag }}-latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-pdf:${{ needs.changes.outputs.branch_tag }}-${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-pdf:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-pdf:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # ---- Create Git Tag ----
+  tag:
+    name: Tag Release
+    runs-on: ubuntu-latest
+    needs: [build-frontend, build-backend, build-pdf]
+    if: always() && !contains(needs.*.result, 'failure')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create tag
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          BRANCH_SAFE=$(echo "$BRANCH" | sed 's|/|-|g')
+          TAG="${BRANCH_SAFE}-$(date +%Y%m%d)-${GITHUB_SHA::7}"
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "Created tag: $TAG"

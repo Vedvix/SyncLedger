@@ -119,6 +119,25 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long>, JpaSpec
     List<Object[]> getTopVendorsByInvoiceCountForOrganization(@Param("orgId") Long orgId, Pageable pageable);
 
     /**
+     * Get vendor and status-wise invoice counts for organization.
+     */
+    @Query("SELECT i.vendorName, i.status, COUNT(i) FROM Invoice i " +
+           "WHERE i.organization.id = :orgId AND i.vendorName IS NOT NULL " +
+           "GROUP BY i.vendorName, i.status ORDER BY i.vendorName, i.status")
+    List<Object[]> getVendorStatusBreakdownForOrganization(@Param("orgId") Long orgId);
+
+    /**
+     * Get vendor and status-wise invoice counts for organization with date range.
+     */
+    @Query("SELECT i.vendorName, i.status, COUNT(i) FROM Invoice i " +
+           "WHERE i.organization.id = :orgId AND i.vendorName IS NOT NULL AND i.invoiceDate BETWEEN :startDate AND :endDate " +
+           "GROUP BY i.vendorName, i.status ORDER BY i.vendorName, i.status")
+    List<Object[]> getVendorStatusBreakdownForOrganizationAndDateRange(
+            @Param("orgId") Long orgId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
+
+    /**
      * Find recent invoices for organization.
      */
     List<Invoice> findTop10ByOrganization_IdOrderByCreatedAtDesc(Long organizationId);
@@ -244,6 +263,23 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long>, JpaSpec
     @Query("SELECT i.vendorName, COUNT(i), SUM(i.totalAmount) FROM Invoice i " +
            "GROUP BY i.vendorName ORDER BY COUNT(i) DESC")
     List<Object[]> getTopVendorsByInvoiceCount(Pageable pageable);
+
+    /**
+     * Get global vendor and status-wise invoice counts.
+     */
+    @Query("SELECT i.vendorName, i.status, COUNT(i) FROM Invoice i " +
+           "WHERE i.vendorName IS NOT NULL GROUP BY i.vendorName, i.status ORDER BY i.vendorName, i.status")
+    List<Object[]> getVendorStatusBreakdown();
+
+    /**
+     * Get global vendor and status-wise invoice counts with date range filter.
+     */
+    @Query("SELECT i.vendorName, i.status, COUNT(i) FROM Invoice i " +
+           "WHERE i.vendorName IS NOT NULL AND i.invoiceDate BETWEEN :startDate AND :endDate " +
+           "GROUP BY i.vendorName, i.status ORDER BY i.vendorName, i.status")
+    List<Object[]> getVendorStatusBreakdownAndDateRange(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 
     /**
      * Find invoices from email source.

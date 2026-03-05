@@ -4,6 +4,7 @@ import com.vedvix.syncledger.dto.*;
 import com.vedvix.syncledger.model.InvoiceStatus;
 import com.vedvix.syncledger.security.UserPrincipal;
 import com.vedvix.syncledger.service.ExcelExportService;
+import com.vedvix.syncledger.service.InvoiceAuditService;
 import com.vedvix.syncledger.service.InvoiceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -50,6 +51,7 @@ public class InvoiceController {
 
     private final InvoiceService invoiceService;
     private final ExcelExportService excelExportService;
+    private final InvoiceAuditService invoiceAuditService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'APPROVER', 'VIEWER')")
@@ -308,6 +310,35 @@ public class InvoiceController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, 
                         "inline; filename=\"" + (fileName != null ? fileName : "invoice.pdf") + "\"")
                 .body(new InputStreamResource(fileStream));
+    }
+
+    // ── Audit Trail ──────────────────────────────────────────────────────
+    @GetMapping("/{id}/audit-trail")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'APPROVER', 'VIEWER')")
+    @Operation(
+        summary = "Get invoice audit trail",
+        description = "Returns the full lifecycle audit trail for an invoice — from receipt through ERP sync"
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Audit trail retrieved successfully"),
+        @ApiResponse(responseCode = "404", description = "Invoice not found")
+    })
+    public ResponseEntity<ApiResponseDto<List<InvoiceAuditEventDTO>>> getAuditTrail(
+            @Parameter(description = "Invoice ID", required = true)
+            @PathVariable Long id,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        // Ensure the user has access to this invoice first
+        invoiceService.getInvoiceById(id, currentUser);
+        
+        List<InvoiceAuditEventDTO> trail;
+        if (currentUser.isSuperAdmin()) {
+            trail = invoiceAuditService.getAuditTrail(id);
+        } else {
+            trail = invoiceAuditService.getAuditTrail(id, currentUser.getOrganizationId());
+        }
+        return ResponseEntity.ok(ApiResponseDto.success(trail));
     }
 
     // ── Upload Invoice PDF ───────────────────────────────────────────────

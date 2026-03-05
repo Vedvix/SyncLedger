@@ -10,52 +10,59 @@ const uid = () => `w_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 const DEFAULT_WIDGETS: WidgetConfig[] = [
   {
     id: uid(), title: 'Total Invoices', chartType: 'kpiCard', dataSource: 'totalInvoices',
-    size: 'small', colSpan: 3, rowSpan: 1, order: 0, color: '#3b82f6', visible: true,
+    size: 'small', colSpan: 3, rowSpan: 1, order: 0, color: '#36a2eb', visible: true,
     clickUrl: '/invoices',
   },
   {
     id: uid(), title: 'Pending Review', chartType: 'kpiCard', dataSource: 'pendingInvoices',
-    size: 'small', colSpan: 3, rowSpan: 1, order: 1, color: '#f59e0b', visible: true,
+    size: 'small', colSpan: 3, rowSpan: 1, order: 1, color: '#ff9f40', visible: true,
     clickUrl: '/invoices?status=PENDING',
   },
   {
     id: uid(), title: 'Approval Rate', chartType: 'radialGauge', dataSource: 'approvalRate',
-    size: 'small', colSpan: 3, rowSpan: 1, order: 2, color: '#22c55e', visible: true,
+    size: 'small', colSpan: 3, rowSpan: 1, order: 2, color: '#4bc0c0', visible: true,
     clickUrl: '/invoices?status=APPROVED',
   },
   {
     id: uid(), title: 'Sync Success Rate', chartType: 'radialGauge', dataSource: 'syncRate',
-    size: 'small', colSpan: 3, rowSpan: 1, order: 3, color: '#8b5cf6', visible: true,
+    size: 'small', colSpan: 3, rowSpan: 1, order: 3, color: '#9966ff', visible: true,
     clickUrl: '/invoices?status=SYNCED',
   },
   {
     id: uid(), title: 'Invoice Volume Trend', chartType: 'area', dataSource: 'monthlyTrends',
-    size: 'large', colSpan: 8, rowSpan: 1, order: 4, color: '#3b82f6', visible: true,
+    size: 'large', colSpan: 8, rowSpan: 1, order: 4, color: '#36a2eb', visible: true,
     subtitle: 'Monthly invoice count & value',
   },
   {
     id: uid(), title: 'Status Distribution', chartType: 'donut', dataSource: 'statusDistribution',
-    size: 'medium', colSpan: 4, rowSpan: 1, order: 5, color: '#6366f1', visible: true,
+    size: 'medium', colSpan: 4, rowSpan: 1, order: 5, color: '#9966ff', visible: true,
     subtitle: 'Current invoice breakdown',
   },
   {
-    id: uid(), title: 'Top Vendors', chartType: 'horizontalBar', dataSource: 'topVendors',
-    size: 'large', colSpan: 6, rowSpan: 1, order: 6, color: '#3b82f6', visible: true,
-    subtitle: 'By invoice count',
+    id: uid(), title: 'Invoices per Vendor', chartType: 'bar', dataSource: 'vendorInvoiceCount',
+    size: 'large', colSpan: 6, rowSpan: 1, order: 6, color: '#36a2eb', visible: true,
+    subtitle: 'Invoice count by vendor',
+  },
+  {
+    id: uid(), title: 'Vendor Spend Concentration', chartType: 'treemap', dataSource: 'vendorSpendConcentration',
+    size: 'large', colSpan: 6, rowSpan: 1, order: 7, color: '#4bc0c0', visible: true,
+    subtitle: 'Spend distribution by vendor ($)',
   },
   {
     id: uid(), title: 'Financial Summary', chartType: 'horizontalBar', dataSource: 'financialBreakdown',
-    size: 'large', colSpan: 6, rowSpan: 1, order: 7, color: '#22c55e', visible: true,
+    size: 'large', colSpan: 6, rowSpan: 1, order: 8, color: '#4bc0c0', visible: true,
     subtitle: 'Value by invoice status',
   },
   {
     id: uid(), title: 'Processing Throughput', chartType: 'bar', dataSource: 'processingThroughput',
-    size: 'medium', colSpan: 4, rowSpan: 1, order: 8, color: '#6366f1', visible: true,
+    size: 'large', colSpan: 6, rowSpan: 1, order: 9, color: '#9966ff', visible: true,
     subtitle: 'Invoices processed',
   },
   {
-    id: uid(), title: 'Alerts & Actions', chartType: 'statusCards', dataSource: 'alertCards',
-    size: 'large', colSpan: 8, rowSpan: 1, order: 9, visible: true,
+    id: uid(), title: 'Vendor & Status Analytics', chartType: 'bar', dataSource: 'vendorStatusProcessed',
+    size: 'full', colSpan: 12, rowSpan: 1, order: 10, color: '#36a2eb', visible: true,
+    subtitle: 'Status-wise processed invoices by vendor',
+    yAxisFields: ['approved', 'synced'],
   },
 ]
 
@@ -273,7 +280,12 @@ export const useDashboardStore = create<DashboardStore>()(
     }),
     {
       name: 'syncledger-dashboard-config',
-      version: 1,
+      version: 4,
+      migrate: () => ({
+        dashboards: [createDefaultDashboard()],
+        activeDashboardId: 'default',
+        editMode: false,
+      }),
     }
   )
 )

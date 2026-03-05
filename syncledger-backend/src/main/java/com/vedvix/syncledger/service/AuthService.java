@@ -48,6 +48,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final RefreshTokenService refreshTokenService;
+    private final SubscriptionEmailService emailService;
 
     @Value("${jwt.expiration:3600000}")
     private long accessTokenExpirationMs;
@@ -279,6 +280,13 @@ public class AuthService {
         userRepository.save(user);
         
         log.info("Password changed for user: {}", user.getEmail());
+
+        // Send password changed confirmation email
+        try {
+            emailService.sendPasswordChangedEmail(user.getEmail(), user.getFirstName());
+        } catch (Exception e) {
+            log.warn("Failed to send password changed email (non-blocking): {}", e.getMessage());
+        }
     }
 
     private UserDTO mapToUserDTO(UserPrincipal principal) {

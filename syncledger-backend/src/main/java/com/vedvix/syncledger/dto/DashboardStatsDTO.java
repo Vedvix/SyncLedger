@@ -56,6 +56,7 @@ public class DashboardStatsDTO {
     // Charts Data
     private List<MonthlyStats> monthlyTrends;
     private List<VendorStats> topVendors;
+    private List<VendorStatusStats> vendorStatusBreakdown;
     private Map<String, Long> invoicesByStatus;
 
     @Data
@@ -78,5 +79,15 @@ public class DashboardStatsDTO {
         private String vendorName;
         private Long invoiceCount;
         private BigDecimal totalAmount;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class VendorStatusStats {
+        private String vendorName;
+        private String status;
+        private Long invoiceCount;
     }
 }

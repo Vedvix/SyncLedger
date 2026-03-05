@@ -8,7 +8,8 @@ import type {
   PaginationParams,
   ApiResponse, 
   PagedResponse,
-  ExportRequest
+  ExportRequest,
+  InvoiceAuditEvent
 } from '@/types'
 
 export const invoiceService = {
@@ -159,6 +160,14 @@ export const invoiceService = {
    */
   async getExportColumns(): Promise<Record<string, string>> {
     const response = await apiClient.get<ApiResponse<Record<string, string>>>('/v1/invoices/export/columns')
+    return response.data.data!
+  },
+
+  /**
+   * Get full audit trail for an invoice
+   */
+  async getAuditTrail(id: number): Promise<InvoiceAuditEvent[]> {
+    const response = await apiClient.get<ApiResponse<InvoiceAuditEvent[]>>(`/v1/invoices/${id}/audit-trail`)
     return response.data.data!
   },
 }

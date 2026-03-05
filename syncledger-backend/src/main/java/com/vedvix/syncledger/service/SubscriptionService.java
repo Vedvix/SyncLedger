@@ -324,6 +324,16 @@ public class SubscriptionService {
 
         log.info("Subscription reactivated for org {} with {} additional days", organizationId, additionalDays);
 
+        // Send reactivation notification email
+        try {
+            String expiresAt = subscription.getPlan() == SubscriptionPlan.TRIAL
+                    ? subscription.getTrialEndDate().toString()
+                    : subscription.getSubscriptionEndDate().toString();
+            emailService.sendSubscriptionReactivatedEmail(org, subscription.getPlan().getDisplayName(), expiresAt);
+        } catch (Exception e) {
+            log.warn("Failed to send reactivation email (non-blocking): {}", e.getMessage());
+        }
+
         return mapToDTO(subscription);
     }
 
@@ -377,6 +387,16 @@ public class SubscriptionService {
 
         log.info("Admin changed plan for org {} from {} to {} ({} days, performed by user {})",
                 organizationId, oldPlan, newPlan.name(), durationDays, performedBy);
+
+        // Send plan changed notification email
+        try {
+            String expiresAt = newPlan == SubscriptionPlan.TRIAL
+                    ? subscription.getTrialEndDate().toString()
+                    : subscription.getSubscriptionEndDate().toString();
+            emailService.sendSubscriptionPlanChangedEmail(org, oldPlan, newPlan.getDisplayName(), expiresAt);
+        } catch (Exception e) {
+            log.warn("Failed to send plan changed email (non-blocking): {}", e.getMessage());
+        }
 
         return mapToDTO(subscription);
     }

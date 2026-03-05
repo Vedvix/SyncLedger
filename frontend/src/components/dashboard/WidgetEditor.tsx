@@ -105,6 +105,7 @@ export function WidgetEditor({ isOpen, onClose, existingWidget }: WidgetEditorPr
   const groupedSources = useMemo(() => {
     const groups: Record<string, typeof DATA_SOURCES> = {}
     for (const src of DATA_SOURCES) {
+      if (src.key === 'alertCards') continue
       const cat = src.category
       if (!groups[cat]) groups[cat] = []
       groups[cat].push(src)
@@ -125,15 +126,15 @@ export function WidgetEditor({ isOpen, onClose, existingWidget }: WidgetEditorPr
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative bg-white rounded-xl shadow-xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
+        <div className="relative bg-[#1e1e2f] rounded-lg shadow-2xl w-full max-w-2xl border border-gray-600/40" onClick={e => e.stopPropagation()}>
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b">
-            <h2 className="text-xl font-semibold text-gray-900">
-              {existingWidget ? 'Edit Widget' : 'Add Widget'}
+          <div className="flex items-center justify-between p-6 border-b border-gray-700/50">
+            <h2 className="text-xl font-semibold text-gray-100">
+              {existingWidget ? 'Edit Panel' : 'Add Panel'}
             </h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition-colors">
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -142,19 +143,19 @@ export function WidgetEditor({ isOpen, onClose, existingWidget }: WidgetEditorPr
           <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
             {/* Title */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Widget Title</label>
+              <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">Panel Title</label>
               <input
                 type="text"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                placeholder="Enter widget title"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+                placeholder="Enter panel title"
+                className="w-full px-3 py-2 border border-gray-600/50 bg-[#111119] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-200 placeholder-gray-500"
               />
             </div>
 
             {/* Data Source */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Data Source</label>
+              <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">Data Source</label>
               <select
                 value={dataSource}
                 onChange={e => {
@@ -162,7 +163,7 @@ export function WidgetEditor({ isOpen, onClose, existingWidget }: WidgetEditorPr
                   const src = DATA_SOURCES.find(d => d.key === e.target.value)
                   if (src && !title) setTitle(src.label)
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+                className="w-full px-3 py-2 border border-gray-600/50 bg-[#111119] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-200"
               >
                 {Object.entries(groupedSources).map(([cat, sources]) => (
                   <optgroup key={cat} label={categoryLabels[cat] || cat}>
@@ -176,9 +177,9 @@ export function WidgetEditor({ isOpen, onClose, existingWidget }: WidgetEditorPr
               </select>
             </div>
 
-            {/* Chart Type */}
+            {/* Chart Type — Visualization */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Chart Type</label>
+              <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">Visualization</label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {compatibleCharts.map(ct => (
                   <button
@@ -187,8 +188,8 @@ export function WidgetEditor({ isOpen, onClose, existingWidget }: WidgetEditorPr
                     onClick={() => setChartType(ct)}
                     className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${
                       chartType === ct
-                        ? 'border-primary-500 bg-primary-50 text-primary-700 ring-2 ring-primary-200'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                        ? 'border-blue-500 bg-blue-900/20 text-blue-400 ring-1 ring-blue-500/30'
+                        : 'border-gray-600/50 text-gray-400 hover:border-gray-500 hover:bg-white/5'
                     }`}
                   >
                     {CHART_TYPE_LABELS[ct]}
@@ -199,25 +200,25 @@ export function WidgetEditor({ isOpen, onClose, existingWidget }: WidgetEditorPr
 
             {/* ─── Axis Configuration ─── */}
             {selectedSource?.axisFields && selectedSource.axisFields.length > 0 &&
-              ['area', 'line', 'bar', 'horizontalBar', 'pie', 'donut', 'table'].includes(chartType) && (
-              <div className="bg-gray-50 rounded-lg p-4 space-y-4 border border-gray-200">
+              ['area', 'line', 'bar', 'horizontalBar', 'pie', 'donut', 'table', 'treemap'].includes(chartType) && (
+              <div className="bg-[#111119] rounded-lg p-4 space-y-4 border border-gray-700/40">
                 <div className="flex items-center gap-2 mb-1">
-                  <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21l5-5 5 5M7 3l5 5 5-5" />
                   </svg>
-                  <span className="text-sm font-semibold text-gray-700">Axis Configuration</span>
+                  <span className="text-sm font-semibold text-gray-300">Axis Configuration</span>
                 </div>
 
                 {/* X-Axis */}
                 {['area', 'line', 'bar', 'horizontalBar'].includes(chartType) && (
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
                       {chartType === 'horizontalBar' ? 'Y-Axis (Categories)' : 'X-Axis (Categories)'}
                     </label>
                     <select
                       value={xAxisField || selectedSource.defaultXAxis || ''}
                       onChange={e => setXAxisField(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+                      className="w-full px-3 py-2 border border-gray-600/50 bg-[#1e1e2f] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-200"
                     >
                       {selectedSource.axisFields.filter(f => f.type === 'category').map(f => (
                         <option key={f.key} value={f.key}>{f.label}</option>
@@ -229,9 +230,9 @@ export function WidgetEditor({ isOpen, onClose, existingWidget }: WidgetEditorPr
                 {/* Y-Axis */}
                 {['area', 'line', 'bar', 'horizontalBar'].includes(chartType) && (
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
                       {chartType === 'horizontalBar' ? 'X-Axis (Values)' : 'Y-Axis (Values)'}
-                      <span className="text-gray-400 ml-1">— select one or more</span>
+                      <span className="text-gray-600 ml-1">— select one or more</span>
                     </label>
                     <div className="flex flex-wrap gap-2">
                       {selectedSource.axisFields.filter(f => f.type === 'numeric').map(f => {
@@ -243,7 +244,6 @@ export function WidgetEditor({ isOpen, onClose, existingWidget }: WidgetEditorPr
                             onClick={() => {
                               const current = yAxisFields.length > 0 ? yAxisFields : selectedSource.defaultYAxis || []
                               if (current.includes(f.key)) {
-                                // Don't allow removing the last one
                                 if (current.length > 1) setYAxisFields(current.filter(k => k !== f.key))
                               } else {
                                 setYAxisFields([...current, f.key])
@@ -251,8 +251,8 @@ export function WidgetEditor({ isOpen, onClose, existingWidget }: WidgetEditorPr
                             }}
                             className={`px-3 py-1.5 rounded-md border text-xs font-medium transition-all ${
                               active
-                                ? 'border-primary-500 bg-primary-50 text-primary-700 ring-1 ring-primary-200'
-                                : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
+                                ? 'border-blue-500 bg-blue-900/20 text-blue-400 ring-1 ring-blue-500/30'
+                                : 'border-gray-600/50 text-gray-500 hover:border-gray-500 hover:bg-white/5'
                             }`}
                           >
                             {f.label}
@@ -263,15 +263,15 @@ export function WidgetEditor({ isOpen, onClose, existingWidget }: WidgetEditorPr
                   </div>
                 )}
 
-                {/* Pie / Donut: label + value */}  
-                {['pie', 'donut'].includes(chartType) && (
+                {/* Pie / Donut / Treemap: label + value */}
+                {['pie', 'donut', 'treemap'].includes(chartType) && (
                   <>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Label Field (slices)</label>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Label Field</label>
                       <select
                         value={xAxisField || selectedSource.defaultXAxis || ''}
                         onChange={e => setXAxisField(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+                        className="w-full px-3 py-2 border border-gray-600/50 bg-[#1e1e2f] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-200"
                       >
                         {selectedSource.axisFields.filter(f => f.type === 'category').map(f => (
                           <option key={f.key} value={f.key}>{f.label}</option>
@@ -279,11 +279,11 @@ export function WidgetEditor({ isOpen, onClose, existingWidget }: WidgetEditorPr
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Value Field (slice size)</label>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Value Field</label>
                       <select
                         value={(yAxisFields.length > 0 ? yAxisFields : selectedSource.defaultYAxis || [])[0] || ''}
                         onChange={e => setYAxisFields([e.target.value])}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+                        className="w-full px-3 py-2 border border-gray-600/50 bg-[#1e1e2f] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-200"
                       >
                         {selectedSource.axisFields.filter(f => f.type === 'numeric').map(f => (
                           <option key={f.key} value={f.key}>{f.label}</option>
@@ -297,7 +297,7 @@ export function WidgetEditor({ isOpen, onClose, existingWidget }: WidgetEditorPr
 
             {/* Size */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Widget Size</label>
+              <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">Panel Size</label>
               <div className="grid grid-cols-4 gap-2">
                 {SIZE_OPTIONS.map(opt => (
                   <button
@@ -306,8 +306,8 @@ export function WidgetEditor({ isOpen, onClose, existingWidget }: WidgetEditorPr
                     onClick={() => setSize(opt.value)}
                     className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${
                       size === opt.value
-                        ? 'border-primary-500 bg-primary-50 text-primary-700 ring-2 ring-primary-200'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                        ? 'border-blue-500 bg-blue-900/20 text-blue-400 ring-1 ring-blue-500/30'
+                        : 'border-gray-600/50 text-gray-400 hover:border-gray-500 hover:bg-white/5'
                     }`}
                   >
                     {opt.label}
@@ -318,7 +318,7 @@ export function WidgetEditor({ isOpen, onClose, existingWidget }: WidgetEditorPr
 
             {/* Color */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                 <span className="flex items-center gap-1.5">
                   <Palette className="w-4 h-4" />
                   Accent Color
@@ -328,7 +328,7 @@ export function WidgetEditor({ isOpen, onClose, existingWidget }: WidgetEditorPr
                 <button
                   type="button"
                   onClick={() => setShowColorPicker(!showColorPicker)}
-                  className="w-8 h-8 rounded-lg border-2 border-gray-200 shadow-sm"
+                  className="w-8 h-8 rounded-lg border-2 border-gray-600/50 shadow-sm"
                   style={{ backgroundColor: color }}
                 />
                 {showColorPicker && (
@@ -339,7 +339,7 @@ export function WidgetEditor({ isOpen, onClose, existingWidget }: WidgetEditorPr
                         type="button"
                         onClick={() => { setColor(c); setShowColorPicker(false) }}
                         className={`w-7 h-7 rounded-md border-2 transition-all ${
-                          color === c ? 'border-gray-800 scale-110' : 'border-transparent hover:scale-110'
+                          color === c ? 'border-white scale-110' : 'border-transparent hover:scale-110'
                         }`}
                         style={{ backgroundColor: c }}
                       />
@@ -349,45 +349,45 @@ export function WidgetEditor({ isOpen, onClose, existingWidget }: WidgetEditorPr
               </div>
             </div>
 
-            {/* Subtitle */}
+            {/* Description / subtitle */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Subtitle (optional)</label>
+              <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">Description (optional)</label>
               <input
                 type="text"
                 value={subtitle}
                 onChange={e => setSubtitle(e.target.value)}
-                placeholder="Brief description"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+                placeholder="Brief description shown below the title"
+                className="w-full px-3 py-2 border border-gray-600/50 bg-[#111119] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-200 placeholder-gray-500"
               />
             </div>
 
             {/* Click URL */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Click Navigation (optional)</label>
+              <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">Click Navigation (optional)</label>
               <input
                 type="text"
                 value={clickUrl}
                 onChange={e => setClickUrl(e.target.value)}
                 placeholder="/invoices?status=PENDING"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+                className="w-full px-3 py-2 border border-gray-600/50 bg-[#111119] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-200 placeholder-gray-500"
               />
-              <p className="text-xs text-gray-400 mt-1">URL path to navigate to when widget is clicked</p>
+              <p className="text-xs text-gray-500 mt-1">URL path to navigate to when panel is clicked</p>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-3 p-6 border-t bg-gray-50 rounded-b-xl">
+          <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-700/50 bg-[#161622] rounded-b-lg">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              className="px-4 py-2 text-sm font-medium text-gray-400 bg-transparent border border-gray-600/50 rounded-lg hover:bg-white/5"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="px-5 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
+              className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
             >
-              {existingWidget ? 'Update Widget' : 'Add Widget'}
+              {existingWidget ? 'Update Panel' : 'Add Panel'}
             </button>
           </div>
         </div>

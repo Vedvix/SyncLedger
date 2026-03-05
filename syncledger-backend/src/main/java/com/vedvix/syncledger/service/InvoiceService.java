@@ -22,7 +22,9 @@ import org.springframework.beans.factory.annotation.Value;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -40,6 +42,8 @@ public class InvoiceService {
     private final UserRepository userRepository;
     private final StorageService storageService;
     private final InvoiceProcessingService invoiceProcessingService;
+    private final SubscriptionEmailService emailService;
+    private final InvoiceAuditService invoiceAuditService;
 
     @Value("${storage.type:local}")
     private String storageType;
@@ -185,6 +189,17 @@ public class InvoiceService {
         invoiceRepository.save(invoice);
         log.info("Invoice {} updated by {}", invoice.getInvoiceNumber(), currentUser.getEmail());
 
+        // Audit: fields updated
+        java.util.Map<String, Object> changedFields = new java.util.HashMap<>();
+        if (request.getInvoiceNumber() != null) changedFields.put("invoiceNumber", request.getInvoiceNumber());
+        if (request.getVendorName() != null) changedFields.put("vendorName", request.getVendorName());
+        if (request.getTotalAmount() != null) changedFields.put("totalAmount", request.getTotalAmount());
+        if (request.getInvoiceDate() != null) changedFields.put("invoiceDate", request.getInvoiceDate().toString());
+        if (request.getDueDate() != null) changedFields.put("dueDate", request.getDueDate().toString());
+        if (request.getGlAccount() != null) changedFields.put("glAccount", request.getGlAccount());
+        if (request.getProject() != null) changedFields.put("project", request.getProject());
+        invoiceAuditService.logFieldsUpdated(invoice, currentUser, changedFields);
+
         return mapToDTO(invoice);
     }
 
@@ -215,7 +230,27 @@ public class InvoiceService {
         invoice.setProcessedBy(approver);
         invoiceRepository.save(invoice);
 
+        // Audit: approved
+        invoiceAuditService.logApproved(invoice, approver, notes);
+
         log.info("Invoice {} approved by {}", invoice.getInvoiceNumber(), currentUser.getEmail());
+
+        // Send approval notification email
+        try {
+            emailService.sendInvoiceApprovedEmail(
+                    invoice.getOrganization(),
+                    invoice.getInvoiceNumber(),
+                    invoice.getVendorName(),
+                    invoice.getTotalAmount() != null ? invoice.getTotalAmount().toPlainString() : "0.00",
+                    invoice.getCurrency(),
+                    approver.getFullName(),
+                    notes,
+                    invoice.getId()
+            );
+        } catch (Exception e) {
+            log.warn("Failed to send invoice approval notification (non-blocking): {}", e.getMessage());
+        }
+
         return mapToDTO(invoice);
     }
 
@@ -246,7 +281,27 @@ public class InvoiceService {
         invoice.setReviewNotes(reason);
         invoiceRepository.save(invoice);
 
+        // Audit: rejected
+        invoiceAuditService.logRejected(invoice, approver, reason);
+
         log.info("Invoice {} rejected by {}", invoice.getInvoiceNumber(), currentUser.getEmail());
+
+        // Send rejection notification email
+        try {
+            emailService.sendInvoiceRejectedEmail(
+                    invoice.getOrganization(),
+                    invoice.getInvoiceNumber(),
+                    invoice.getVendorName(),
+                    invoice.getTotalAmount() != null ? invoice.getTotalAmount().toPlainString() : "0.00",
+                    invoice.getCurrency(),
+                    approver.getFullName(),
+                    reason,
+                    invoice.getId()
+            );
+        } catch (Exception e) {
+            log.warn("Failed to send invoice rejection notification (non-blocking): {}", e.getMessage());
+        }
+
         return mapToDTO(invoice);
     }
 
@@ -262,18 +317,24 @@ public class InvoiceService {
             List<Object[]> stats = hasDateFilter
                     ? invoiceRepository.getInvoiceStatsByStatusAndDateRange(startDate, endDate)
                     : invoiceRepository.getInvoiceStatsByStatus();
-            return buildDashboardStats(stats);
+            List<Object[]> vendorStatusStats = hasDateFilter
+                ? invoiceRepository.getVendorStatusBreakdownAndDateRange(startDate, endDate)
+                : invoiceRepository.getVendorStatusBreakdown();
+            return buildDashboardStats(stats, vendorStatusStats);
         } else {
             // Organization stats
             Long orgId = currentUser.getOrganizationId();
             List<Object[]> stats = hasDateFilter
                     ? invoiceRepository.getInvoiceStatsByStatusForOrganizationAndDateRange(orgId, startDate, endDate)
                     : invoiceRepository.getInvoiceStatsByStatusForOrganization(orgId);
-            return buildDashboardStats(stats);
+            List<Object[]> vendorStatusStats = hasDateFilter
+                ? invoiceRepository.getVendorStatusBreakdownForOrganizationAndDateRange(orgId, startDate, endDate)
+                : invoiceRepository.getVendorStatusBreakdownForOrganization(orgId);
+            return buildDashboardStats(stats, vendorStatusStats);
         }
     }
 
-    private DashboardStatsDTO buildDashboardStats(List<Object[]> stats) {
+        private DashboardStatsDTO buildDashboardStats(List<Object[]> stats, List<Object[]> vendorStatusStats) {
         long totalInvoices = 0;
         long pendingCount = 0;
         long approvedCount = 0;
@@ -305,6 +366,8 @@ public class InvoiceService {
             }
         }
 
+        List<DashboardStatsDTO.VendorStatusStats> vendorStatusBreakdown = buildVendorStatusBreakdown(vendorStatusStats);
+
         return DashboardStatsDTO.builder()
                 .totalInvoices(totalInvoices)
                 .pendingInvoices(pendingCount)
@@ -312,7 +375,42 @@ public class InvoiceService {
                 .rejectedInvoices(rejectedCount)
                 .totalAmount(totalAmount)
                 .pendingAmount(pendingAmount)
+                .vendorStatusBreakdown(vendorStatusBreakdown)
                 .build();
+    }
+
+    private List<DashboardStatsDTO.VendorStatusStats> buildVendorStatusBreakdown(List<Object[]> vendorStatusStats) {
+        if (vendorStatusStats == null || vendorStatusStats.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, Long> totalsByVendor = new LinkedHashMap<>();
+        for (Object[] row : vendorStatusStats) {
+            String vendorName = row[0] != null ? row[0].toString().trim() : "Unknown Vendor";
+            long count = ((Number) row[2]).longValue();
+            totalsByVendor.put(vendorName, totalsByVendor.getOrDefault(vendorName, 0L) + count);
+        }
+
+        return vendorStatusStats.stream()
+                .map(row -> {
+                    String vendorName = row[0] != null ? row[0].toString().trim() : "Unknown Vendor";
+                    InvoiceStatus status = (InvoiceStatus) row[1];
+                    long count = ((Number) row[2]).longValue();
+                    return DashboardStatsDTO.VendorStatusStats.builder()
+                            .vendorName(vendorName)
+                            .status(status.name())
+                            .invoiceCount(count)
+                            .build();
+                })
+                .sorted((a, b) -> {
+                    int byVendorTotal = Long.compare(
+                            totalsByVendor.getOrDefault(b.getVendorName(), 0L),
+                            totalsByVendor.getOrDefault(a.getVendorName(), 0L)
+                    );
+                    if (byVendorTotal != 0) return byVendorTotal;
+                    return a.getStatus().compareTo(b.getStatus());
+                })
+                .collect(Collectors.toList());
     }
 
     /**

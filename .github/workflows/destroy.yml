@@ -1,7 +1,7 @@
 # =============================================================================
 # SYNCLEDGER - DESTROY INFRASTRUCTURE
-# Tears down all AWS resources when the project is no longer needed
-# Requires manual confirmation via environment protection rules
+# Tears down all AWS resources for a specific environment
+# Requires typing "DESTROY" to confirm
 # =============================================================================
 
 name: Destroy Infrastructure
@@ -12,32 +12,28 @@ on:
       environment:
         description: 'Environment to destroy'
         required: true
-        default: 'prod'
         type: choice
         options:
-          - prod
+          - dev
           - staging
+          - prod
       confirm:
         description: 'Type "DESTROY" to confirm destruction of all resources'
         required: true
         type: string
 
 env:
-  TF_VAR_aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
-  TF_VAR_environment: ${{ inputs.environment }}
-  TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
-  TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
-  TF_VAR_ec2_key_name: ${{ vars.EC2_KEY_NAME || '' }}
-  TF_VAR_domain_name: ${{ vars.DOMAIN_NAME || '' }}
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
 
 permissions:
   contents: read
 
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
 jobs:
-  # ---- Validate Confirmation ----
+  # ---- Validate ----
   validate:
     name: Validate Confirmation
     runs-on: ubuntu-latest
@@ -45,45 +41,34 @@ jobs:
       - name: Check confirmation
         run: |
           if [ "${{ inputs.confirm }}" != "DESTROY" ]; then
-            echo "❌ Confirmation failed!"
-            echo "You must type 'DESTROY' to confirm resource destruction."
+            echo "Confirmation failed! You must type 'DESTROY' to proceed."
             exit 1
           fi
-          echo "✅ Confirmation received. Proceeding with destruction..."
+          echo "Confirmation received. Proceeding with destruction of ${{ inputs.environment }}..."
 
-  # ---- Terraform Destroy Plan ----
-  destroy-plan:
-    name: Destroy Plan
+  # ---- Destroy ----
+  destroy:
+    name: Destroy ${{ inputs.environment }}
     runs-on: ubuntu-latest
     needs: validate
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.7.0"
-
-      - name: Terraform Init
-        working-directory: terraform
-        run: terraform init
-
-      - name: Terraform Destroy Plan
-        working-directory: terraform
-        run: |
-          echo "╔═══════════════════════════════════════════════════════════╗"
-          echo "║  ⚠️  RESOURCES THAT WILL BE DESTROYED                    ║"
-          echo "╚═══════════════════════════════════════════════════════════╝"
-          terraform plan -destroy -input=false
-
-  # ---- Terraform Destroy ----
-  destroy:
-    name: Destroy Resources
-    runs-on: ubuntu-latest
-    needs: destroy-plan
     environment: destroy-${{ inputs.environment }}
+    env:
+      TF_VAR_environment: ${{ inputs.environment }}
+      TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+      TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
+      TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+      TF_VAR_s3_config_bucket: ${{ vars.S3_CONFIG_BUCKET || 'syncledger-config' }}
+      TF_VAR_ec2_key_name: ${{ vars.EC2_KEY_NAME || '' }}
+      TF_VAR_domain_name: ${{ vars.DOMAIN_NAME || '' }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -91,52 +76,65 @@ jobs:
           terraform_version: "1.7.0"
 
       - name: Terraform Init
-        working-directory: terraform
-        run: terraform init
+        working-directory: infra
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET || 'syncledger-terraform-state' }}" \
+            -backend-config="key=syncledger/${{ inputs.environment }}/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ vars.TF_LOCK_TABLE || 'syncledger-terraform-locks' }}" \
+            -backend-config="encrypt=true"
 
-      - name: Stop Application Containers
+      - name: Stop containers
         continue-on-error: true
         run: |
-          # Try to get instance ID from terraform state
-          cd terraform
-          INSTANCE_ID=$(terraform output -raw ec2_instance_id 2>/dev/null || echo "")
-          
+          INSTANCE_ID=$(cd infra && terraform output -raw ec2_instance_id 2>/dev/null || echo "")
           if [ -n "$INSTANCE_ID" ]; then
-            echo "Stopping containers on instance $INSTANCE_ID..."
+            echo "Stopping containers on $INSTANCE_ID..."
             aws ssm send-command \
               --instance-ids "$INSTANCE_ID" \
               --document-name "AWS-RunShellScript" \
-              --parameters 'commands=["cd /opt/syncledger && docker-compose -f docker-compose.prod.yml down -v 2>/dev/null || true"]' \
+              --parameters 'commands=["cd /opt/syncledger && docker-compose down -v 2>/dev/null || true"]' \
               --timeout-seconds 60 \
               --region ${{ env.AWS_REGION }} || true
             sleep 15
           fi
 
       - name: Terraform Destroy
-        working-directory: terraform
+        working-directory: infra
         run: |
           terraform destroy \
+            -var-file="environments/${{ inputs.environment }}.tfvars" \
             -auto-approve \
             -input=false
 
-      - name: Destruction Summary
+      - name: Cleanup Secrets Manager
+        continue-on-error: true
+        run: |
+          ENV="${{ inputs.environment }}"
+          for SECRET in "syncledger/${ENV}/app-config" "syncledger/${ENV}/ghcr"; do
+            aws secretsmanager delete-secret \
+              --secret-id "$SECRET" \
+              --force-delete-without-recovery \
+              --region ${{ env.AWS_REGION }} 2>/dev/null || true
+          done
+
+      - name: Summary
         run: |
           echo ""
-          echo "╔═══════════════════════════════════════════════════════════╗"
-          echo "║           ALL RESOURCES DESTROYED                         ║"
-          echo "╠═══════════════════════════════════════════════════════════╣"
-          echo "║  Environment:  ${{ inputs.environment }}"
-          echo "║  Destroyed:    $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-          echo "║                                                           ║"
-          echo "║  Resources removed:                                       ║"
-          echo "║    - EC2 Instance                                         ║"
-          echo "║    - Elastic IP                                           ║"
-          echo "║    - Security Group                                       ║"
-          echo "║    - S3 Bucket (invoices)                                 ║"
-          echo "║    - IAM Role & Instance Profile                         ║"
-          echo "║    - CloudWatch Log Group                                 ║"
-          echo "║    - SSM Parameters                                       ║"
-          echo "║    - IAM Deployer User & Policy                          ║"
-          echo "║                                                           ║"
-          echo "║  ⚠️ Monthly AWS charges will stop immediately.            ║"
-          echo "╚═══════════════════════════════════════════════════════════╝"
+          echo "========================================"
+          echo "  ALL RESOURCES DESTROYED"
+          echo "========================================"
+          echo "  Environment:  ${{ inputs.environment }}"
+          echo "  Destroyed:    $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo ""
+          echo "  Resources removed:"
+          echo "    - EC2 Instance + EIP"
+          echo "    - RDS PostgreSQL"
+          echo "    - S3 Storage Bucket"
+          echo "    - Security Groups"
+          echo "    - VPC + Subnets"
+          echo "    - IAM Role + Instance Profile"
+          echo "    - CloudWatch Log Group"
+          echo "    - Secrets Manager entries"
+          echo "========================================"

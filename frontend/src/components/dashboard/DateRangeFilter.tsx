@@ -29,18 +29,18 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Calendar className="w-4 h-4 text-gray-400 hidden sm:block" />
+      <Calendar className="w-4 h-4 text-gray-500 hidden sm:block" />
 
       {/* Preset buttons */}
-      <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+      <div className="flex items-center bg-[#1e1e2f] rounded-lg p-0.5 border border-gray-700/40">
         {PRESETS.map(preset => (
           <button
             key={preset}
             onClick={() => handlePreset(preset)}
             className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
               value.preset === preset
-                ? 'bg-white text-primary-700 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-blue-600/20 text-blue-400 shadow-sm border border-blue-500/30'
+                : 'text-gray-400 hover:text-gray-200 border border-transparent'
             }`}
           >
             {DATE_FILTER_LABELS[preset]}
@@ -50,8 +50,8 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
           onClick={() => handlePreset('custom')}
           className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
             value.preset === 'custom'
-              ? 'bg-white text-primary-700 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-blue-600/20 text-blue-400 shadow-sm border border-blue-500/30'
+              : 'text-gray-400 hover:text-gray-200 border border-transparent'
           }`}
         >
           Custom
@@ -67,16 +67,16 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
             onChange={e =>
               onChange({ ...value, preset: 'custom', startDate: e.target.value })
             }
-            className="px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="px-2 py-1.5 text-xs border border-gray-600/50 bg-[#1e1e2f] rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-200"
           />
-          <span className="text-gray-400 text-xs">to</span>
+          <span className="text-gray-500 text-xs">to</span>
           <input
             type="date"
             value={value.endDate || ''}
             onChange={e =>
               onChange({ ...value, preset: 'custom', endDate: e.target.value })
             }
-            className="px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="px-2 py-1.5 text-xs border border-gray-600/50 bg-[#1e1e2f] rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-200"
           />
         </div>
       )}

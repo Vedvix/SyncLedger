@@ -1,70 +1,74 @@
-# SyncLedger - Quick Start Guide 🚀
+# SyncLedger
+
+Multi-tenant Invoice Processing SaaS Platform with AI-powered PDF extraction.
 
 ## Prerequisites
 
-Before starting, ensure you have the following installed:
+| Tool | Version | Download |
+|------|---------|----------|
+| Docker Desktop | Latest | [docker.com](https://www.docker.com/products/docker-desktop/) |
+| Java 21 (JDK) | 21+ | [adoptium.net](https://adoptium.net/temurin/releases/) |
+| Maven | 3.9+ | [maven.apache.org](https://maven.apache.org/download.cgi) |
+| Node.js | 18+ | [nodejs.org](https://nodejs.org/) |
+| Python | 3.10+ | [python.org](https://www.python.org/downloads/) |
 
-- **Docker Desktop** - [Download](https://www.docker.com/products/docker-desktop/)
-- **Java 21** - [Download](https://adoptium.net/temurin/releases/)
-- **Maven 3.9+** - [Download](https://maven.apache.org/download.cgi)
-- **Node.js 18+** - [Download](https://nodejs.org/)
-- **Python 3.10+** - [Download](https://www.python.org/downloads/)
+## Quick Start
 
-## One-Click Setup (Recommended)
+### 1. Clone & Configure
+
+```bash
+git clone <repo-url>
+cd SyncLedger
+cp .env.example .env
+```
+
+Edit `.env` with your credentials (at minimum set `OPENAI_API_KEY` for AI features).
+
+### 2. Start Everything
 
 **Windows:**
 ```batch
-# From the project root directory
-setup.bat
+start.bat
 ```
 
-This script will:
-1. ✅ Start PostgreSQL in Docker
-2. ✅ Run Flyway database migrations
-3. ✅ Install backend dependencies
-4. ✅ Install frontend dependencies
-5. ✅ Install PDF microservice dependencies
+**Mac/Linux:**
+```bash
+chmod +x start.sh
+./start.sh
+```
 
-## Start All Services
+This single script will:
+1. Start PostgreSQL in Docker
+2. Wait for database to be healthy
+3. Install frontend dependencies (`npm install`)
+4. Install PDF microservice dependencies (`pip install`)
+5. Start Backend (Spring Boot) on port 8080
+6. Start PDF Microservice (FastAPI) on port 8001
+7. Start Frontend (Vite) on port 5173
+
+### 3. Stop Everything
 
 **Windows:**
 ```batch
-start-all.bat
+stop.bat
 ```
 
-This opens 3 terminal windows:
-- Backend (Spring Boot) on http://localhost:8080/api
-- Frontend (Vite) on http://localhost:5173
-- PDF Microservice (FastAPI) on http://localhost:8000
-
-## Manual Setup
-
-If you prefer to set up manually:
-
-### 1. Start PostgreSQL
+**Mac/Linux:**
 ```bash
-docker-compose up -d postgres
+./stop.sh
 ```
 
-### 2. Start Backend
-```bash
-cd syncledger-backend
-mvn spring-boot:run -Dspring-boot.run.profiles=docker
-```
+Stops all application processes and optionally stops PostgreSQL (with option to keep or remove data volumes).
 
-### 3. Start Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
+## Service URLs
 
-### 4. Start PDF Microservice
-```bash
-cd pdf-microservice
-pip install -r requirements.txt
-python main.py
-```
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:8080/api |
+| Swagger UI | http://localhost:8080/api/swagger-ui.html |
+| PDF Service | http://localhost:8001 |
+| PostgreSQL | localhost:5432 |
 
 ## Default Login Credentials
 
@@ -74,145 +78,161 @@ python main.py
 | Approver | approver@syncledger.local | Admin@123 |
 | Viewer | viewer@syncledger.local | Admin@123 |
 
-## URLs
+## Manual Setup (Alternative)
 
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:5173 |
-| Backend API | http://localhost:8080/api |
-| Swagger UI | http://localhost:8080/api/swagger-ui.html |
-| PDF Service | http://localhost:8000 |
-| pgAdmin (optional) | http://localhost:5050 |
+If you prefer to start services individually instead of using the start script:
 
-## Useful Commands
-
-### Database Management
-
+### Start PostgreSQL
 ```bash
-# Reset database (WARNING: deletes all data)
-reset-db.bat
-
-# Stop all Docker services
-docker-compose down
-
-# View PostgreSQL logs
-docker-compose logs -f postgres
-
-# Start pgAdmin (database GUI)
-docker-compose --profile tools up -d pgadmin
+docker compose up -d postgres
 ```
 
-### Spring Profiles
+### Start Backend
+```bash
+cd syncledger-backend
+mvn spring-boot:run -Dspring-boot.run.profiles=docker
+```
 
-| Profile | Description | Command |
-|---------|-------------|---------|
+### Start PDF Microservice
+```bash
+cd pdf-microservice
+python -m venv ../.venv
+# Windows: ..\.venv\Scripts\activate
+# Mac/Linux: source ../.venv/bin/activate
+pip install -r requirements.txt
+python main.py
+```
+
+### Start Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+## Spring Profiles
+
+| Profile | Database | Usage |
+|---------|----------|-------|
 | `docker` | PostgreSQL via Docker (default) | `mvn spring-boot:run` |
-| `local` | H2 in-memory (quick testing) | `mvn spring-boot:run -Dspring-boot.run.profiles=local` |
-| `prod` | Production settings | `mvn spring-boot:run -Dspring-boot.run.profiles=prod` |
-
-### Flyway Commands
-
-```bash
-# Run migrations manually
-mvn flyway:migrate -Dflyway.url=jdbc:postgresql://localhost:5432/syncledger -Dflyway.user=syncledger -Dflyway.password=syncledger123
-
-# Check migration status
-mvn flyway:info -Dflyway.url=jdbc:postgresql://localhost:5432/syncledger -Dflyway.user=syncledger -Dflyway.password=syncledger123
-
-# Clean database (WARNING: drops all objects)
-mvn flyway:clean -Dflyway.url=jdbc:postgresql://localhost:5432/syncledger -Dflyway.user=syncledger -Dflyway.password=syncledger123
-```
+| `local` | H2 in-memory | `mvn spring-boot:run -Dspring-boot.run.profiles=local` |
+| `prod` | External RDS PostgreSQL | Used in deployed environments |
 
 ## Project Structure
 
 ```
 SyncLedger/
-├── docker-compose.yml          # Docker services configuration
-├── setup.bat                   # One-click setup script
-├── start-all.bat               # Start all services
-├── stop-all.bat                # Stop all services
-├── reset-db.bat                # Reset database
+├── start.bat / start.sh        # Start all services (one command)
+├── stop.bat / stop.sh          # Stop all services
+├── docker-compose.yml          # Local dev (PostgreSQL + LocalStack)
+├── docker-compose.deploy.yml   # EC2 deployment (connects to RDS)
+├── .env.example                # Environment variables template
 │
-├── syncledger-backend/         # Java Spring Boot Backend
-│   ├── src/main/resources/
-│   │   ├── application.yml           # Main config
-│   │   ├── application-docker.yml    # Docker profile
-│   │   ├── application-local.yml     # H2 profile
-│   │   ├── application-prod.yml      # Production profile
-│   │   └── db/migration/             # Flyway migrations
-│   │       ├── V1__Initial_schema.sql
-│   │       └── V2__Seed_data.sql
-│   └── pom.xml
+├── syncledger-backend/         # Java 21 / Spring Boot 3.4
+│   └── src/main/resources/
+│       ├── application.yml           # Main config
+│       ├── application-docker.yml    # Docker profile
+│       ├── application-local.yml     # H2 profile
+│       ├── application-prod.yml      # Production profile
+│       └── db/migration/             # Flyway SQL migrations
 │
-├── frontend/                   # React + Vite Frontend
+├── frontend/                   # React + TypeScript + Vite + Tailwind
 │   └── package.json
 │
-├── pdf-microservice/           # Python FastAPI Service
-│   └── requirements.txt
+├── pdf-microservice/           # Python 3.11 / FastAPI
+│   └── requirements.txt        # AI extraction: GPT-4o Vision + Text
+│
+├── infra/                      # Terraform infrastructure
+│   ├── main.tf                 # Provider & backend config
+│   ├── ec2.tf                  # EC2 + IAM + EIP
+│   ├── rds.tf                  # RDS PostgreSQL
+│   ├── s3.tf                   # S3 invoice storage
+│   ├── vpc.tf                  # VPC + subnets
+│   ├── security.tf             # Security groups
+│   ├── secrets.tf              # Secrets Manager
+│   ├── bootstrap/              # One-time TF state backend setup
+│   └── environments/           # Per-env tfvars (dev/staging/prod)
+│
+├── .github/workflows/          # CI/CD pipelines
+│   ├── build.yml               # Build & push Docker images to GHCR
+│   ├── deploy.yml              # Terraform + deploy to EC2
+│   └── destroy.yml             # Tear down environment
 │
 └── docs/                       # Documentation
 ```
 
-## Troubleshooting
+## CI/CD & Deployment
 
-### PostgreSQL Connection Failed
-```
-# Check if container is running
-docker ps
+Branch-based multi-environment CI/CD. See [DEPLOYMENT.md](DEPLOYMENT.md) for full details.
 
-# Check container logs
-docker-compose logs postgres
+| Branch | Environment | What happens |
+|--------|-------------|--------------|
+| `develop` | dev | Build images → Deploy to dev EC2 + RDS |
+| `release/*` | staging | Build images → Deploy to staging EC2 + RDS |
+| `main` | prod | Build images → Deploy to prod EC2 + RDS |
 
-# Restart container
-docker-compose restart postgres
-```
-
-### Flyway Migration Failed
-```
-# Check migration status
-mvn flyway:info
-
-# If needed, repair the schema history
-mvn flyway:repair
-```
-
-### Port Already in Use
-```
-# Find process using the port (e.g., 8080)
-netstat -ano | findstr :8080
-
-# Kill the process
-taskkill /PID <pid> /F
-```
-
-## Environment Variables (Production)
-
-For production deployment, set these environment variables:
+## Useful Commands
 
 ```bash
 # Database
-DATABASE_URL=jdbc:postgresql://your-host:5432/syncledger
-DATABASE_USERNAME=your_user
-DATABASE_PASSWORD=your_secure_password
+docker compose logs -f postgres        # View Postgres logs
+docker compose down                     # Stop Postgres (keep data)
+docker compose down -v                  # Stop Postgres (delete data)
 
-# JWT
-JWT_SECRET=your-256-bit-secret-key
+# Build & Test
+cd syncledger-backend && mvn clean test # Run backend tests
+cd frontend && npm run build            # Build frontend for production
 
-# AWS (if using)
-AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=your_key
-AWS_SECRET_ACCESS_KEY=your_secret
-S3_BUCKET_NAME=your-bucket
+# Flyway Migrations
+cd syncledger-backend
+mvn flyway:info -Dflyway.url=jdbc:postgresql://localhost:5432/syncledger \
+  -Dflyway.user=syncledger -Dflyway.password=syncledger123
+```
 
-# Azure (for email)
-AZURE_CLIENT_ID=your_client_id
-AZURE_CLIENT_SECRET=your_secret
-AZURE_TENANT_ID=your_tenant_id
+## Environment Variables
 
-# Active Profile
-SPRING_PROFILES_ACTIVE=prod
+Copy `.env.example` to `.env`. Key variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DB_PASSWORD` | PostgreSQL password | `syncledger123` |
+| `JWT_SECRET` | JWT signing key (min 256 bits) | dev default |
+| `OPENAI_API_KEY` | OpenAI API key (for AI extraction) | — |
+| `STORAGE_TYPE` | `local` or `s3` | `local` |
+| `EMAIL_POLLING_ENABLED` | Enable Outlook email polling | `false` |
+| `AZURE_CLIENT_ID/SECRET/TENANT_ID` | Azure AD (for email) | — |
+
+## Troubleshooting
+
+**Docker not running:**
+```
+docker info    # Check if Docker daemon is running
+```
+
+**Port already in use:**
+```bash
+# Windows
+netstat -ano | findstr :8080
+taskkill /PID <pid> /F
+
+# Mac/Linux
+lsof -i :8080
+kill <pid>
+```
+
+**PostgreSQL connection failed:**
+```bash
+docker compose logs postgres
+docker compose restart postgres
+```
+
+**Flyway migration failed:**
+```bash
+cd syncledger-backend
+mvn flyway:repair -Dflyway.url=jdbc:postgresql://localhost:5432/syncledger \
+  -Dflyway.user=syncledger -Dflyway.password=syncledger123
 ```
 
 ---
 
-*Documentation by vedvix*
+*Built by vedvix*

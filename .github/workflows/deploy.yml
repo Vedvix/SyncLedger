@@ -1,6 +1,7 @@
 # =============================================================================
 # SYNCLEDGER - DEPLOY INFRASTRUCTURE & APPLICATION
-# Uses Terraform to provision/update AWS resources and deploy containers
+# Branch mapping: main->prod, develop->dev, release/*->staging
+# Terraform provisions AWS resources, SSM deploys containers to EC2
 # =============================================================================
 
 name: Deploy
@@ -8,6 +9,16 @@ name: Deploy
 on:
   workflow_dispatch:
     inputs:
+      deploy_branch:
+        description: 'Branch to deploy (auto-maps to environment)'
+        required: true
+        type: string
+        default: 'main'
+      image_tag:
+        description: 'Docker image tag to deploy (default: branch-latest)'
+        required: false
+        type: string
+        default: ''
       action:
         description: 'Deployment action'
         required: true
@@ -16,39 +27,97 @@ on:
         options:
           - deploy
           - plan-only
-      environment:
-        description: 'Target environment'
-        required: true
-        default: 'prod'
-        type: choice
-        options:
-          - prod
-          - staging
+      update_secrets:
+        description: 'Update GHCR credentials in Secrets Manager'
+        required: false
+        type: boolean
+        default: false
 
 env:
-  TF_VAR_aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
-  TF_VAR_environment: ${{ inputs.environment }}
-  TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
-  TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
-  TF_VAR_ec2_key_name: ${{ vars.EC2_KEY_NAME || '' }}
-  TF_VAR_domain_name: ${{ vars.DOMAIN_NAME || '' }}
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
 
 permissions:
   contents: read
   packages: read
+  id-token: write
+
+# Only one deploy per environment at a time
+concurrency:
+  group: deploy-${{ inputs.deploy_branch }}
+  cancel-in-progress: false
 
 jobs:
-  # ---- Terraform Plan ----
-  terraform-plan:
-    name: Terraform Plan
+  # ---- Resolve environment from branch ----
+  resolve:
+    name: Resolve Environment
     runs-on: ubuntu-latest
     outputs:
-      instance_ip: ${{ steps.plan_output.outputs.instance_ip }}
+      environment: ${{ steps.env.outputs.environment }}
+      image_tag: ${{ steps.env.outputs.image_tag }}
+      branch_tag: ${{ steps.env.outputs.branch_tag }}
+    steps:
+      - name: Map branch to environment
+        id: env
+        run: |
+          BRANCH="${{ inputs.deploy_branch }}"
+          
+          if [[ "$BRANCH" == "main" ]]; then
+            ENV="prod"
+          elif [[ "$BRANCH" == release/* ]]; then
+            ENV="staging"
+          else
+            ENV="dev"
+          fi
+          
+          BRANCH_TAG=$(echo "$BRANCH" | sed 's|/|-|g')
+          IMAGE_TAG="${{ inputs.image_tag }}"
+          if [ -z "$IMAGE_TAG" ]; then
+            IMAGE_TAG="${BRANCH_TAG}-latest"
+          fi
+          
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "branch_tag=$BRANCH_TAG" >> $GITHUB_OUTPUT
+          
+          echo "========================================"
+          echo "  Branch:      $BRANCH"
+          echo "  Environment: $ENV"
+          echo "  Image Tag:   $IMAGE_TAG"
+          echo "========================================"
+
+  # ---- Terraform Plan + Apply ----
+  terraform:
+    name: Terraform (${{ needs.resolve.outputs.environment }})
+    runs-on: ubuntu-latest
+    needs: resolve
+    environment: ${{ needs.resolve.outputs.environment }}
+    outputs:
+      instance_id: ${{ steps.outputs.outputs.instance_id }}
+      instance_ip: ${{ steps.outputs.outputs.instance_ip }}
+      rds_endpoint: ${{ steps.outputs.outputs.rds_endpoint }}
+      s3_bucket: ${{ steps.outputs.outputs.s3_bucket }}
+    env:
+      TF_VAR_environment: ${{ needs.resolve.outputs.environment }}
+      TF_VAR_image_tag: ${{ needs.resolve.outputs.image_tag }}
+      TF_VAR_ghcr_owner: ${{ github.repository_owner }}
+      TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+      TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
+      TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+      TF_VAR_ec2_key_name: ${{ vars.EC2_KEY_NAME || '' }}
+      TF_VAR_domain_name: ${{ vars.DOMAIN_NAME || '' }}
+      TF_VAR_s3_config_bucket: ${{ vars.S3_CONFIG_BUCKET || 'syncledger-config' }}
+      TF_VAR_azure_client_id: ${{ secrets.AZURE_CLIENT_ID || '' }}
+      TF_VAR_azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET || '' }}
+      TF_VAR_azure_tenant_id: ${{ secrets.AZURE_TENANT_ID || '' }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -57,185 +126,210 @@ jobs:
           terraform_wrapper: false
 
       - name: Terraform Init
-        working-directory: terraform
-        run: terraform init
-
-      - name: Terraform Validate
-        working-directory: terraform
-        run: terraform validate
+        working-directory: infra
+        run: |
+          ENV="${{ needs.resolve.outputs.environment }}"
+          terraform init \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET || 'syncledger-terraform-state' }}" \
+            -backend-config="key=syncledger/${ENV}/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ vars.TF_LOCK_TABLE || 'syncledger-terraform-locks' }}" \
+            -backend-config="encrypt=true"
 
       - name: Terraform Plan
-        working-directory: terraform
+        working-directory: infra
         run: |
+          ENV="${{ needs.resolve.outputs.environment }}"
           terraform plan \
+            -var-file="environments/${ENV}.tfvars" \
             -input=false \
-            -out=tfplan \
-            -var="db_password=${{ secrets.DB_PASSWORD }}" \
-            -var="jwt_secret=${{ secrets.JWT_SECRET }}"
-
-      - name: Upload Plan
-        if: inputs.action == 'deploy'
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfplan
-          path: terraform/tfplan
-          retention-days: 1
-
-  # ---- Terraform Apply ----
-  terraform-apply:
-    name: Terraform Apply
-    runs-on: ubuntu-latest
-    needs: terraform-plan
-    if: inputs.action == 'deploy'
-    environment: ${{ inputs.environment }}
-    outputs:
-      instance_ip: ${{ steps.outputs.outputs.instance_ip }}
-      instance_id: ${{ steps.outputs.outputs.instance_id }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.7.0"
-          terraform_wrapper: false
-
-      - name: Terraform Init
-        working-directory: terraform
-        run: terraform init
-
-      - name: Download Plan
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan
-          path: terraform
+            -out=tfplan
 
       - name: Terraform Apply
-        working-directory: terraform
+        if: inputs.action == 'deploy'
+        working-directory: infra
         run: terraform apply -auto-approve tfplan
 
       - name: Get Outputs
+        if: inputs.action == 'deploy'
         id: outputs
-        working-directory: terraform
+        working-directory: infra
         run: |
-          echo "instance_ip=$(terraform output -raw app_public_ip)" >> $GITHUB_OUTPUT
           echo "instance_id=$(terraform output -raw ec2_instance_id)" >> $GITHUB_OUTPUT
+          echo "instance_ip=$(terraform output -raw ec2_public_ip)" >> $GITHUB_OUTPUT
+          echo "rds_endpoint=$(terraform output -raw rds_endpoint)" >> $GITHUB_OUTPUT
+          echo "s3_bucket=$(terraform output -raw s3_storage_bucket)" >> $GITHUB_OUTPUT
 
-  # ---- Deploy Application ----
-  deploy-app:
-    name: Deploy Application
+  # ---- Update secrets and deploy ----
+  deploy:
+    name: Deploy to ${{ needs.resolve.outputs.environment }}
     runs-on: ubuntu-latest
-    needs: terraform-apply
+    needs: [resolve, terraform]
     if: inputs.action == 'deploy'
-    environment: ${{ inputs.environment }}
+    environment: ${{ needs.resolve.outputs.environment }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Wait for instance to be ready
-        run: |
-          echo "Waiting for EC2 instance to initialize..."
-          aws ec2 wait instance-status-ok \
-            --instance-ids ${{ needs.terraform-apply.outputs.instance_id }} \
-            --region ${{ env.AWS_REGION }} || true
-          sleep 30
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Deploy via SSM (no SSH key required)
+      # Upload docker-compose.deploy.yml to S3 config bucket
+      - name: Upload docker-compose to S3
         run: |
-          INSTANCE_ID="${{ needs.terraform-apply.outputs.instance_id }}"
+          ENV="${{ needs.resolve.outputs.environment }}"
+          aws s3 cp docker-compose.deploy.yml \
+            "s3://${{ vars.S3_CONFIG_BUCKET || 'syncledger-config' }}/${ENV}/docker-compose.yml"
+
+      # Update GHCR credentials in Secrets Manager
+      - name: Update GHCR credentials
+        if: inputs.update_secrets
+        run: |
+          ENV="${{ needs.resolve.outputs.environment }}"
+          aws secretsmanager put-secret-value \
+            --secret-id "syncledger/${ENV}/ghcr" \
+            --secret-string "{\"username\":\"${{ github.actor }}\",\"token\":\"${{ secrets.GHCR_PAT }}\"}" \
+            --region ${{ env.AWS_REGION }} || \
+          aws secretsmanager create-secret \
+            --name "syncledger/${ENV}/ghcr" \
+            --secret-string "{\"username\":\"${{ github.actor }}\",\"token\":\"${{ secrets.GHCR_PAT }}\"}" \
+            --region ${{ env.AWS_REGION }}
+
+      # Deploy via SSM Run Command
+      - name: Deploy via SSM
+        run: |
+          INSTANCE_ID="${{ needs.terraform.outputs.instance_id }}"
+          ENV="${{ needs.resolve.outputs.environment }}"
+          IMAGE_TAG="${{ needs.resolve.outputs.image_tag }}"
           OWNER="${{ github.repository_owner }}"
+          CONFIG_BUCKET="${{ vars.S3_CONFIG_BUCKET || 'syncledger-config' }}"
           
-          # Create the deployment script
-          DEPLOY_SCRIPT=$(cat <<'SCRIPT'
+          DEPLOY_SCRIPT=$(cat <<'EOF'
           #!/bin/bash
           set -euo pipefail
-          
           cd /opt/syncledger
           
-          # Login to GHCR
-          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          # Download latest docker-compose from S3
+          aws s3 cp "s3://CONFIGBUCKET/ENVNAME/docker-compose.yml" docker-compose.yml --region AWSREGION
           
-          # Update image references in compose file
-          sed -i "s|ghcr.io/OWNER/|ghcr.io/${OWNER}/|g" docker-compose.prod.yml
+          # Reload secrets from Secrets Manager
+          APP_SECRET=$(aws secretsmanager get-secret-value \
+            --secret-id "syncledger/ENVNAME/app-config" \
+            --region AWSREGION \
+            --query 'SecretString' --output text)
           
-          # Pull latest images
-          docker-compose -f docker-compose.prod.yml pull
+          # Update .env with new image tag
+          sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=IMAGETAG|" .env
+          sed -i "s|^GHCR_OWNER=.*|GHCR_OWNER=GHCROWNER|" .env
           
-          # Deploy with zero-downtime
-          docker-compose -f docker-compose.prod.yml up -d --remove-orphans
+          # Re-login to GHCR
+          GHCR_SECRET=$(aws secretsmanager get-secret-value \
+            --secret-id "syncledger/ENVNAME/ghcr" \
+            --region AWSREGION \
+            --query 'SecretString' --output text 2>/dev/null || echo '{}')
+          GHCR_TOKEN=$(echo "$GHCR_SECRET" | jq -r '.token // empty')
+          GHCR_USER=$(echo "$GHCR_SECRET" | jq -r '.username // empty')
+          if [ -n "$GHCR_TOKEN" ]; then
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          fi
           
-          # Cleanup old images
+          # Pull and deploy
+          docker-compose pull
+          docker-compose up -d --remove-orphans
           docker image prune -af --filter "until=72h"
           
-          echo "Deployment complete!"
-          SCRIPT
+          echo "Deployment complete! Image tag: IMAGETAG"
+          EOF
           )
           
-          # Execute via SSM Run Command
+          # Replace placeholders
+          DEPLOY_SCRIPT=$(echo "$DEPLOY_SCRIPT" | sed "s|CONFIGBUCKET|$CONFIG_BUCKET|g")
+          DEPLOY_SCRIPT=$(echo "$DEPLOY_SCRIPT" | sed "s|ENVNAME|$ENV|g")
+          DEPLOY_SCRIPT=$(echo "$DEPLOY_SCRIPT" | sed "s|AWSREGION|${{ env.AWS_REGION }}|g")
+          DEPLOY_SCRIPT=$(echo "$DEPLOY_SCRIPT" | sed "s|IMAGETAG|$IMAGE_TAG|g")
+          DEPLOY_SCRIPT=$(echo "$DEPLOY_SCRIPT" | sed "s|GHCROWNER|$OWNER|g")
+          
+          echo "Deploying to instance $INSTANCE_ID..."
+          
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --parameters "commands=[\"$DEPLOY_SCRIPT\"]" \
+            --parameters "commands=[$(echo "$DEPLOY_SCRIPT" | jq -Rs .)]" \
             --timeout-seconds 300 \
             --region ${{ env.AWS_REGION }} \
             --output text \
-            --query "Command.CommandId" \
-            2>/dev/null || echo "")
+            --query "Command.CommandId" 2>/dev/null || echo "")
           
           if [ -z "$COMMAND_ID" ]; then
-            echo "⚠️ SSM not available. Falling back to direct SSH..."
-            echo "Please SSH into ${{ needs.terraform-apply.outputs.instance_ip }} and run deployment manually."
-            echo ""
-            echo "Commands to run on the server:"
-            echo "  cd /opt/syncledger"
-            echo "  docker-compose -f docker-compose.prod.yml pull"
-            echo "  docker-compose -f docker-compose.prod.yml up -d"
-          else
-            echo "Waiting for deployment..."
-            aws ssm wait command-executed \
-              --command-id "$COMMAND_ID" \
-              --instance-id "$INSTANCE_ID" \
-              --region ${{ env.AWS_REGION }} || true
-            
-            # Get output
-            aws ssm get-command-invocation \
+            echo "SSM not available yet. The instance may still be initializing."
+            echo "SSH into ${{ needs.terraform.outputs.instance_ip }} to deploy manually."
+            exit 0
+          fi
+          
+          echo "Waiting for deployment (command: $COMMAND_ID)..."
+          sleep 10
+          
+          for i in $(seq 1 30); do
+            STATUS=$(aws ssm get-command-invocation \
               --command-id "$COMMAND_ID" \
               --instance-id "$INSTANCE_ID" \
               --region ${{ env.AWS_REGION }} \
-              --query '[StandardOutputContent, StandardErrorContent]' \
-              --output text
-          fi
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GHCR_USER: ${{ github.actor }}
+              --query 'Status' --output text 2>/dev/null || echo "Pending")
+            
+            if [ "$STATUS" = "Success" ]; then
+              echo "Deployment successful!"
+              aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --region ${{ env.AWS_REGION }} \
+                --query 'StandardOutputContent' --output text
+              break
+            elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ]; then
+              echo "Deployment failed!"
+              aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --region ${{ env.AWS_REGION }} \
+                --query 'StandardErrorContent' --output text
+              exit 1
+            fi
+            echo "  Status: $STATUS (attempt $i/30)..."
+            sleep 10
+          done
 
+      # Health check
       - name: Health Check
         run: |
-          IP="${{ needs.terraform-apply.outputs.instance_ip }}"
-          echo "Checking application health at http://$IP ..."
+          IP="${{ needs.terraform.outputs.instance_ip }}"
+          echo "Checking health at http://$IP/api/actuator/health ..."
           
-          for i in $(seq 1 12); do
+          for i in $(seq 1 20); do
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$IP/api/actuator/health" || echo "000")
             if [ "$HTTP_CODE" = "200" ]; then
-              echo "✅ Application is healthy!"
-              exit 0
+              echo "Application is healthy!"
+              break
             fi
-            echo "  Attempt $i/12 - HTTP $HTTP_CODE, retrying in 15s..."
+            echo "  Attempt $i/20 - HTTP $HTTP_CODE, retrying in 15s..."
             sleep 15
           done
-          
-          echo "⚠️ Health check didn't pass within 3 minutes."
-          echo "The application may still be starting up."
-          echo "Check: http://$IP"
 
       - name: Deployment Summary
+        if: always()
         run: |
           echo ""
-          echo "╔═══════════════════════════════════════════════════════════╗"
-          echo "║           DEPLOYMENT COMPLETE                            ║"
-          echo "╠═══════════════════════════════════════════════════════════╣"
-          echo "║  Environment:  ${{ inputs.environment }}"
-          echo "║  Instance:     ${{ needs.terraform-apply.outputs.instance_id }}"
-          echo "║  Public IP:    ${{ needs.terraform-apply.outputs.instance_ip }}"
-          echo "║  App URL:      http://${{ needs.terraform-apply.outputs.instance_ip }}"
-          echo "║  API URL:      http://${{ needs.terraform-apply.outputs.instance_ip }}/api"
-          echo "╚═══════════════════════════════════════════════════════════╝"
+          echo "========================================"
+          echo "  DEPLOYMENT SUMMARY"
+          echo "========================================"
+          echo "  Environment:  ${{ needs.resolve.outputs.environment }}"
+          echo "  Branch:       ${{ inputs.deploy_branch }}"
+          echo "  Image Tag:    ${{ needs.resolve.outputs.image_tag }}"
+          echo "  Instance:     ${{ needs.terraform.outputs.instance_id }}"
+          echo "  Public IP:    ${{ needs.terraform.outputs.instance_ip }}"
+          echo "  RDS:          ${{ needs.terraform.outputs.rds_endpoint }}"
+          echo "  S3 Bucket:    ${{ needs.terraform.outputs.s3_bucket }}"
+          echo "  App URL:      http://${{ needs.terraform.outputs.instance_ip }}"
+          echo "  API URL:      http://${{ needs.terraform.outputs.instance_ip }}/api"
+          echo "========================================"

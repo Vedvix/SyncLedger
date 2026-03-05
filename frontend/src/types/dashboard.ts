@@ -11,6 +11,7 @@ export type ChartType =
   | 'kpiCard'
   | 'statusCards'
   | 'table'
+  | 'treemap'
 
 export type DataSourceKey =
   // Single-value metrics
@@ -47,6 +48,9 @@ export type DataSourceKey =
   | 'approvalRate'
   | 'syncRate'
   | 'alertCards'
+  | 'vendorInvoiceCount'
+  | 'vendorSpendConcentration'
+  | 'vendorStatusProcessed'
 
 export type WidgetSize = 'small' | 'medium' | 'large' | 'full'
 
@@ -194,6 +198,42 @@ export const DATA_SOURCES: DataSourceMeta[] = [
   
   // Composite
   { key: 'alertCards', label: 'Alert Cards', description: 'Action items requiring attention', category: 'composite', compatibleCharts: ['statusCards'], defaultChart: 'statusCards' },
+
+  // Vendor Analytics
+  {
+    key: 'vendorInvoiceCount', label: 'Invoices per Vendor', description: 'Invoice count breakdown by vendor',
+    category: 'breakdown', compatibleCharts: ['bar', 'horizontalBar', 'pie', 'donut', 'table'], defaultChart: 'bar',
+    axisFields: [
+      { key: 'name', label: 'Vendor Name', type: 'category' },
+      { key: 'invoices', label: 'Invoice Count', type: 'numeric' },
+    ],
+    defaultXAxis: 'name', defaultYAxis: ['invoices'],
+  },
+  {
+    key: 'vendorSpendConcentration', label: 'Vendor Spend Concentration', description: 'Spend concentration by vendor ($)',
+    category: 'breakdown', compatibleCharts: ['treemap', 'pie', 'donut', 'bar', 'horizontalBar', 'table'], defaultChart: 'treemap',
+    unit: 'currency',
+    axisFields: [
+      { key: 'name', label: 'Vendor Name', type: 'category' },
+      { key: 'amount', label: 'Spend ($)', type: 'numeric' },
+      { key: 'percentage', label: 'Share (%)', type: 'numeric' },
+    ],
+    defaultXAxis: 'name', defaultYAxis: ['amount'],
+  },
+  {
+    key: 'vendorStatusProcessed', label: 'Vendor Status-wise Processed', description: 'Invoice counts by vendor and status',
+    category: 'breakdown', compatibleCharts: ['bar', 'horizontalBar', 'table'], defaultChart: 'bar',
+    axisFields: [
+      { key: 'name', label: 'Vendor Name', type: 'category' },
+      { key: 'pending', label: 'Pending', type: 'numeric' },
+      { key: 'underReview', label: 'Under Review', type: 'numeric' },
+      { key: 'approved', label: 'Approved', type: 'numeric' },
+      { key: 'rejected', label: 'Rejected', type: 'numeric' },
+      { key: 'synced', label: 'Synced', type: 'numeric' },
+      { key: 'syncFailed', label: 'Sync Failed', type: 'numeric' },
+    ],
+    defaultXAxis: 'name', defaultYAxis: ['approved', 'synced'],
+  },
 ]
 
 export const CHART_TYPE_LABELS: Record<ChartType, string> = {
@@ -207,6 +247,7 @@ export const CHART_TYPE_LABELS: Record<ChartType, string> = {
   kpiCard: 'KPI Card',
   statusCards: 'Status Cards',
   table: 'Data Table',
+  treemap: 'Treemap',
 }
 
 export const SIZE_OPTIONS: { value: WidgetSize; label: string; colSpan: number }[] = [

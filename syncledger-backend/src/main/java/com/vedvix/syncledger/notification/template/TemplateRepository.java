@@ -428,5 +428,201 @@ public class TemplateRepository {
             </body>
             </html>
             """);
+
+        // ===================== Invoice Lifecycle Templates =====================
+
+        templates.put("invoice_approved", """
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="UTF-8"></head>
+            <body style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
+              <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                <div style="background: linear-gradient(135deg, #28a745, #20c997); padding: 30px; text-align: center;">
+                  <h1 style="color: #ffffff; margin: 0;">Invoice Approved</h1>
+                </div>
+                <div style="padding: 30px;">
+                  <p style="font-size: 15px; color: #555; line-height: 1.6;">
+                    Invoice <strong>#{{invoiceNumber}}</strong> from <strong>{{vendorName}}</strong> has been approved.
+                  </p>
+                  <div style="background-color: #f8f9fa; border-radius: 6px; padding: 20px; margin: 20px 0;">
+                    <p style="margin: 5px 0; color: #555;"><strong>Invoice Number:</strong> {{invoiceNumber}}</p>
+                    <p style="margin: 5px 0; color: #555;"><strong>Vendor:</strong> {{vendorName}}</p>
+                    <p style="margin: 5px 0; color: #555;"><strong>Amount:</strong> {{currency}}{{totalAmount}}</p>
+                    <p style="margin: 5px 0; color: #555;"><strong>Approved By:</strong> {{approverName}}</p>
+                    <p style="margin: 5px 0; color: #555;"><strong>Notes:</strong> {{notes}}</p>
+                  </div>
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="{{baseUrl}}/invoices/{{invoiceId}}" style="background-color: #1a73e8; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 600;">View Invoice</a>
+                  </div>
+                </div>
+                <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e9ecef;">
+                  <p style="font-size: 12px; color: #888; margin: 0;">{{appName}} &mdash; Automated Invoice Processing</p>
+                </div>
+              </div>
+            </body>
+            </html>
+            """);
+
+        templates.put("invoice_rejected", """
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="UTF-8"></head>
+            <body style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
+              <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                <div style="background-color: #dc3545; padding: 30px; text-align: center;">
+                  <h1 style="color: #ffffff; margin: 0;">Invoice Rejected</h1>
+                </div>
+                <div style="padding: 30px;">
+                  <p style="font-size: 15px; color: #555; line-height: 1.6;">
+                    Invoice <strong>#{{invoiceNumber}}</strong> from <strong>{{vendorName}}</strong> has been rejected.
+                  </p>
+                  <div style="background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 20px; margin: 20px 0;">
+                    <p style="margin: 5px 0; color: #856404;"><strong>Reason:</strong> {{reason}}</p>
+                  </div>
+                  <div style="background-color: #f8f9fa; border-radius: 6px; padding: 20px; margin: 20px 0;">
+                    <p style="margin: 5px 0; color: #555;"><strong>Invoice Number:</strong> {{invoiceNumber}}</p>
+                    <p style="margin: 5px 0; color: #555;"><strong>Vendor:</strong> {{vendorName}}</p>
+                    <p style="margin: 5px 0; color: #555;"><strong>Amount:</strong> {{currency}}{{totalAmount}}</p>
+                    <p style="margin: 5px 0; color: #555;"><strong>Rejected By:</strong> {{approverName}}</p>
+                  </div>
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="{{baseUrl}}/invoices/{{invoiceId}}" style="background-color: #1a73e8; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 600;">Review Invoice</a>
+                  </div>
+                </div>
+                <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e9ecef;">
+                  <p style="font-size: 12px; color: #888; margin: 0;">{{appName}} &mdash; Automated Invoice Processing</p>
+                </div>
+              </div>
+            </body>
+            </html>
+            """);
+
+        // ===================== User Lifecycle Templates =====================
+
+        templates.put("user_welcome", """
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="UTF-8"></head>
+            <body style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
+              <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                <div style="background: linear-gradient(135deg, #1a73e8, #0d47a1); padding: 30px; text-align: center;">
+                  <h1 style="color: #ffffff; margin: 0;">Welcome to {{appName}}!</h1>
+                </div>
+                <div style="padding: 30px;">
+                  <p style="font-size: 16px; color: #333;">Hi {{firstName}},</p>
+                  <p style="font-size: 15px; color: #555; line-height: 1.6;">
+                    You have been added to <strong>{{orgName}}</strong> on {{appName}} as a <strong>{{roleName}}</strong>.
+                  </p>
+                  <div style="background-color: #f8f9fa; border-radius: 6px; padding: 20px; margin: 20px 0;">
+                    <p style="margin: 5px 0; color: #555;"><strong>Email:</strong> {{email}}</p>
+                    <p style="margin: 5px 0; color: #555;"><strong>Temporary Password:</strong> {{tempPassword}}</p>
+                  </div>
+                  <p style="font-size: 14px; color: #dc3545; font-weight: 600;">
+                    Please change your password after your first login.
+                  </p>
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="{{baseUrl}}/login" style="background-color: #1a73e8; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 600;">Login Now</a>
+                  </div>
+                </div>
+                <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e9ecef;">
+                  <p style="font-size: 12px; color: #888; margin: 0;">{{appName}} &mdash; Automated Invoice Processing</p>
+                </div>
+              </div>
+            </body>
+            </html>
+            """);
+
+        templates.put("password_changed", """
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="UTF-8"></head>
+            <body style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
+              <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                <div style="background-color: #17a2b8; padding: 30px; text-align: center;">
+                  <h1 style="color: #ffffff; margin: 0;">Password Changed</h1>
+                </div>
+                <div style="padding: 30px;">
+                  <p style="font-size: 16px; color: #333;">Hi {{firstName}},</p>
+                  <p style="font-size: 15px; color: #555; line-height: 1.6;">
+                    Your password for {{appName}} was successfully changed.
+                  </p>
+                  <p style="font-size: 15px; color: #555; line-height: 1.6;">
+                    If you did not make this change, please contact your administrator immediately or reset your password.
+                  </p>
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="{{baseUrl}}/login" style="background-color: #17a2b8; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 600;">Login</a>
+                  </div>
+                </div>
+                <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e9ecef;">
+                  <p style="font-size: 12px; color: #888; margin: 0;">{{appName}} &mdash; Automated Invoice Processing</p>
+                </div>
+              </div>
+            </body>
+            </html>
+            """);
+
+        // ===================== Additional Subscription Templates =====================
+
+        templates.put("subscription_reactivated", """
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="UTF-8"></head>
+            <body style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
+              <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                <div style="background: linear-gradient(135deg, #28a745, #20c997); padding: 30px; text-align: center;">
+                  <h1 style="color: #ffffff; margin: 0;">Subscription Reactivated!</h1>
+                </div>
+                <div style="padding: 30px;">
+                  <p style="font-size: 15px; color: #555; line-height: 1.6;">
+                    Great news! The subscription for <strong>{{orgName}}</strong> has been reactivated.
+                  </p>
+                  <div style="background-color: #f8f9fa; border-radius: 6px; padding: 20px; margin: 20px 0;">
+                    <p style="margin: 5px 0; color: #555;"><strong>Plan:</strong> {{planName}}</p>
+                    <p style="margin: 5px 0; color: #555;"><strong>Valid until:</strong> {{expiresAt}}</p>
+                  </div>
+                  <p style="font-size: 15px; color: #555; line-height: 1.6;">
+                    Your full access has been restored. You can continue using all features immediately.
+                  </p>
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="{{baseUrl}}/dashboard" style="background-color: #1a73e8; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 600;">Go to Dashboard</a>
+                  </div>
+                </div>
+                <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e9ecef;">
+                  <p style="font-size: 12px; color: #888; margin: 0;">{{appName}} &mdash; Automated Invoice Processing</p>
+                </div>
+              </div>
+            </body>
+            </html>
+            """);
+
+        templates.put("subscription_plan_changed", """
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="UTF-8"></head>
+            <body style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
+              <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                <div style="background: linear-gradient(135deg, #6f42c1, #5a2d82); padding: 30px; text-align: center;">
+                  <h1 style="color: #ffffff; margin: 0;">Plan Updated</h1>
+                </div>
+                <div style="padding: 30px;">
+                  <p style="font-size: 15px; color: #555; line-height: 1.6;">
+                    The subscription plan for <strong>{{orgName}}</strong> has been changed.
+                  </p>
+                  <div style="background-color: #f8f9fa; border-radius: 6px; padding: 20px; margin: 20px 0;">
+                    <p style="margin: 5px 0; color: #555;"><strong>Previous Plan:</strong> {{oldPlanName}}</p>
+                    <p style="margin: 5px 0; color: #555;"><strong>New Plan:</strong> {{newPlanName}}</p>
+                    <p style="margin: 5px 0; color: #555;"><strong>Valid until:</strong> {{expiresAt}}</p>
+                  </div>
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="{{baseUrl}}/subscription" style="background-color: #6f42c1; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 600;">View Subscription</a>
+                  </div>
+                </div>
+                <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e9ecef;">
+                  <p style="font-size: 12px; color: #888; margin: 0;">{{appName}} &mdash; Automated Invoice Processing</p>
+                </div>
+              </div>
+            </body>
+            </html>
+            """);
     }
 }

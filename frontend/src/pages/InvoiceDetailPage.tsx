@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { invoiceService } from '@/services/invoiceService'
 import { useAuthStore } from '@/store/authStore'
 import type { InvoiceStatus } from '@/types'
+import { InvoiceAuditTimeline } from '@/components/InvoiceAuditTimeline'
 import { 
   ArrowLeft, 
   RefreshCw, 
@@ -480,6 +481,15 @@ export function InvoiceDetailPage() {
                 <p className="font-medium">{formatDate(invoice.updatedAt)}</p>
               </div>
             </div>
+          </div>
+
+          {/* Audit Trail / Activity Timeline */}
+          <div className="bg-white rounded-xl shadow-sm p-5">
+            <h2 className="text-lg font-semibold mb-4 flex items-center">
+              <FileText className="w-5 h-5 mr-2 text-primary-500" />
+              Activity Timeline
+            </h2>
+            <InvoiceAuditTimeline invoiceId={Number(id)} />
           </div>
         </div>
       </div>
