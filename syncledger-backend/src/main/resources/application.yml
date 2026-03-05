@@ -241,3 +241,22 @@ springdoc:
 # =============================================================================
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:8080}
+
+# =============================================================================
+# ORGANIZATION SEED CONFIGURATION
+# Seeds predefined organizations on startup (idempotent).
+# Set SEED_LONGHOME_ENABLED=false to disable.
+# =============================================================================
+seed:
+  longhome:
+    enabled: ${SEED_LONGHOME_ENABLED:true}
+    ms-client-id: ${SEED_LONGHOME_MS_CLIENT_ID:#{null}}
+    ms-tenant-id: ${SEED_LONGHOME_MS_TENANT_ID:#{null}}
+    ms-client-secret: ${SEED_LONGHOME_MS_CLIENT_SECRET:#{null}}
+    ms-mailbox: ${SEED_LONGHOME_MS_MAILBOX:admin@evolotek.ai}
+    erp-company-id: ${SEED_LONGHOME_ERP_COMPANY_ID:#{null}}
+    erp-user-id: ${SEED_LONGHOME_ERP_USER_ID:#{null}}
+    erp-password: ${SEED_LONGHOME_ERP_PASSWORD:#{null}}
+    object-id: ${SEED_LONGHOME_OBJECT_ID:#{null}}
+    cert-secret-id: ${SEED_LONGHOME_CERT_SECRET_ID:#{null}}
+    admin-password: ${SEED_LONGHOME_ADMIN_PASSWORD:LongHome@2026!}
