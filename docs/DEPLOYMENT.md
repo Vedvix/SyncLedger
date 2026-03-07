@@ -106,7 +106,7 @@ This creates:
 | `S3_CONFIG_BUCKET`  | S3 bucket for docker-compose   | `syncledger-config`             |
 | `TF_STATE_BUCKET`   | S3 bucket for TF state         | `syncledger-terraform-state`    |
 | `TF_LOCK_TABLE`     | DynamoDB table for TF locks    | `syncledger-terraform-locks`    |
-| `EC2_KEY_NAME`      | SSH key pair name (optional)   | (empty)                         |
+| `EC2_KEY_NAME`      | SSH key pair name (optional)   | `syncledger-key`                |
 | `DOMAIN_NAME`       | Custom domain (optional)       | (empty)                         |
 
 #### Environments (Settings → Environments)

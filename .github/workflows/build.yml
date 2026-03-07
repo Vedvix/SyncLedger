@@ -26,7 +26,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_PREFIX: ${{ github.repository_owner }}
 
 permissions:
   contents: read
@@ -42,6 +41,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       pdf: ${{ steps.filter.outputs.pdf }}
       branch_tag: ${{ steps.meta.outputs.branch_tag }}
+      image_prefix: ${{ steps.meta.outputs.image_prefix }}
     steps:
       - uses: actions/checkout@v4
 
@@ -63,7 +63,9 @@ jobs:
           BRANCH="${GITHUB_REF#refs/heads/}"
           # Sanitize branch name for Docker tag (replace / with -)
           BRANCH_TAG=$(echo "$BRANCH" | sed 's|/|-|g')
+          OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           echo "branch_tag=$BRANCH_TAG" >> $GITHUB_OUTPUT
+          echo "image_prefix=$OWNER_LC" >> $GITHUB_OUTPUT
           echo "Branch: $BRANCH -> Tag prefix: $BRANCH_TAG"
 
   # ---- Build Frontend ----
@@ -89,9 +91,9 @@ jobs:
           context: ./frontend
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-frontend:${{ needs.changes.outputs.branch_tag }}-latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-frontend:${{ needs.changes.outputs.branch_tag }}-${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-frontend:latest
+            ${{ env.REGISTRY }}/${{ needs.changes.outputs.image_prefix }}/syncledger-frontend:${{ needs.changes.outputs.branch_tag }}-latest
+            ${{ env.REGISTRY }}/${{ needs.changes.outputs.image_prefix }}/syncledger-frontend:${{ needs.changes.outputs.branch_tag }}-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ needs.changes.outputs.image_prefix }}/syncledger-frontend:latest
           build-args: |
             VITE_API_URL=/api
           cache-from: type=gha
@@ -120,9 +122,9 @@ jobs:
           context: ./syncledger-backend
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-backend:${{ needs.changes.outputs.branch_tag }}-latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-backend:${{ needs.changes.outputs.branch_tag }}-${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-backend:latest
+            ${{ env.REGISTRY }}/${{ needs.changes.outputs.image_prefix }}/syncledger-backend:${{ needs.changes.outputs.branch_tag }}-latest
+            ${{ env.REGISTRY }}/${{ needs.changes.outputs.image_prefix }}/syncledger-backend:${{ needs.changes.outputs.branch_tag }}-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ needs.changes.outputs.image_prefix }}/syncledger-backend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -149,9 +151,9 @@ jobs:
           context: ./pdf-microservice
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-pdf:${{ needs.changes.outputs.branch_tag }}-latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-pdf:${{ needs.changes.outputs.branch_tag }}-${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/syncledger-pdf:latest
+            ${{ env.REGISTRY }}/${{ needs.changes.outputs.image_prefix }}/syncledger-pdf:${{ needs.changes.outputs.branch_tag }}-latest
+            ${{ env.REGISTRY }}/${{ needs.changes.outputs.image_prefix }}/syncledger-pdf:${{ needs.changes.outputs.branch_tag }}-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ needs.changes.outputs.image_prefix }}/syncledger-pdf:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
