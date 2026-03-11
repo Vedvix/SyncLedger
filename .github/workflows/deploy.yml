@@ -232,15 +232,35 @@ jobs:
           # Download latest docker-compose from S3
           aws s3 cp "s3://CONFIGBUCKET/ENVNAME/docker-compose.yml" docker-compose.yml --region AWSREGION
           
-          # Reload secrets from Secrets Manager
+          # Load secrets and regenerate .env (idempotent, doesn't rely on bootstrap)
           APP_SECRET=$(aws secretsmanager get-secret-value \
             --secret-id "syncledger/ENVNAME/app-config" \
             --region AWSREGION \
             --query 'SecretString' --output text)
           
-          # Update .env with new image tag
-          sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=IMAGETAG|" .env
-          sed -i "s|^GHCR_OWNER=.*|GHCR_OWNER=GHCROWNER|" .env
+          cat > .env <<'ENVEOF'
+          DB_HOST=$(echo "$APP_SECRET" | jq -r '.DB_HOST')
+          DB_PORT=$(echo "$APP_SECRET" | jq -r '.DB_PORT // "5432"')
+          DB_NAME=$(echo "$APP_SECRET" | jq -r '.DB_NAME // "syncledger"')
+          DB_USERNAME=$(echo "$APP_SECRET" | jq -r '.DB_USERNAME')
+          DB_PASSWORD=$(echo "$APP_SECRET" | jq -r '.DB_PASSWORD')
+          JWT_SECRET=$(echo "$APP_SECRET" | jq -r '.JWT_SECRET')
+          ENVIRONMENT=ENVNAME
+          SPRING_PROFILES_ACTIVE=docker
+          STORAGE_TYPE=s3
+          AWS_REGION=AWSREGION
+          S3_BUCKET_NAME=$(echo "$APP_SECRET" | jq -r '.S3_BUCKET_NAME')
+          OPENAI_API_KEY=$(echo "$APP_SECRET" | jq -r '.OPENAI_API_KEY')
+          OPENAI_VISION_MODEL=gpt-4o
+          OPENAI_TEXT_MODEL=gpt-4o
+          GHCR_OWNER=GHCROWNER
+          IMAGE_TAG=IMAGETAG
+          EMAIL_POLLING_ENABLED=$(echo "$APP_SECRET" | jq -r '.EMAIL_POLLING_ENABLED // "false"')
+          AZURE_CLIENT_ID=$(echo "$APP_SECRET" | jq -r '.AZURE_CLIENT_ID // ""')
+          AZURE_CLIENT_SECRET=$(echo "$APP_SECRET" | jq -r '.AZURE_CLIENT_SECRET // ""')
+          AZURE_TENANT_ID=$(echo "$APP_SECRET" | jq -r '.AZURE_TENANT_ID // ""')
+          CORS_ALLOWED_ORIGINS=$(echo "$APP_SECRET" | jq -r '.CORS_ALLOWED_ORIGINS // "http://localhost"')
+          ENVEOF
           
           # Re-login to GHCR
           GHCR_SECRET=$(aws secretsmanager get-secret-value \
