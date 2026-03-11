@@ -49,11 +49,11 @@ export function DashboardPage() {
     return (
       <div className="space-y-6 animate-fade-in">
         {/* Skeleton greeting */}
-        <div className="h-24 rounded-2xl bg-[#181824] animate-pulse" />
+        <div className="h-24 rounded-2xl bg-white border border-gray-200 animate-pulse" />
         {/* Skeleton widgets */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-48 rounded-lg bg-[#181824] animate-pulse" style={{ animationDelay: `${i * 100}ms` }} />
+            <div key={i} className="h-48 rounded-lg bg-white border border-gray-200 animate-pulse" style={{ animationDelay: `${i * 100}ms` }} />
           ))}
         </div>
       </div>
@@ -62,12 +62,12 @@ export function DashboardPage() {
 
   if (error) {
     return (
-      <div className="bg-red-900/20 border border-red-800/40 rounded-lg p-8 text-center animate-fade-in">
-        <div className="w-16 h-16 rounded-2xl bg-red-900/30 flex items-center justify-center mx-auto mb-4">
-          <AlertTriangle className="w-8 h-8 text-red-400" />
+      <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center animate-fade-in">
+        <div className="w-16 h-16 rounded-2xl bg-red-100 flex items-center justify-center mx-auto mb-4">
+          <AlertTriangle className="w-8 h-8 text-red-600" />
         </div>
-        <h3 className="text-lg font-semibold text-red-300 mb-2">Failed to load dashboard</h3>
-        <p className="text-red-400 mb-6 text-sm">We couldn't fetch your dashboard data. Please try again.</p>
+        <h3 className="text-lg font-semibold text-red-800 mb-2">Failed to load dashboard</h3>
+        <p className="text-red-600 mb-6 text-sm">We couldn't fetch your dashboard data. Please try again.</p>
         <button onClick={() => refetch()} className="px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm transition-colors">
           Retry
         </button>
@@ -76,7 +76,7 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in -m-6 p-6 min-h-screen bg-[#111119]">
+    <div className="space-y-6 animate-fade-in -m-6 p-6 min-h-screen bg-slate-50">
       {/* ─── Welcome Banner ─── */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary-600 via-primary-500 to-indigo-500 text-white p-6 md:p-8">
         {/* Decorative elements */}
@@ -129,12 +129,12 @@ export function DashboardPage() {
 
       {/* ─── Organization Context Banner ─── */}
       {user?.role === 'SUPER_ADMIN' ? (
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-indigo-900/20 border border-indigo-700/30 rounded-lg text-sm text-indigo-300">
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 border border-indigo-200 rounded-lg text-sm text-indigo-700">
           <Shield className="w-4 h-4 flex-shrink-0" />
           Viewing <strong className="mx-1">platform-wide</strong> data across all organizations.
         </div>
       ) : user?.organizationName ? (
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-900/20 border border-blue-700/30 rounded-lg text-sm text-blue-300">
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
           <Building className="w-4 h-4 flex-shrink-0" />
           Showing data for <strong className="mx-1">{user.organizationName}</strong>.
         </div>
@@ -144,7 +144,7 @@ export function DashboardPage() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-lg font-bold text-gray-100">Analytics</h2>
+            <h2 className="text-lg font-bold text-gray-900">Analytics</h2>
             <p className="text-sm text-gray-500 mt-0.5">
               {editMode
                 ? 'Drag widgets to reorder, resize, or add new ones.'
@@ -161,7 +161,7 @@ export function DashboardPage() {
 
       {/* Edit mode hint */}
       {editMode && (
-        <div className="bg-blue-900/20 border border-blue-700/30 rounded-lg px-4 py-3 text-sm text-blue-300 flex items-center gap-2">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-700 flex items-center gap-2">
           <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>

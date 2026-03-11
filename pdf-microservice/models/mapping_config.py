@@ -32,6 +32,8 @@ class MappingSourceField(str, Enum):
     TOTAL = "total"
     SUBTOTAL = "subtotal"
     TAX_AMOUNT = "tax_amount"
+    GL_ACCOUNT = "gl_account"
+    COST_CENTER = "cost_center"
     
     # Vendor
     VENDOR_NAME = "vendor_name"
@@ -52,6 +54,19 @@ class MappingSourceField(str, Enum):
     LINE_QUANTITY = "line_quantity"
     LINE_UNIT_PRICE = "line_unit_price"
     LINE_TOTAL = "line_total"
+
+
+class MappingConditionOperator(str, Enum):
+    """Operators supported by conditional field mappings."""
+
+    EQUALS = "equals"
+    NOT_EQUALS = "not_equals"
+    CONTAINS = "contains"
+    STARTS_WITH = "starts_with"
+    ENDS_WITH = "ends_with"
+    REGEX_MATCH = "regex_match"
+    EXISTS = "exists"
+    NOT_EXISTS = "not_exists"
 
 
 class MappingTargetField(str, Enum):
@@ -87,6 +102,33 @@ class DateTransform(str, Enum):
     END_OF_MONTH = "end_of_month"
 
 
+class MappingCondition(BaseModel):
+    """Condition that controls whether a mapping rule applies."""
+
+    source_field: MappingSourceField = Field(
+        ..., description="Extracted source field to evaluate"
+    )
+    operator: MappingConditionOperator = Field(
+        default=MappingConditionOperator.EQUALS,
+        description="Comparison operator used to evaluate the source field"
+    )
+    value: Optional[str] = Field(
+        None,
+        description="Comparison value. Optional for existence-based operators."
+    )
+    case_sensitive: bool = Field(
+        default=False,
+        description="Whether string comparisons should be case-sensitive"
+    )
+    description: Optional[str] = Field(
+        None,
+        description="Human-readable description of the condition"
+    )
+
+    class Config:
+        use_enum_values = True
+
+
 class FieldMappingRule(BaseModel):
     """A single field mapping rule from source to target."""
     
@@ -107,6 +149,10 @@ class FieldMappingRule(BaseModel):
     )
     date_transform_source: Optional[MappingSourceField] = Field(
         None, description="Source date field for the transform (e.g., order_date for next_friday)"
+    )
+    conditions: List[MappingCondition] = Field(
+        default_factory=list,
+        description="Optional conditions that must all match before this rule is applied"
     )
     is_required: bool = Field(
         default=False, description="Whether this field is required for a valid invoice"
@@ -402,3 +448,4 @@ class AvailableFieldsResponse(BaseModel):
     source_fields: List[Dict[str, str]]
     target_fields: List[Dict[str, str]]
     date_transforms: List[Dict[str, str]]
+    condition_operators: List[Dict[str, str]]

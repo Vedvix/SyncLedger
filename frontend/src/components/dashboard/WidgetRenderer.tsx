@@ -28,11 +28,11 @@ const TREEMAP_COLORS = [
 
 // Grafana-style tooltip
 const GRAFANA_TOOLTIP_STYLE = {
-  backgroundColor: '#1e1e2f',
-  border: '1px solid #333',
+  backgroundColor: '#ffffff',
+  border: '1px solid #e5e7eb',
   borderRadius: '6px',
-  boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-  color: '#d0d0d0',
+  boxShadow: '0 12px 24px rgba(15, 23, 42, 0.12)',
+  color: '#111827',
   fontSize: '12px',
   padding: '8px 12px',
 }
@@ -40,9 +40,12 @@ const GRAFANA_TOOLTIP_STYLE = {
 // Grafana-style grid lines
 const GRAFANA_GRID = {
   strokeDasharray: '3 3',
-  stroke: '#2a2a3d',
+  stroke: '#e5e7eb',
   strokeOpacity: 0.6,
 }
+
+const AXIS_TICK_STYLE = { fontSize: 11, fill: '#6b7280' }
+const AXIS_LINE_STYLE = { stroke: '#d1d5db' }
 
 // ─── Resolve axis fields for a widget ───
 function getAxisConfig(widget: WidgetConfig) {
@@ -320,7 +323,7 @@ function KpiCard({ widget, value }: { widget: WidgetConfig; value: number }) {
         </div>
       </div>
       <div>
-        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">{widget.title}</p>
+        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{widget.title}</p>
         <p className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r" style={{ backgroundImage: `linear-gradient(135deg, ${color}, ${color}cc)` }}>
           {formatValue(value, widget.dataSource)}
         </p>
@@ -346,7 +349,7 @@ function RadialGaugeWidget({ widget, data, value }: { widget: WidgetConfig; data
         <div className="w-16 h-16">
           <ResponsiveContainer width="100%" height="100%">
             <RadialBarChart cx="50%" cy="50%" innerRadius="70%" outerRadius="100%" data={gaugeData} startAngle={90} endAngle={-270} barSize={6}>
-              <RadialBar background={{ fill: '#1e293b' }} dataKey="value" cornerRadius={4} />
+              <RadialBar background={{ fill: '#e5e7eb' }} dataKey="value" cornerRadius={4} />
             </RadialBarChart>
           </ResponsiveContainer>
         </div>
@@ -373,9 +376,9 @@ function AreaChartWidget({ widget, data }: { widget: WidgetConfig; data: Record<
               </linearGradient>
             </defs>
             <CartesianGrid {...GRAFANA_GRID} />
-            <XAxis dataKey={xAxisField} tick={{ fontSize: 11, fill: '#8b949e' }} axisLine={{ stroke: '#333' }} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: '#8b949e' }} axisLine={{ stroke: '#333' }} tickLine={false} />
-            <Tooltip contentStyle={GRAFANA_TOOLTIP_STYLE} cursor={{ stroke: '#555', strokeDasharray: '3 3' }} />
+            <XAxis dataKey={xAxisField} tick={AXIS_TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={false} />
+            <YAxis tick={AXIS_TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={false} />
+            <Tooltip contentStyle={GRAFANA_TOOLTIP_STYLE} cursor={{ stroke: '#94a3b8', strokeDasharray: '3 3' }} />
             {yAxisFields.map((field, i) => (
               <Area
                 key={field}
@@ -406,9 +409,9 @@ function LineChartWidget({ widget, data }: { widget: WidgetConfig; data: Record<
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
             <CartesianGrid {...GRAFANA_GRID} />
-            <XAxis dataKey={xAxisField} tick={{ fontSize: 11, fill: '#8b949e' }} axisLine={{ stroke: '#333' }} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: '#8b949e' }} axisLine={{ stroke: '#333' }} tickLine={false} />
-            <Tooltip contentStyle={GRAFANA_TOOLTIP_STYLE} cursor={{ stroke: '#555', strokeDasharray: '3 3' }} />
+            <XAxis dataKey={xAxisField} tick={AXIS_TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={false} />
+            <YAxis tick={AXIS_TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={false} />
+            <Tooltip contentStyle={GRAFANA_TOOLTIP_STYLE} cursor={{ stroke: '#94a3b8', strokeDasharray: '3 3' }} />
             {yAxisFields.map((field, i) => (
               <Line
                 key={field}
@@ -439,9 +442,9 @@ function BarChartWidget({ widget, data }: { widget: WidgetConfig; data: Record<s
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
             <CartesianGrid {...GRAFANA_GRID} />
-            <XAxis dataKey={xAxisField} tick={{ fontSize: 11, fill: '#8b949e' }} axisLine={{ stroke: '#333' }} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: '#8b949e' }} axisLine={{ stroke: '#333' }} tickLine={false} />
-            <Tooltip contentStyle={GRAFANA_TOOLTIP_STYLE} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+            <XAxis dataKey={xAxisField} tick={AXIS_TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={false} />
+            <YAxis tick={AXIS_TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={false} />
+            <Tooltip contentStyle={GRAFANA_TOOLTIP_STYLE} cursor={{ fill: 'rgba(59, 130, 246, 0.06)' }} />
             {yAxisFields.map((field, i) => (
               <Bar key={field} dataKey={field} fill={AXIS_COLORS[i % AXIS_COLORS.length]} radius={[3, 3, 0, 0]} barSize={yAxisFields.length > 1 ? 20 : 32} fillOpacity={0.85}>
                 {yAxisFields.length === 1 && data.map((entry, j) => (
@@ -467,11 +470,11 @@ function HorizontalBarWidget({ widget, data }: { widget: WidgetConfig; data: Rec
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
             <CartesianGrid {...GRAFANA_GRID} horizontal={false} />
-            <XAxis type="number" tick={{ fontSize: 11, fill: '#8b949e' }} axisLine={{ stroke: '#333' }} tickLine={false} />
-            <YAxis type="category" dataKey={xAxisField} tick={{ fontSize: 11, fill: '#8b949e' }} axisLine={{ stroke: '#333' }} tickLine={false} width={130} />
+            <XAxis type="number" tick={AXIS_TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={false} />
+            <YAxis type="category" dataKey={xAxisField} tick={AXIS_TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={false} width={130} />
             <Tooltip contentStyle={GRAFANA_TOOLTIP_STYLE}
               formatter={(val: number, name: string) => [name === 'amount' ? formatCurrency(val) : val, name]}
-              cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+              cursor={{ fill: 'rgba(59, 130, 246, 0.06)' }}
             />
             {yAxisFields.map((field, i) => (
               <Bar key={field} dataKey={field} fill={AXIS_COLORS[i % AXIS_COLORS.length]} radius={[0, 3, 3, 0]} barSize={yAxisFields.length > 1 ? 14 : 18} fillOpacity={0.85}>
@@ -498,7 +501,7 @@ function PieChartWidget({ widget, data }: { widget: WidgetConfig; data: { name: 
       <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={data} cx="50%" cy="50%" outerRadius="80%" dataKey={valueKey} nameKey={labelKey} stroke="#1a1a2e" strokeWidth={2} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+            <Pie data={data} cx="50%" cy="50%" outerRadius="80%" dataKey={valueKey} nameKey={labelKey} stroke="#ffffff" strokeWidth={2} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
               {data.map((_entry, i) => <Cell key={i} fill={STATUS_COLORS[i % STATUS_COLORS.length]} fillOpacity={0.9} />)}
             </Pie>
             <Tooltip contentStyle={GRAFANA_TOOLTIP_STYLE} />
@@ -521,7 +524,7 @@ function DonutChartWidget({ widget, data }: { widget: WidgetConfig; data: { name
         <div className="flex-1 min-h-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={data} cx="50%" cy="50%" innerRadius="55%" outerRadius="80%" paddingAngle={3} dataKey={valueKey} nameKey={labelKey} stroke="#1a1a2e" strokeWidth={2}>
+              <Pie data={data} cx="50%" cy="50%" innerRadius="55%" outerRadius="80%" paddingAngle={3} dataKey={valueKey} nameKey={labelKey} stroke="#ffffff" strokeWidth={2}>
                 {data.map((_entry, i) => <Cell key={i} fill={STATUS_COLORS[i % STATUS_COLORS.length]} fillOpacity={0.9} />)}
               </Pie>
               <Tooltip contentStyle={GRAFANA_TOOLTIP_STYLE} />
@@ -535,7 +538,7 @@ function DonutChartWidget({ widget, data }: { widget: WidgetConfig; data: { name
                 <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[i % STATUS_COLORS.length] }} />
                 <span className="text-gray-500 text-xs">{String((item as Record<string, unknown>)[labelKey])}</span>
               </div>
-              <span className="font-semibold text-gray-300 text-xs">{String((item as Record<string, unknown>)[valueKey])}</span>
+              <span className="font-semibold text-gray-700 text-xs">{String((item as Record<string, unknown>)[valueKey])}</span>
             </div>
           ))}
         </div>
@@ -562,7 +565,7 @@ function TreemapWidget({ widget, data }: { widget: WidgetConfig; data: Record<st
 
     return (
       <g>
-        <rect x={x} y={y} width={width} height={height} fill={fill} fillOpacity={0.85} stroke="#1e293b" strokeWidth={2} rx={4} />
+        <rect x={x} y={y} width={width} height={height} fill={fill} fillOpacity={0.85} stroke="#e2e8f0" strokeWidth={2} rx={4} />
         <text x={x + width / 2} y={y + height / 2 - 7} textAnchor="middle" fill="#fff" fontSize={width < 80 ? 10 : 12} fontWeight={600}>
           {name}
         </text>
@@ -582,7 +585,7 @@ function TreemapWidget({ widget, data }: { widget: WidgetConfig; data: Record<st
             data={treemapData}
             dataKey="size"
             nameKey="name"
-            stroke="#1e293b"
+            stroke="#e2e8f0"
             content={<CustomContent />}
           >
             <Tooltip
@@ -593,9 +596,9 @@ function TreemapWidget({ widget, data }: { widget: WidgetConfig; data: Record<st
                 const total = treemapData.reduce((s, d) => s + d.size, 0)
                 const pct = total > 0 ? ((item.size / total) * 100).toFixed(1) : '0'
                 return (
-                  <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg text-sm border border-gray-700">
+                  <div className="bg-white text-gray-900 px-3 py-2 rounded-lg shadow-lg text-sm border border-gray-200">
                     <p className="font-semibold">{item.name}</p>
-                    <p className="text-gray-300">{formatCurrency(item.size)} ({pct}%)</p>
+                    <p className="text-gray-600">{formatCurrency(item.size)} ({pct}%)</p>
                   </div>
                 )
               }}
@@ -616,17 +619,17 @@ function TableWidget({ widget, data }: { widget: WidgetConfig; data: Record<stri
       <div className="flex-1 min-h-0 overflow-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-700/50">
+            <tr className="border-b border-gray-200">
               {keys.map(k => (
-                <th key={k} className="text-left py-2 px-2 text-gray-400 font-medium capitalize text-xs uppercase tracking-wider">{k}</th>
+                <th key={k} className="text-left py-2 px-2 text-gray-500 font-medium capitalize text-xs uppercase tracking-wider">{k}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {data.map((row, i) => (
-              <tr key={i} className="border-b border-gray-800/30 hover:bg-white/[0.02]">
+              <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
                 {keys.map(k => (
-                  <td key={k} className="py-2 px-2 text-gray-300 text-xs">
+                  <td key={k} className="py-2 px-2 text-gray-700 text-xs">
                     {typeof row[k] === 'number' ? formatCompact(row[k] as number) : String(row[k])}
                   </td>
                 ))}
@@ -652,14 +655,14 @@ function AlertCardsWidget({ stats }: { stats: DashboardStats | undefined }) {
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 h-full">
       {cards.map(c => (
         <div key={c.label} onClick={() => navigate(c.url)}
-          className="bg-[#181824] rounded-lg border border-gray-700/40 p-5 cursor-pointer hover:border-gray-600/60 hover:shadow-lg transition-all"
+          className="bg-white rounded-lg border border-gray-200 p-5 cursor-pointer hover:border-gray-300 hover:shadow-md transition-all"
           style={{ borderLeftWidth: '3px', borderLeftColor: c.color }}
         >
           <div className="flex items-start gap-3">
             <div className={`p-2 rounded-lg ${c.bgClass} ${c.textClass}`}>{c.icon}</div>
             <div>
-              <p className="text-xs text-gray-400 uppercase tracking-wider">{c.label}</p>
-              <p className="text-2xl font-bold text-gray-100">{c.value}</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wider">{c.label}</p>
+              <p className="text-2xl font-bold text-gray-900">{c.value}</p>
               {c.badge && c.value > 0 && (
                 <p className="text-xs mt-1 flex items-center gap-1" style={{ color: c.color }}>
                   <ArrowDownRight className="w-3 h-3" /> {c.badge}
@@ -676,10 +679,10 @@ function AlertCardsWidget({ stats }: { stats: DashboardStats | undefined }) {
 // Shared sub-components
 function WidgetHeader({ widget }: { widget: WidgetConfig }) {
   return (
-    <div className="mb-3 pb-2 border-b border-gray-700/30">
+    <div className="mb-3 pb-2 border-b border-gray-200">
       <div className="flex items-center gap-2">
         <div className="w-1 h-4 rounded-full" style={{ backgroundColor: widget.color || '#36a2eb' }} />
-        <h3 className="text-sm font-semibold text-gray-200 tracking-wide">{widget.title}</h3>
+        <h3 className="text-sm font-semibold text-gray-900 tracking-wide">{widget.title}</h3>
       </div>
       {widget.subtitle && <p className="text-[11px] text-gray-500 mt-0.5 ml-3">{widget.subtitle}</p>}
     </div>
@@ -690,8 +693,8 @@ function EmptyState() {
   return (
     <div className="h-full flex items-center justify-center text-gray-500 text-sm">
       <div className="text-center">
-        <div className="w-10 h-10 rounded-lg bg-gray-800/50 flex items-center justify-center mx-auto mb-2">
-          <FileText className="w-5 h-5 text-gray-600" />
+        <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center mx-auto mb-2">
+          <FileText className="w-5 h-5 text-gray-400" />
         </div>
         <p>No data available</p>
       </div>
@@ -748,7 +751,7 @@ export function WidgetRenderer({ widget, stats, editMode }: WidgetRendererProps)
   return (
     <div
       onClick={handleClick}
-      className={`bg-[#181824] border border-gray-700/40 rounded-lg shadow-lg p-5 h-full ${minHeight} ${widget.clickUrl && !editMode ? 'cursor-pointer hover:border-gray-600/60 hover:shadow-xl' : ''} transition-all`}
+      className={`bg-white border border-gray-200 rounded-lg shadow-sm p-5 h-full ${minHeight} ${widget.clickUrl && !editMode ? 'cursor-pointer hover:border-gray-300 hover:shadow-md' : ''} transition-all`}
     >
       {content}
     </div>

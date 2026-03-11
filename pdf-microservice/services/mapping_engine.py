@@ -23,6 +23,8 @@ from models.mapping_config import (
     DateTransform,
     FieldMappingRule,
     InvoiceMappingProfile,
+    MappingCondition,
+    MappingConditionOperator,
     MappingSourceField,
     MappingTargetField,
     get_default_subcontractor_profile,
@@ -277,8 +279,21 @@ class MappingEngine:
         mapped: Dict[str, Any] = {}
         unmapped_targets: List[str] = []
         field_mappings: List[Dict[str, Any]] = []
+
+        if line_items and not raw_fields.get(MappingSourceField.GL_ACCOUNT.value):
+            first_line_gl = next((item.gl_account_code for item in line_items if item.gl_account_code), None)
+            if first_line_gl:
+                raw_fields[MappingSourceField.GL_ACCOUNT.value] = first_line_gl
+
+        if line_items and not raw_fields.get(MappingSourceField.COST_CENTER.value):
+            first_line_cost_center = next((item.cost_center for item in line_items if item.cost_center), None)
+            if first_line_cost_center:
+                raw_fields[MappingSourceField.COST_CENTER.value] = first_line_cost_center
         
         for rule in profile.rules:
+            if not self._conditions_match(rule.conditions, raw_fields):
+                continue
+
             value, actual_source = self._resolve_value_traced(rule, raw_fields)
             if value is not None:
                 mapped[rule.target_field] = value
@@ -287,6 +302,9 @@ class MappingEngine:
                     "source": actual_source,
                     "value": str(value),
                     "rule": rule.description or f"{rule.target_field} ← {actual_source}",
+                    "conditions": [
+                        self._serialize_condition(condition) for condition in rule.conditions
+                    ],
                 })
             elif rule.is_required:
                 unmapped_targets.append(rule.target_field)
@@ -319,6 +337,75 @@ class MappingEngine:
             cost_center=mapped.get(MappingTargetField.COST_CENTER.value) or mapped.get("cost_center"),
         )
     
+    def _conditions_match(
+        self,
+        conditions: List[MappingCondition],
+        raw_fields: Dict[str, Any],
+    ) -> bool:
+        """Return True when every condition matches the extracted invoice fields."""
+        if not conditions:
+            return True
+
+        return all(self._condition_matches(condition, raw_fields) for condition in conditions)
+
+    def _condition_matches(
+        self,
+        condition: MappingCondition,
+        raw_fields: Dict[str, Any],
+    ) -> bool:
+        """Evaluate one condition against the extracted field payload."""
+        raw_value = raw_fields.get(condition.source_field)
+        normalized_value = self._normalize_condition_value(raw_value, condition.case_sensitive)
+        expected = self._normalize_condition_value(condition.value, condition.case_sensitive)
+        operator = condition.operator
+
+        if operator == MappingConditionOperator.EXISTS.value:
+            return normalized_value not in (None, "")
+
+        if operator == MappingConditionOperator.NOT_EXISTS.value:
+            return normalized_value in (None, "")
+
+        if normalized_value in (None, ""):
+            return False
+
+        if operator == MappingConditionOperator.EQUALS.value:
+            return normalized_value == expected
+        if operator == MappingConditionOperator.NOT_EQUALS.value:
+            return normalized_value != expected
+        if operator == MappingConditionOperator.CONTAINS.value:
+            return expected is not None and expected in normalized_value
+        if operator == MappingConditionOperator.STARTS_WITH.value:
+            return expected is not None and normalized_value.startswith(expected)
+        if operator == MappingConditionOperator.ENDS_WITH.value:
+            return expected is not None and normalized_value.endswith(expected)
+        if operator == MappingConditionOperator.REGEX_MATCH.value:
+            if expected in (None, ""):
+                return False
+            flags = 0 if condition.case_sensitive else re.IGNORECASE
+            return re.search(expected, str(raw_value), flags) is not None
+
+        logger.warning("Unknown mapping condition operator", operator=operator)
+        return False
+
+    @staticmethod
+    def _normalize_condition_value(value: Any, case_sensitive: bool) -> Optional[str]:
+        """Normalize values for string-based condition comparisons."""
+        if value is None:
+            return None
+        normalized = str(value).strip()
+        return normalized if case_sensitive else normalized.lower()
+
+    @staticmethod
+    def _serialize_condition(condition: MappingCondition) -> Dict[str, Any]:
+        """Serialize a condition into API-friendly trace metadata."""
+        return {
+            "source_field": condition.source_field,
+            "operator": condition.operator,
+            "value": condition.value,
+            "case_sensitive": condition.case_sensitive,
+            "description": condition.description,
+        }
+
     def _resolve_value_traced(
         self, rule: FieldMappingRule, raw_fields: Dict[str, Any]
     ) -> tuple:

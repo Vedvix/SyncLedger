@@ -150,6 +150,13 @@ class FieldParser:
             r'tax\s+amount\s*:?\s*\$?\s*([\d,]+\.?\d*)',
             r'Tax\s*\$\s*([\d,]+\.?\d*)',
         ],
+        'gl_account': [
+            r'(?:g/l|gl)\s+account\s*#?\s*:?\s*([A-Z0-9\-]+)',
+            r'account\s+code\s*:?\s*([A-Z0-9\-]+)',
+        ],
+        'cost_center': [
+            r'cost\s+center\s*:?\s*([A-Z0-9\-]+)',
+        ],
         # Contact info
         'email': [
             r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',
@@ -317,6 +324,8 @@ class FieldParser:
         fields["total"] = self._extract_amount(text, self.PATTERNS['total'])
         fields["subtotal"] = self._extract_amount(text, self.PATTERNS['subtotal'])
         fields["tax_amount"] = self._extract_amount(text, self.PATTERNS['tax'])
+        fields["gl_account"] = self._extract_pattern(text, self.PATTERNS['gl_account'])
+        fields["cost_center"] = self._extract_pattern(text, self.PATTERNS['cost_center'])
         
         # ── Vendor Info ─────────────────────────────────────────────────
         vendor_info = self._extract_vendor_info(text)

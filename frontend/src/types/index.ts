@@ -570,6 +570,24 @@ export type DateTransform =
   | 'NET_30'
   | 'NET_60'
 
+export type MappingConditionOperator =
+  | 'EQUALS'
+  | 'NOT_EQUALS'
+  | 'CONTAINS'
+  | 'STARTS_WITH'
+  | 'ENDS_WITH'
+  | 'REGEX_MATCH'
+  | 'EXISTS'
+  | 'NOT_EXISTS'
+
+export interface MappingCondition {
+  source: string
+  operator: MappingConditionOperator
+  value?: string
+  caseSensitive?: boolean
+  description?: string
+}
+
 export interface FieldMappingRule {
   source: string
   target: string
@@ -577,6 +595,7 @@ export interface FieldMappingRule {
   defaultValue?: string
   dateTransform?: DateTransform
   description?: string
+  conditions?: MappingCondition[]
 }
 
 export interface MappingProfile {
@@ -616,6 +635,7 @@ export interface MappingFieldInfo {
   sourceFields: string[]
   targetFields: string[]
   dateTransforms: string[]
+  conditionOperators: string[]
 }
 
 // ==================== Vendor Types ====================

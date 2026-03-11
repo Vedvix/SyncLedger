@@ -34,6 +34,7 @@ from models.mapping_config import (
     AvailableFieldsResponse,
     MappingSourceField,
     MappingTargetField,
+    MappingConditionOperator,
     DateTransform,
     FieldMappingRule,
 )
@@ -222,10 +223,36 @@ async def _extract_with_ai_pipeline(
         ai_ext = ai_result.ai_extraction
         if ai_ext.invoice_number:
             raw_fields["invoice_number"] = ai_ext.invoice_number
+        if ai_ext.po_number:
+            raw_fields["po_number"] = ai_ext.po_number
         if ai_ext.vendor and ai_ext.vendor.name:
             raw_fields["vendor_name"] = ai_ext.vendor.name
+        if ai_ext.vendor and ai_ext.vendor.address:
+            raw_fields["vendor_address"] = ai_ext.vendor.address
+        if ai_ext.vendor and ai_ext.vendor.email:
+            raw_fields["vendor_email"] = ai_ext.vendor.email
+        if ai_ext.vendor and ai_ext.vendor.phone:
+            raw_fields["vendor_phone"] = ai_ext.vendor.phone
+        if ai_ext.invoice_date:
+            raw_fields["invoice_date"] = ai_ext.invoice_date
+        if ai_ext.due_date:
+            raw_fields["due_date"] = ai_ext.due_date
+        if ai_ext.subtotal is not None:
+            raw_fields["subtotal"] = ai_ext.subtotal
+        if ai_ext.tax_amount is not None:
+            raw_fields["tax_amount"] = ai_ext.tax_amount
         if ai_ext.total_amount is not None:
             raw_fields["total"] = ai_ext.total_amount
+        if ai_ext.project_number:
+            raw_fields["project_number"] = ai_ext.project_number
+        if ai_ext.sale_number:
+            raw_fields["sale_number"] = ai_ext.sale_number
+        if ai_ext.opportunity_number:
+            raw_fields["opportunity_number"] = ai_ext.opportunity_number
+        if ai_ext.gl_account:
+            raw_fields["gl_account"] = ai_ext.gl_account
+        if ai_ext.cost_center:
+            raw_fields["cost_center"] = ai_ext.cost_center
         
         mapping_result = mapping_engine.apply_mapping(
             raw_fields=raw_fields,
@@ -1008,12 +1035,17 @@ async def get_available_fields():
         {"value": t.value, "label": t.value.replace("_", " ").title()}
         for t in DateTransform
     ]
+    condition_operators = [
+        {"value": op.value, "label": op.value.replace("_", " ").title()}
+        for op in MappingConditionOperator
+    ]
     
     return {
         "success": True,
         "source_fields": source_fields,
         "target_fields": target_fields,
         "date_transforms": date_transforms,
+        "condition_operators": condition_operators,
     }
 
 

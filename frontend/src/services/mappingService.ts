@@ -6,6 +6,7 @@ import type {
   MappingProfileUpdateRequest,
   MappingFieldInfo,
   FieldMappingRule,
+  MappingCondition,
 } from '@/types'
 
 /**
@@ -31,8 +32,22 @@ pdfApiClient.interceptors.request.use((config) => {
 
 // ─── Transform helpers (snake_case API ↔ camelCase Frontend) ───────────────
 
+function conditionFromApi(c: Record<string, unknown>): MappingCondition {
+  return {
+    source: (c.source_field ?? c.source ?? '') as string,
+    operator: ((c.operator ?? 'equals') as string).toUpperCase() as MappingCondition['operator'],
+    value: (c.value ?? undefined) as string | undefined,
+    caseSensitive: Boolean(c.case_sensitive ?? c.caseSensitive),
+    description: (c.description ?? undefined) as string | undefined,
+  }
+}
+
 /** Convert a single API rule (snake_case) → frontend rule (camelCase) */
 function ruleFromApi(r: Record<string, unknown>): FieldMappingRule {
+  const conditions = Array.isArray(r.conditions)
+    ? (r.conditions as Record<string, unknown>[]).map(conditionFromApi)
+    : []
+
   return {
     source: (r.source_field ?? r.source ?? '') as string,
     target: (r.target_field ?? r.target ?? '') as string,
@@ -41,6 +56,7 @@ function ruleFromApi(r: Record<string, unknown>): FieldMappingRule {
     dateTransform: ((r.date_transform ?? r.dateTransform ?? undefined) as string | undefined)
       ?.toUpperCase() as FieldMappingRule['dateTransform'],
     description: (r.description ?? undefined) as string | undefined,
+    conditions,
   }
 }
 
@@ -63,6 +79,16 @@ function profileFromApi(p: Record<string, unknown>): MappingProfile {
   }
 }
 
+function conditionToApi(c: MappingCondition): Record<string, unknown> {
+  return {
+    source_field: c.source,
+    operator: c.operator.toLowerCase(),
+    value: c.value || null,
+    case_sensitive: c.caseSensitive ?? false,
+    description: c.description || null,
+  }
+}
+
 /** Convert a frontend rule (camelCase) → API rule (snake_case) */
 function ruleToApi(r: FieldMappingRule): Record<string, unknown> {
   return {
@@ -74,6 +100,7 @@ function ruleToApi(r: FieldMappingRule): Record<string, unknown> {
       ? r.dateTransform.toLowerCase()
       : null,
     description: r.description || null,
+    conditions: (r.conditions ?? []).map(conditionToApi),
   }
 }
 
@@ -159,6 +186,7 @@ export const mappingService = {
       sourceFields: extractValues(d.source_fields ?? d.sourceFields),
       targetFields: extractValues(d.target_fields ?? d.targetFields),
       dateTransforms: extractValues(d.date_transforms ?? d.dateTransforms),
+      conditionOperators: extractValues(d.condition_operators ?? d.conditionOperators),
     }
   },
 

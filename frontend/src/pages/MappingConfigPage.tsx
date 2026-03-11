@@ -7,6 +7,8 @@ import type {
   MappingProfile,
   MappingProfileCreateRequest,
   FieldMappingRule,
+  MappingCondition,
+  MappingConditionOperator,
   DateTransform,
   Organization,
 } from '@/types'
@@ -41,6 +43,38 @@ const DATE_TRANSFORMS: { value: DateTransform; label: string }[] = [
   { value: 'NET_30', label: 'Net 30' },
   { value: 'NET_60', label: 'Net 60' },
 ]
+
+const CONDITION_OPERATOR_LABELS: Record<MappingConditionOperator, string> = {
+  EQUALS: 'Equals',
+  NOT_EQUALS: 'Does Not Equal',
+  CONTAINS: 'Contains',
+  STARTS_WITH: 'Starts With',
+  ENDS_WITH: 'Ends With',
+  REGEX_MATCH: 'Regex Match',
+  EXISTS: 'Exists',
+  NOT_EXISTS: 'Does Not Exist',
+}
+
+function humanizeToken(value: string): string {
+  return value
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+function describeCondition(condition: MappingCondition): string {
+  const operatorLabel = CONDITION_OPERATOR_LABELS[condition.operator] || humanizeToken(condition.operator)
+  const valuePart = condition.operator === 'EXISTS' || condition.operator === 'NOT_EXISTS'
+    ? ''
+    : ` ${condition.value || '...'}`
+  return `${humanizeToken(condition.source)} ${operatorLabel}${valuePart}`
+}
+
+function summarizeRuleConditions(rule: FieldMappingRule): string {
+  if (!rule.conditions || rule.conditions.length === 0) {
+    return 'Always applies'
+  }
+  return rule.conditions.map(describeCondition).join(' AND ')
+}
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -137,7 +171,7 @@ export function MappingConfigPage() {
                 ) : (
                   "organization's"
                 )}{' '}
-                system fields.
+                system fields, including organization-specific conditional rules.
               </>
             )}
           </p>
@@ -196,6 +230,7 @@ export function MappingConfigPage() {
           isNew={isCreating}
           sourceFields={fieldInfo?.sourceFields || []}
           targetFields={fieldInfo?.targetFields || []}
+          conditionOperators={fieldInfo?.conditionOperators || []}
           organizations={isSuperAdmin ? organizations : []}
           isSuperAdmin={isSuperAdmin}
           onSave={() => {
@@ -303,6 +338,7 @@ export function MappingConfigPage() {
                           <th className="text-left py-3 px-3 text-gray-700 font-semibold">Fallback</th>
                           <th className="text-left py-3 px-3 text-gray-700 font-semibold">Default Value</th>
                           <th className="text-left py-3 px-3 text-gray-700 font-semibold">Transform</th>
+                          <th className="text-left py-3 px-3 text-gray-700 font-semibold">Conditions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -343,6 +379,15 @@ export function MappingConfigPage() {
                                 </span>
                               ) : (
                                 <span className="text-gray-400">No transform</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3 text-xs text-gray-600 max-w-[280px]">
+                              {rule.conditions && rule.conditions.length > 0 ? (
+                                <span className="bg-violet-100 text-violet-700 px-2 py-1 rounded">
+                                  {summarizeRuleConditions(rule)}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">Always applies</span>
                               )}
                             </td>
                           </tr>
@@ -426,6 +471,7 @@ function ProfileEditor({
   isNew,
   sourceFields,
   targetFields,
+  conditionOperators,
   organizations,
   isSuperAdmin,
   onSave,
@@ -435,6 +481,7 @@ function ProfileEditor({
   isNew: boolean
   sourceFields: string[]
   targetFields: string[]
+  conditionOperators: string[]
   organizations: Organization[]
   isSuperAdmin: boolean
   onSave: () => void
@@ -451,8 +498,16 @@ function ProfileEditor({
   })
   const [error, setError] = useState<string | null>(null)
 
+  const availableConditionOperators = (conditionOperators.length > 0
+    ? conditionOperators.map((operator) => operator.toUpperCase())
+    : Object.keys(CONDITION_OPERATOR_LABELS)) as MappingConditionOperator[]
+
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (isNew && isSuperAdmin && !form.organizationId) {
+        throw new Error('Select an organization before creating a mapping profile.')
+      }
+
       if (isNew) {
         return mappingService.createProfile(form)
       } else {
@@ -480,6 +535,7 @@ function ProfileEditor({
           fallbackSource: '',
           defaultValue: '',
           dateTransform: 'NONE' as DateTransform,
+          conditions: [],
         },
       ],
     }))
@@ -489,6 +545,55 @@ function ProfileEditor({
     setForm((prev) => ({
       ...prev,
       rules: prev.rules.map((r, i) => (i === index ? { ...r, ...updates } : r)),
+    }))
+  }
+
+  const addCondition = (ruleIndex: number) => {
+    const defaultOperator = availableConditionOperators[0] || 'EQUALS'
+    const nextCondition: MappingCondition = {
+      source: sourceFields[0] || '',
+      operator: defaultOperator,
+      value: '',
+      caseSensitive: false,
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      rules: prev.rules.map((rule, index) => index === ruleIndex
+        ? { ...rule, conditions: [...(rule.conditions || []), nextCondition] }
+        : rule),
+    }))
+  }
+
+  const updateCondition = (
+    ruleIndex: number,
+    conditionIndex: number,
+    updates: Partial<MappingCondition>
+  ) => {
+    setForm((prev) => ({
+      ...prev,
+      rules: prev.rules.map((rule, index) => {
+        if (index !== ruleIndex) return rule
+        return {
+          ...rule,
+          conditions: (rule.conditions || []).map((condition, innerIndex) => (
+            innerIndex === conditionIndex ? { ...condition, ...updates } : condition
+          )),
+        }
+      }),
+    }))
+  }
+
+  const removeCondition = (ruleIndex: number, conditionIndex: number) => {
+    setForm((prev) => ({
+      ...prev,
+      rules: prev.rules.map((rule, index) => {
+        if (index !== ruleIndex) return rule
+        return {
+          ...rule,
+          conditions: (rule.conditions || []).filter((_, innerIndex) => innerIndex !== conditionIndex),
+        }
+      }),
     }))
   }
 
@@ -590,7 +695,7 @@ function ProfileEditor({
             <div>
               <h3 className="font-semibold text-gray-900">Mapping Rules</h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                {form.rules.length} rule{form.rules.length !== 1 ? 's' : ''} defined
+                {form.rules.length} rule{form.rules.length !== 1 ? 's' : ''} defined. Add conditions when a rule should only apply for specific invoices.
               </p>
             </div>
             <button
@@ -622,6 +727,7 @@ function ProfileEditor({
                       <th className="text-left py-2 px-3 text-gray-700 font-semibold">Fallback</th>
                       <th className="text-left py-2 px-3 text-gray-700 font-semibold">Default</th>
                       <th className="text-left py-2 px-3 text-gray-700 font-semibold">Transform</th>
+                      <th className="text-left py-2 px-3 text-gray-700 font-semibold">Conditions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -634,6 +740,7 @@ function ProfileEditor({
                         <td className="py-2 px-3 text-gray-600 text-xs">{rule.fallbackSource || '—'}</td>
                         <td className="py-2 px-3 text-gray-600 text-xs">{rule.defaultValue || '—'}</td>
                         <td className="py-2 px-3 text-xs"><span className={rule.dateTransform && rule.dateTransform !== 'NONE' ? 'text-blue-600 font-medium' : 'text-gray-400'}>{rule.dateTransform && rule.dateTransform !== 'NONE' ? rule.dateTransform : '—'}</span></td>
+                        <td className="py-2 px-3 text-xs text-gray-600">{summarizeRuleConditions(rule)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -758,6 +865,113 @@ function ProfileEditor({
                         placeholder="Optional note about this mapping"
                       />
                     </div>
+                  </div>
+
+                  <div className="mt-4 rounded-lg border border-violet-200 bg-violet-50 p-4">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <div>
+                        <h6 className="text-sm font-semibold text-violet-900">Conditional Application</h6>
+                        <p className="text-xs text-violet-700 mt-0.5">
+                          Leave empty to always apply this rule, or add conditions such as GL account equals 5100.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => addCondition(idx)}
+                        className="flex items-center px-3 py-1.5 text-xs font-medium text-violet-700 border border-violet-200 rounded-lg hover:bg-white"
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1" />
+                        Add Condition
+                      </button>
+                    </div>
+
+                    {rule.conditions && rule.conditions.length > 0 ? (
+                      <div className="space-y-3">
+                        {rule.conditions.map((condition, conditionIndex) => {
+                          const operatorValue = condition.operator || 'EQUALS'
+                          const requiresComparisonValue = !['EXISTS', 'NOT_EXISTS'].includes(operatorValue)
+
+                          return (
+                            <div key={conditionIndex} className="rounded-lg border border-violet-100 bg-white p-3">
+                              <div className="flex items-center justify-between gap-3 mb-3">
+                                <p className="text-xs font-semibold text-gray-700">
+                                  Condition #{conditionIndex + 1}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => removeCondition(idx, conditionIndex)}
+                                  className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                  title="Remove condition"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                                <div>
+                                  <label className="block text-xs font-semibold text-gray-700 mb-2">Field</label>
+                                  <select
+                                    value={condition.source}
+                                    onChange={(e) => updateCondition(idx, conditionIndex, { source: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white hover:border-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                                  >
+                                    <option value="">Select field...</option>
+                                    {sourceFields.map((field) => (
+                                      <option key={field} value={field}>
+                                        {field}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs font-semibold text-gray-700 mb-2">Operator</label>
+                                  <select
+                                    value={operatorValue}
+                                    onChange={(e) => updateCondition(idx, conditionIndex, { operator: e.target.value as MappingConditionOperator })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white hover:border-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                                  >
+                                    {availableConditionOperators.map((operator) => (
+                                      <option key={operator} value={operator}>
+                                        {CONDITION_OPERATOR_LABELS[operator] || humanizeToken(operator)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs font-semibold text-gray-700 mb-2">Value</label>
+                                  <input
+                                    type="text"
+                                    value={condition.value || ''}
+                                    onChange={(e) => updateCondition(idx, conditionIndex, { value: e.target.value || undefined })}
+                                    disabled={!requiresComparisonValue}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors disabled:bg-gray-100 disabled:text-gray-400"
+                                    placeholder={requiresComparisonValue ? 'e.g., 5100' : 'Not required'}
+                                  />
+                                </div>
+
+                                <div className="flex items-end">
+                                  <label className="inline-flex items-center gap-2 text-sm text-gray-700 pb-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={Boolean(condition.caseSensitive)}
+                                      onChange={(e) => updateCondition(idx, conditionIndex, { caseSensitive: e.target.checked })}
+                                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                    />
+                                    Case sensitive
+                                  </label>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-violet-200 bg-white/70 p-4 text-sm text-violet-800">
+                        This rule currently always applies.
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
