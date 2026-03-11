@@ -55,6 +55,7 @@ jobs:
       environment: ${{ steps.env.outputs.environment }}
       image_tag: ${{ steps.env.outputs.image_tag }}
       branch_tag: ${{ steps.env.outputs.branch_tag }}
+      ghcr_owner: ${{ steps.env.outputs.ghcr_owner }}
     steps:
       - name: Map branch to environment
         id: env
@@ -70,6 +71,7 @@ jobs:
           fi
           
           BRANCH_TAG=$(echo "$BRANCH" | sed 's|/|-|g')
+          GHCR_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           IMAGE_TAG="${{ inputs.image_tag }}"
           if [ -z "$IMAGE_TAG" ]; then
             IMAGE_TAG="${BRANCH_TAG}-latest"
@@ -78,6 +80,7 @@ jobs:
           echo "environment=$ENV" >> $GITHUB_OUTPUT
           echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "branch_tag=$BRANCH_TAG" >> $GITHUB_OUTPUT
+          echo "ghcr_owner=$GHCR_OWNER" >> $GITHUB_OUTPUT
           
           echo "========================================"
           echo "  Branch:      $BRANCH"
@@ -99,7 +102,7 @@ jobs:
     env:
       TF_VAR_environment: ${{ needs.resolve.outputs.environment }}
       TF_VAR_image_tag: ${{ needs.resolve.outputs.image_tag }}
-      TF_VAR_ghcr_owner: ${{ github.repository_owner }}
+      TF_VAR_ghcr_owner: ${{ needs.resolve.outputs.ghcr_owner }}
       TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
       TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
       TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
@@ -217,12 +220,11 @@ jobs:
           INSTANCE_ID="${{ needs.terraform.outputs.instance_id }}"
           ENV="${{ needs.resolve.outputs.environment }}"
           IMAGE_TAG="${{ needs.resolve.outputs.image_tag }}"
-          OWNER="${{ github.repository_owner }}"
+          OWNER="${{ needs.resolve.outputs.ghcr_owner }}"
           CONFIG_BUCKET="${{ vars.S3_CONFIG_BUCKET || 'syncledger-config' }}"
           
           DEPLOY_SCRIPT=$(cat <<'EOF'
-          #!/bin/bash
-          set -euo pipefail
+          set -eu
           cd /opt/syncledger
           
           # Download latest docker-compose from S3
@@ -264,6 +266,7 @@ jobs:
           DEPLOY_SCRIPT=$(echo "$DEPLOY_SCRIPT" | sed "s|AWSREGION|${{ env.AWS_REGION }}|g")
           DEPLOY_SCRIPT=$(echo "$DEPLOY_SCRIPT" | sed "s|IMAGETAG|$IMAGE_TAG|g")
           DEPLOY_SCRIPT=$(echo "$DEPLOY_SCRIPT" | sed "s|GHCROWNER|$OWNER|g")
+          DEPLOY_SCRIPT=$(printf '%s' "$DEPLOY_SCRIPT" | tr -d '\r')
           
           echo "Deploying to instance $INSTANCE_ID..."
           
@@ -318,16 +321,51 @@ jobs:
         run: |
           IP="${{ needs.terraform.outputs.instance_ip }}"
           echo "Checking health at http://$IP/api/actuator/health ..."
+          HEALTHY=false
           
           for i in $(seq 1 20); do
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$IP/api/actuator/health" || echo "000")
             if [ "$HTTP_CODE" = "200" ]; then
               echo "Application is healthy!"
+              HEALTHY=true
               break
             fi
             echo "  Attempt $i/20 - HTTP $HTTP_CODE, retrying in 15s..."
             sleep 15
           done
+
+          if [ "$HEALTHY" != "true" ]; then
+            echo "Health check failed: application is not reachable on /api/actuator/health"
+            exit 1
+          fi
+
+      - name: Collect Runtime Diagnostics
+        if: failure()
+        run: |
+          INSTANCE_ID="${{ needs.terraform.outputs.instance_id }}"
+          echo "Collecting runtime diagnostics from $INSTANCE_ID..."
+
+          DIAG_CMD='set -e; cd /opt/syncledger; echo "=== docker ps ==="; docker ps -a; echo "=== compose ps ==="; docker-compose ps; echo "=== last 120 lines of compose logs ==="; docker-compose logs --tail=120 || true; echo "=== port listeners ==="; ss -lntp | grep -E ":80|:8080|:8001" || true'
+
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "commands=[$(printf '%s' "$DIAG_CMD" | jq -Rs .)]" \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Command.CommandId' --output text)
+
+          sleep 8
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --region ${{ env.AWS_REGION }} \
+            --query 'StandardOutputContent' --output text || true
+
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --region ${{ env.AWS_REGION }} \
+            --query 'StandardErrorContent' --output text || true
 
       - name: Deployment Summary
         if: always()
