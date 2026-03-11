@@ -129,12 +129,27 @@ jobs:
         working-directory: infra
         run: |
           ENV="${{ needs.resolve.outputs.environment }}"
-          terraform init \
-            -backend-config="bucket=${{ vars.TF_STATE_BUCKET || 'syncledger-terraform-state' }}" \
-            -backend-config="key=syncledger/${ENV}/terraform.tfstate" \
-            -backend-config="region=${{ env.AWS_REGION }}" \
-            -backend-config="dynamodb_table=${{ vars.TF_LOCK_TABLE || 'syncledger-terraform-locks' }}" \
-            -backend-config="encrypt=true"
+          STATE_BUCKET="${{ vars.TF_STATE_BUCKET || 'syncledger-terraform-state' }}"
+          LOCK_TABLE="${{ vars.TF_LOCK_TABLE || 'syncledger-terraform-locks' }}"
+
+          INIT_ARGS=(
+            "-backend-config=bucket=${STATE_BUCKET}"
+            "-backend-config=key=syncledger/${ENV}/terraform.tfstate"
+            "-backend-config=region=${{ env.AWS_REGION }}"
+            "-backend-config=encrypt=true"
+            "-backend-config=use_lockfile=true"
+          )
+
+          # Prefer DynamoDB locking when table is reachable; otherwise use S3 lockfile.
+          if aws dynamodb describe-table --table-name "$LOCK_TABLE" --region "${{ env.AWS_REGION }}" >/dev/null 2>&1; then
+            echo "DynamoDB lock table detected: $LOCK_TABLE"
+            INIT_ARGS+=("-backend-config=dynamodb_table=${LOCK_TABLE}")
+          else
+            echo "Warning: DynamoDB lock table '$LOCK_TABLE' is missing or inaccessible in ${{ env.AWS_REGION }}."
+            echo "Continuing with S3 native locking (use_lockfile=true)."
+          fi
+
+          terraform init "${INIT_ARGS[@]}"
 
       - name: Terraform Plan
         working-directory: infra
