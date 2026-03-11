@@ -1,0 +1,14 @@
+{
+  "commands": [
+    "set -e",
+    "echo ===pwd===; pwd",
+    "ls -la /opt/syncledger || true",
+    "echo ===env===; sed -n '1,40p' /opt/syncledger/.env || true",
+    "echo ===compose-ps===; cd /opt/syncledger; docker-compose ps || true",
+    "echo ===compose-config===; docker-compose config >/tmp/compose.out 2>/tmp/compose.err; echo CONFIG_EXIT:$?; tail -n 80 /tmp/compose.out; tail -n 80 /tmp/compose.err",
+    "echo ===pull===; docker-compose pull >/tmp/pull.out 2>/tmp/pull.err; echo PULL_EXIT:$?; tail -n 120 /tmp/pull.out; tail -n 120 /tmp/pull.err",
+    "echo ===up===; docker-compose up -d --remove-orphans >/tmp/up.out 2>/tmp/up.err; echo UP_EXIT:$?; tail -n 120 /tmp/up.out; tail -n 120 /tmp/up.err",
+    "echo ===ports===; ss -lntp | grep -E ':80|:8080|:8001' || true",
+    "echo ===disk===; df -h"
+  ]
+}
