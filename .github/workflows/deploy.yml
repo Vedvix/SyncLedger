@@ -35,6 +35,7 @@ on:
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  DEPLOY_WORKFLOW_VERSION: '2026-03-11-ssm-fix-v3'
 
 permissions:
   contents: read
@@ -83,6 +84,7 @@ jobs:
           echo "ghcr_owner=$GHCR_OWNER" >> $GITHUB_OUTPUT
           
           echo "========================================"
+          echo "  Workflow:    ${{ env.DEPLOY_WORKFLOW_VERSION }}"
           echo "  Branch:      $BRANCH"
           echo "  Environment: $ENV"
           echo "  Image Tag:   $IMAGE_TAG"
@@ -374,6 +376,7 @@ jobs:
           echo "========================================"
           echo "  DEPLOYMENT SUMMARY"
           echo "========================================"
+          echo "  Workflow:    ${{ env.DEPLOY_WORKFLOW_VERSION }}"
           echo "  Environment:  ${{ needs.resolve.outputs.environment }}"
           echo "  Branch:       ${{ inputs.deploy_branch }}"
           echo "  Image Tag:    ${{ needs.resolve.outputs.image_tag }}"
