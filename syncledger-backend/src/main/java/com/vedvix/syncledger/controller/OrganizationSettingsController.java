@@ -336,6 +336,73 @@ public class OrganizationSettingsController {
         return ResponseEntity.ok(ApiResponseDto.success("Microsoft configuration updated", config));
     }
 
+    // ==================== Super Admin: Manage any org's ERP config ====================
+
+    @GetMapping("/admin/{organizationId}/erp-config")
+    @Operation(
+        summary = "Get ERP config for any org (Super Admin)",
+        description = "Super Admin can view ERP configuration for any organization"
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<ApiResponseDto<ErpConfigDTO>> getErpConfigForOrg(
+            @PathVariable Long organizationId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+
+        Organization org = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", organizationId));
+
+        return ResponseEntity.ok(ApiResponseDto.success(buildErpConfigDTO(org)));
+    }
+
+    @PutMapping("/admin/{organizationId}/erp-config")
+    @Operation(
+        summary = "Update ERP config for any org (Super Admin)",
+        description = "Super Admin can update ERP integration settings for any organization"
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<ApiResponseDto<ErpConfigDTO>> updateErpConfigForOrg(
+            @PathVariable Long organizationId,
+            @Valid @RequestBody UpdateErpConfigRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+
+        Organization org = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", organizationId));
+
+        if (request.getErpType() != null) {
+            try {
+                org.setErpType(ErpType.valueOf(request.getErpType().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("Invalid ERP type: " + request.getErpType());
+            }
+        }
+        if (request.getErpApiEndpoint() != null) {
+            org.setErpApiEndpoint(request.getErpApiEndpoint());
+        }
+        if (request.getErpApiKey() != null && !request.getErpApiKey().isBlank()) {
+            org.setErpApiKeyEncrypted(encryptionService.encrypt(request.getErpApiKey()));
+        }
+        if (request.getErpTenantId() != null) {
+            org.setErpTenantId(request.getErpTenantId());
+        }
+        if (request.getErpCompanyId() != null) {
+            org.setErpCompanyId(request.getErpCompanyId());
+        }
+        if (request.getErpAutoSync() != null) {
+            org.setErpAutoSync(request.getErpAutoSync());
+        }
+
+        organizationRepository.save(org);
+
+        log.info("Super Admin updated ERP config for org: {} by: {}",
+                org.getName(), currentUser.getEmail());
+
+        return ResponseEntity.ok(ApiResponseDto.success("ERP configuration updated", buildErpConfigDTO(org)));
+    }
+
     /**
      * Resolve the organization from the current user context.
      */

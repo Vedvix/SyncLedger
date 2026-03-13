@@ -20,6 +20,7 @@ import SuperAdminPage from '@/pages/SuperAdminPage'
 import { OrganizationFormPage } from '@/pages/OrganizationFormPage'
 import { OrganizationDetailPage } from '@/pages/OrganizationDetailPage'
 import { MappingConfigPage } from '@/pages/MappingConfigPage'
+import { ErpConfigPage } from '@/pages/ErpConfigPage'
 import { VendorsPage } from '@/pages/VendorsPage'
 import { VendorDetailPage } from '@/pages/VendorDetailPage'
 import ManagePlansPage from '@/pages/ManagePlansPage'
@@ -126,6 +127,14 @@ function App() {
             element={
               <AdminRoute>
                 <MicrosoftConfigPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="erp-config"
+            element={
+              <AdminRoute>
+                <ErpConfigPage />
               </AdminRoute>
             }
           />

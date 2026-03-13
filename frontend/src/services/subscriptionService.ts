@@ -185,6 +185,27 @@ export const erpConfigService = {
       data
     )
     return response.data.data!
+  },
+
+  /**
+   * Get ERP config for specific org (Super Admin)
+   */
+  async getErpConfigForOrg(orgId: number): Promise<ErpConfig> {
+    const response = await apiClient.get<ApiResponse<ErpConfig>>(
+      `/v1/organization-settings/admin/${orgId}/erp-config`
+    )
+    return response.data.data!
+  },
+
+  /**
+   * Update ERP config for specific org (Super Admin)
+   */
+  async updateErpConfigForOrg(orgId: number, data: UpdateErpConfigRequest): Promise<ErpConfig> {
+    const response = await apiClient.put<ApiResponse<ErpConfig>>(
+      `/v1/organization-settings/admin/${orgId}/erp-config`,
+      data
+    )
+    return response.data.data!
   }
 }
 

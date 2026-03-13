@@ -15,6 +15,7 @@ import {
   Building2,
   CreditCard,
   Mail,
+  Database,
   ChevronRight,
   Bell,
   ChevronDown,
@@ -37,6 +38,7 @@ const ROUTE_LABELS: Record<string, string> = {
   mapping: 'Field Mapping',
   subscription: 'Subscription',
   'microsoft-config': 'Email Configuration',
+  'erp-config': 'ERP Integration',
   'super-admin': 'Platform Admin',
   onboarding: 'Setup Wizard',
 }
@@ -87,6 +89,7 @@ export function DashboardLayout() {
   const configNavItems = [
     ...(isAdmin ? [{ to: '/mapping', icon: GitCompareArrows, label: 'Field Mapping' }] : []),
     ...(isAdmin ? [{ to: '/microsoft-config', icon: Mail, label: 'Email Config' }] : []),
+    ...(isAdmin ? [{ to: '/erp-config', icon: Database, label: 'ERP Integration' }] : []),
     ...(isAdmin ? [{ to: '/subscription', icon: CreditCard, label: 'Subscription' }] : []),
     { to: '/settings', icon: Settings, label: 'Settings' },
   ]
