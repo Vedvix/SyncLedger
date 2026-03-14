@@ -11,11 +11,8 @@ import {
   Menu,
   X,
   Shield,
-  GitCompareArrows,
   Building2,
-  CreditCard,
-  Mail,
-  Database,
+  SlidersHorizontal,
   ChevronRight,
   Bell,
   ChevronDown,
@@ -36,6 +33,7 @@ const ROUTE_LABELS: Record<string, string> = {
   users: 'Team Members',
   settings: 'Settings',
   mapping: 'Field Mapping',
+  configuration: 'Configuration',
   subscription: 'Subscription',
   'microsoft-config': 'Email Configuration',
   'erp-config': 'ERP Integration',
@@ -87,10 +85,7 @@ export function DashboardLayout() {
   ]
 
   const configNavItems = [
-    ...(isAdmin ? [{ to: '/mapping', icon: GitCompareArrows, label: 'Field Mapping' }] : []),
-    ...(isAdmin ? [{ to: '/microsoft-config', icon: Mail, label: 'Email Config' }] : []),
-    ...(isAdmin ? [{ to: '/erp-config', icon: Database, label: 'ERP Integration' }] : []),
-    ...(isAdmin ? [{ to: '/subscription', icon: CreditCard, label: 'Subscription' }] : []),
+    ...(isAdmin ? [{ to: '/configuration', icon: SlidersHorizontal, label: 'Configuration' }] : []),
     { to: '/settings', icon: Settings, label: 'Settings' },
   ]
 

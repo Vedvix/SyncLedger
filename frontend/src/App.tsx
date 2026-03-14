@@ -15,6 +15,7 @@ import { UsersPage } from '@/pages/UsersPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { SubscriptionPage } from '@/pages/SubscriptionPage'
 import { MicrosoftConfigPage } from '@/pages/MicrosoftConfigPage'
+import { ConfigurationPage } from '@/pages/ConfigurationPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import SuperAdminPage from '@/pages/SuperAdminPage'
 import { OrganizationFormPage } from '@/pages/OrganizationFormPage'
@@ -119,6 +120,14 @@ function App() {
             element={
               <AdminRoute>
                 <SubscriptionPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="configuration"
+            element={
+              <AdminRoute>
+                <ConfigurationPage />
               </AdminRoute>
             }
           />
