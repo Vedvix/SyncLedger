@@ -111,16 +111,38 @@ jobs:
       - name: Stop containers
         continue-on-error: true
         run: |
-          INSTANCE_ID=$(cd infra && terraform output -raw ec2_instance_id 2>/dev/null || echo "")
-          if [ -n "$INSTANCE_ID" ]; then
-            echo "Stopping containers on $INSTANCE_ID..."
-            aws ssm send-command \
-              --instance-ids "$INSTANCE_ID" \
-              --document-name "AWS-RunShellScript" \
-              --parameters 'commands=["cd /opt/syncledger && docker-compose down -v 2>/dev/null || true"]' \
-              --timeout-seconds 60 \
-              --region ${{ env.AWS_REGION }} || true
-            sleep 15
+          ENV="${{ inputs.environment }}"
+          if [ "$ENV" = "prod" ]; then
+            ASG_NAME=$(cd infra && terraform output -raw asg_name 2>/dev/null || echo "")
+            if [ -n "$ASG_NAME" ] && [ "$ASG_NAME" != "N/A" ]; then
+              INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
+                --auto-scaling-group-names "$ASG_NAME" \
+                --region ${{ env.AWS_REGION }} \
+                --query 'AutoScalingGroups[0].Instances[*].InstanceId' \
+                --output text 2>/dev/null || echo "")
+              if [ -n "$INSTANCE_IDS" ]; then
+                echo "Stopping containers on ASG instances: $INSTANCE_IDS"
+                aws ssm send-command \
+                  --instance-ids $INSTANCE_IDS \
+                  --document-name "AWS-RunShellScript" \
+                  --parameters 'commands=["cd /opt/syncledger && docker-compose down -v 2>/dev/null || true"]' \
+                  --timeout-seconds 60 \
+                  --region ${{ env.AWS_REGION }} || true
+                sleep 15
+              fi
+            fi
+          else
+            INSTANCE_ID=$(cd infra && terraform output -raw ec2_instance_id 2>/dev/null || echo "")
+            if [ -n "$INSTANCE_ID" ]; then
+              echo "Stopping containers on $INSTANCE_ID..."
+              aws ssm send-command \
+                --instance-ids "$INSTANCE_ID" \
+                --document-name "AWS-RunShellScript" \
+                --parameters 'commands=["cd /opt/syncledger && docker-compose down -v 2>/dev/null || true"]' \
+                --timeout-seconds 60 \
+                --region ${{ env.AWS_REGION }} || true
+              sleep 15
+            fi
           fi
 
       - name: Terraform Destroy
@@ -144,15 +166,22 @@ jobs:
 
       - name: Summary
         run: |
+          ENV="${{ inputs.environment }}"
           echo ""
           echo "========================================"
           echo "  ALL RESOURCES DESTROYED"
           echo "========================================"
-          echo "  Environment:  ${{ inputs.environment }}"
+          echo "  Environment:  $ENV"
           echo "  Destroyed:    $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           echo ""
           echo "  Resources removed:"
-          echo "    - EC2 Instance + EIP"
+          if [ "$ENV" = "prod" ]; then
+            echo "    - ALB + Target Group + Listeners"
+            echo "    - ASG + Launch Template"
+            echo "    - CloudWatch Scaling Alarms"
+          else
+            echo "    - EC2 Instance + EIP"
+          fi
           echo "    - RDS PostgreSQL"
           echo "    - S3 Storage Bucket"
           echo "    - Security Groups"

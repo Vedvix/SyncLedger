@@ -1,7 +1,8 @@
 # =============================================================================
 # SYNCLEDGER - DEPLOY INFRASTRUCTURE & APPLICATION
 # Branch mapping: main->prod, develop->dev, release/*->staging
-# Terraform provisions AWS resources, SSM deploys containers to EC2
+# Terraform provisions AWS resources; SSM deploys containers to EC2.
+# Prod uses ALB + ASG (instance refresh); dev/staging use single EC2.
 # =============================================================================
 
 name: Deploy
@@ -101,6 +102,7 @@ jobs:
       instance_ip: ${{ steps.outputs.outputs.instance_ip }}
       rds_endpoint: ${{ steps.outputs.outputs.rds_endpoint }}
       s3_bucket: ${{ steps.outputs.outputs.s3_bucket }}
+      asg_name: ${{ steps.outputs.outputs.asg_name }}
     env:
       TF_VAR_environment: ${{ needs.resolve.outputs.environment }}
       TF_VAR_image_tag: ${{ needs.resolve.outputs.image_tag }}
@@ -177,6 +179,7 @@ jobs:
           echo "instance_ip=$(terraform output -raw ec2_public_ip)" >> $GITHUB_OUTPUT
           echo "rds_endpoint=$(terraform output -raw rds_endpoint)" >> $GITHUB_OUTPUT
           echo "s3_bucket=$(terraform output -raw s3_storage_bucket)" >> $GITHUB_OUTPUT
+          echo "asg_name=$(terraform output -raw asg_name)" >> $GITHUB_OUTPUT
 
   # ---- Update secrets and deploy ----
   deploy:
@@ -224,6 +227,7 @@ jobs:
           IMAGE_TAG="${{ needs.resolve.outputs.image_tag }}"
           OWNER="${{ needs.resolve.outputs.ghcr_owner }}"
           CONFIG_BUCKET="${{ vars.S3_CONFIG_BUCKET || 'syncledger-config' }}"
+          ASG_NAME="${{ needs.terraform.outputs.asg_name }}"
           
           DEPLOY_SCRIPT=$(cat <<'EOF'
           set -eu
@@ -306,69 +310,156 @@ jobs:
           # Base64 encode script to safely pass through SSM JSON without newline mangling
           DEPLOY_SCRIPT_B64=$(printf '%s' "$DEPLOY_SCRIPT" | base64 -w 0)
           
-          echo "Deploying to instance $INSTANCE_ID..."
-          
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --parameters "commands=[\"echo $DEPLOY_SCRIPT_B64 | base64 -d | bash\"]" \
-            --timeout-seconds 1800 \
-            --region ${{ env.AWS_REGION }} \
-            --output text \
-            --query "Command.CommandId" 2>/dev/null || echo "")
-          
-          if [ -z "$COMMAND_ID" ]; then
-            echo "SSM not available yet. The instance may still be initializing."
-            echo "SSH into ${{ needs.terraform.outputs.instance_ip }} to deploy manually."
-            exit 0
-          fi
-          
-          echo "Waiting for deployment (command: $COMMAND_ID)..."
-          sleep 10
-          
-          LAST_STATUS="Pending"
-          for i in $(seq 1 180); do
-            STATUS=$(aws ssm get-command-invocation \
-              --command-id "$COMMAND_ID" \
-              --instance-id "$INSTANCE_ID" \
+          # ----- Prod: deploy to all ASG instances -----
+          if [ "$ENV" = "prod" ]; then
+            echo "Production environment — discovering ASG instances..."
+            INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
+              --auto-scaling-group-names "$ASG_NAME" \
               --region ${{ env.AWS_REGION }} \
-              --query 'Status' --output text 2>/dev/null || echo "Pending")
-            LAST_STATUS="$STATUS"
+              --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`].InstanceId' \
+              --output text)
             
-            if [ "$STATUS" = "Success" ]; then
-              echo "Deployment successful!"
-              aws ssm get-command-invocation \
-                --command-id "$COMMAND_ID" \
-                --instance-id "$INSTANCE_ID" \
+            if [ -z "$INSTANCE_IDS" ]; then
+              echo "No InService instances in ASG. Triggering instance refresh..."
+              aws autoscaling start-instance-refresh \
+                --auto-scaling-group-name "$ASG_NAME" \
                 --region ${{ env.AWS_REGION }} \
-                --query 'StandardOutputContent' --output text
-              break
-            elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ]; then
-              echo "Deployment failed!"
-              aws ssm get-command-invocation \
-                --command-id "$COMMAND_ID" \
-                --instance-id "$INSTANCE_ID" \
+                --preferences '{"MinHealthyPercentage": 50}'
+              echo "Instance refresh started — new instances will bootstrap from user_data."
+              exit 0
+            fi
+            
+            echo "Found ASG instances: $INSTANCE_IDS"
+            
+            # SSM send-command supports multiple instance IDs
+            COMMAND_ID=$(aws ssm send-command \
+              --instance-ids $INSTANCE_IDS \
+              --document-name "AWS-RunShellScript" \
+              --parameters "commands=[\"echo $DEPLOY_SCRIPT_B64 | base64 -d | bash\"]" \
+              --timeout-seconds 1800 \
+              --region ${{ env.AWS_REGION }} \
+              --output text \
+              --query "Command.CommandId" 2>/dev/null || echo "")
+            
+            if [ -z "$COMMAND_ID" ]; then
+              echo "SSM not available. Instances may still be initializing."
+              echo "Triggering ASG instance refresh as fallback..."
+              aws autoscaling start-instance-refresh \
+                --auto-scaling-group-name "$ASG_NAME" \
                 --region ${{ env.AWS_REGION }} \
-                --query 'StandardErrorContent' --output text
+                --preferences '{"MinHealthyPercentage": 50}'
+              exit 0
+            fi
+            
+            echo "Waiting for deployment across ASG instances (command: $COMMAND_ID)..."
+            sleep 10
+            
+            # Poll each instance for completion
+            DEPLOY_SUCCESS=true
+            for IID in $INSTANCE_IDS; do
+              echo "--- Checking instance $IID ---"
+              LAST_STATUS="Pending"
+              for i in $(seq 1 180); do
+                STATUS=$(aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$IID" \
+                  --region ${{ env.AWS_REGION }} \
+                  --query 'Status' --output text 2>/dev/null || echo "Pending")
+                LAST_STATUS="$STATUS"
+                
+                if [ "$STATUS" = "Success" ]; then
+                  echo "Instance $IID: deployment successful!"
+                  break
+                elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ]; then
+                  echo "Instance $IID: deployment FAILED!"
+                  aws ssm get-command-invocation \
+                    --command-id "$COMMAND_ID" \
+                    --instance-id "$IID" \
+                    --region ${{ env.AWS_REGION }} \
+                    --query 'StandardErrorContent' --output text || true
+                  DEPLOY_SUCCESS=false
+                  break
+                fi
+                echo "  Instance $IID: $STATUS (attempt $i/180)..."
+                sleep 10
+              done
+              
+              if [ "$LAST_STATUS" != "Success" ] && [ "$LAST_STATUS" != "Failed" ] && [ "$LAST_STATUS" != "Cancelled" ]; then
+                echo "Instance $IID: timed out (status: $LAST_STATUS)"
+                DEPLOY_SUCCESS=false
+              fi
+            done
+            
+            if [ "$DEPLOY_SUCCESS" != "true" ]; then
+              echo "One or more instances failed deployment."
               exit 1
             fi
-            echo "  Status: $STATUS (attempt $i/180)..."
+          else
+            # ----- Dev/Staging: single instance SSM -----
+            echo "Deploying to instance $INSTANCE_ID..."
+            
+            COMMAND_ID=$(aws ssm send-command \
+              --instance-ids "$INSTANCE_ID" \
+              --document-name "AWS-RunShellScript" \
+              --parameters "commands=[\"echo $DEPLOY_SCRIPT_B64 | base64 -d | bash\"]" \
+              --timeout-seconds 1800 \
+              --region ${{ env.AWS_REGION }} \
+              --output text \
+              --query "Command.CommandId" 2>/dev/null || echo "")
+            
+            if [ -z "$COMMAND_ID" ]; then
+              echo "SSM not available yet. The instance may still be initializing."
+              echo "SSH into ${{ needs.terraform.outputs.instance_ip }} to deploy manually."
+              exit 0
+            fi
+            
+            echo "Waiting for deployment (command: $COMMAND_ID)..."
             sleep 10
-          done
+            
+            LAST_STATUS="Pending"
+            for i in $(seq 1 180); do
+              STATUS=$(aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --region ${{ env.AWS_REGION }} \
+                --query 'Status' --output text 2>/dev/null || echo "Pending")
+              LAST_STATUS="$STATUS"
+              
+              if [ "$STATUS" = "Success" ]; then
+                echo "Deployment successful!"
+                aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INSTANCE_ID" \
+                  --region ${{ env.AWS_REGION }} \
+                  --query 'StandardOutputContent' --output text
+                break
+              elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ]; then
+                echo "Deployment failed!"
+                aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INSTANCE_ID" \
+                  --region ${{ env.AWS_REGION }} \
+                  --query 'StandardErrorContent' --output text
+                exit 1
+              fi
+              echo "  Status: $STATUS (attempt $i/180)..."
+              sleep 10
+            done
 
-          if [ "$LAST_STATUS" != "Success" ]; then
-            echo "Deployment command did not complete successfully (final status: $LAST_STATUS)."
-            aws ssm get-command-invocation \
-              --command-id "$COMMAND_ID" \
-              --instance-id "$INSTANCE_ID" \
-              --region ${{ env.AWS_REGION }} \
-              --query 'StandardOutputContent' --output text || true
-            aws ssm get-command-invocation \
-              --command-id "$COMMAND_ID" \
-              --instance-id "$INSTANCE_ID" \
-              --region ${{ env.AWS_REGION }} \
-              --query 'StandardErrorContent' --output text || true
-            exit 1
+            if [ "$LAST_STATUS" != "Success" ]; then
+              echo "Deployment command did not complete successfully (final status: $LAST_STATUS)."
+              aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --region ${{ env.AWS_REGION }} \
+                --query 'StandardOutputContent' --output text || true
+              aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --region ${{ env.AWS_REGION }} \
+                --query 'StandardErrorContent' --output text || true
+              exit 1
+            fi
           fi
 
       # Health check
@@ -397,44 +488,90 @@ jobs:
       - name: Collect Runtime Diagnostics
         if: failure()
         run: |
-          INSTANCE_ID="${{ needs.terraform.outputs.instance_id }}"
-          echo "Collecting runtime diagnostics from $INSTANCE_ID..."
-
+          ENV="${{ needs.resolve.outputs.environment }}"
           DIAG_CMD='set -e; cd /opt/syncledger; echo "=== docker ps ==="; docker ps -a; echo "=== compose ps ==="; docker-compose ps; echo "=== last 120 lines of compose logs ==="; docker-compose logs --tail=120 || true; echo "=== port listeners ==="; ss -lntp | grep -E ":80|:8080|:8001" || true'
 
-          CMD_ID=$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --parameters "commands=[$(printf '%s' "$DIAG_CMD" | jq -Rs .)]" \
-            --region ${{ env.AWS_REGION }} \
-            --query 'Command.CommandId' --output text)
+          if [ "$ENV" = "prod" ]; then
+            ASG_NAME="${{ needs.terraform.outputs.asg_name }}"
+            INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
+              --auto-scaling-group-names "$ASG_NAME" \
+              --region ${{ env.AWS_REGION }} \
+              --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`].InstanceId' \
+              --output text 2>/dev/null || echo "")
+            
+            if [ -z "$INSTANCE_IDS" ]; then
+              echo "No InService ASG instances found for diagnostics."
+              exit 0
+            fi
+            
+            for IID in $INSTANCE_IDS; do
+              echo ""
+              echo "======== Diagnostics for $IID ========"
+              CMD_ID=$(aws ssm send-command \
+                --instance-ids "$IID" \
+                --document-name "AWS-RunShellScript" \
+                --parameters "commands=[$(printf '%s' "$DIAG_CMD" | jq -Rs .)]" \
+                --region ${{ env.AWS_REGION }} \
+                --query 'Command.CommandId' --output text 2>/dev/null || echo "")
+              
+              if [ -n "$CMD_ID" ]; then
+                sleep 8
+                aws ssm get-command-invocation \
+                  --command-id "$CMD_ID" \
+                  --instance-id "$IID" \
+                  --region ${{ env.AWS_REGION }} \
+                  --query 'StandardOutputContent' --output text || true
+                aws ssm get-command-invocation \
+                  --command-id "$CMD_ID" \
+                  --instance-id "$IID" \
+                  --region ${{ env.AWS_REGION }} \
+                  --query 'StandardErrorContent' --output text || true
+              else
+                echo "SSM not available for instance $IID"
+              fi
+            done
+          else
+            INSTANCE_ID="${{ needs.terraform.outputs.instance_id }}"
+            echo "Collecting runtime diagnostics from $INSTANCE_ID..."
+            CMD_ID=$(aws ssm send-command \
+              --instance-ids "$INSTANCE_ID" \
+              --document-name "AWS-RunShellScript" \
+              --parameters "commands=[$(printf '%s' "$DIAG_CMD" | jq -Rs .)]" \
+              --region ${{ env.AWS_REGION }} \
+              --query 'Command.CommandId' --output text)
 
-          sleep 8
-          aws ssm get-command-invocation \
-            --command-id "$CMD_ID" \
-            --instance-id "$INSTANCE_ID" \
-            --region ${{ env.AWS_REGION }} \
-            --query 'StandardOutputContent' --output text || true
-
-          aws ssm get-command-invocation \
-            --command-id "$CMD_ID" \
-            --instance-id "$INSTANCE_ID" \
-            --region ${{ env.AWS_REGION }} \
-            --query 'StandardErrorContent' --output text || true
+            sleep 8
+            aws ssm get-command-invocation \
+              --command-id "$CMD_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --region ${{ env.AWS_REGION }} \
+              --query 'StandardOutputContent' --output text || true
+            aws ssm get-command-invocation \
+              --command-id "$CMD_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --region ${{ env.AWS_REGION }} \
+              --query 'StandardErrorContent' --output text || true
+          fi
 
       - name: Deployment Summary
         if: always()
         run: |
+          ENV="${{ needs.resolve.outputs.environment }}"
           echo ""
           echo "========================================"
           echo "  DEPLOYMENT SUMMARY"
           echo "========================================"
           echo "  Workflow:    ${{ env.DEPLOY_WORKFLOW_VERSION }}"
-          echo "  Environment:  ${{ needs.resolve.outputs.environment }}"
+          echo "  Environment:  $ENV"
           echo "  Branch:       ${{ inputs.deploy_branch }}"
           echo "  Image Tag:    ${{ needs.resolve.outputs.image_tag }}"
-          echo "  Instance:     ${{ needs.terraform.outputs.instance_id }}"
-          echo "  Public IP:    ${{ needs.terraform.outputs.instance_ip }}"
+          if [ "$ENV" = "prod" ]; then
+            echo "  ASG Name:     ${{ needs.terraform.outputs.asg_name }}"
+            echo "  ALB DNS:      ${{ needs.terraform.outputs.instance_ip }}"
+          else
+            echo "  Instance:     ${{ needs.terraform.outputs.instance_id }}"
+            echo "  Public IP:    ${{ needs.terraform.outputs.instance_ip }}"
+          fi
           echo "  RDS:          ${{ needs.terraform.outputs.rds_endpoint }}"
           echo "  S3 Bucket:    ${{ needs.terraform.outputs.s3_bucket }}"
           echo "  App URL:      http://${{ needs.terraform.outputs.instance_ip }}"

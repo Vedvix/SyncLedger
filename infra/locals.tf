@@ -30,4 +30,46 @@ locals {
 
   # CORS origins based on environment
   cors_origins = var.domain_name != "" ? "https://${var.domain_name}" : "http://localhost"
+
+  # Cost estimates (heredocs can't be used in ternary expressions)
+  cost_estimate_prod = <<-EOT
+
+    =====================================================
+      SYNCLEDGER PROD - COST ESTIMATE
+    =====================================================
+      EC2 ${var.ec2_instance_type} x ASG     ~$8-45/mo
+      ALB                                    ~$16-22/mo
+      RDS ${var.db_instance_type}            ~$12-15/mo
+      EBS 20GB gp3 per instance              ~$1.60/mo
+      S3 Storage (< 5GB)                     ~$0.12/mo
+      Secrets Manager (2 secrets)            ~$0.80/mo
+      CloudWatch Logs + Alarms               ~$3.50/mo
+      Data Transfer (10GB)                   ~$0.90/mo
+      NO NAT Gateway                         $0 (saves $32/mo)
+    -----------------------------------------------------
+      TOTAL (1 instance)                     ~$43-58/mo
+      TOTAL (scaled to ${var.asg_max} instances)       ~$59-100/mo
+    =====================================================
+  EOT
+
+  cost_estimate_nonprod = <<-EOT
+
+    =====================================================
+      SYNCLEDGER ${upper(var.environment)} - COST ESTIMATE
+    =====================================================
+      EC2 ${var.ec2_instance_type}           ~$8-15/mo
+      RDS ${var.db_instance_type}            ~$12-15/mo
+      EBS 20GB gp3                           ~$1.60/mo
+      Elastic IP (attached)                  FREE
+      S3 Storage (< 5GB)                     ~$0.12/mo
+      Secrets Manager (2 secrets)            ~$0.80/mo
+      CloudWatch Logs                        ~$2.50/mo
+      Data Transfer (10GB)                   ~$0.90/mo
+      NO ALB (direct EC2)                    $0 (saves $16/mo)
+      NO NAT Gateway                         $0 (saves $32/mo)
+    -----------------------------------------------------
+      TOTAL                                  ~$25-35/mo
+      With Free Tier (first 12 months)       ~$5-10/mo
+    =====================================================
+  EOT
 }

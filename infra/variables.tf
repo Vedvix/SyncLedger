@@ -147,3 +147,22 @@ variable "azure_tenant_id" {
   type        = string
   default     = ""
 }
+
+# ---- Auto Scaling (prod only) ----
+variable "asg_min" {
+  description = "Minimum number of instances in ASG (prod only)"
+  type        = number
+  default     = 1
+}
+
+variable "asg_max" {
+  description = "Maximum number of instances in ASG (prod only)"
+  type        = number
+  default     = 3
+}
+
+variable "asg_desired" {
+  description = "Desired number of instances in ASG (prod only)"
+  type        = number
+  default     = 1
+}

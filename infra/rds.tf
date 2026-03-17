@@ -16,9 +16,9 @@ resource "aws_db_instance" "postgres" {
   engine         = "postgres"
   engine_version = "16.4"
   instance_class = var.db_instance_type
-  
+
   allocated_storage     = 20
-  max_allocated_storage = 50  # auto-scale up to 50GB
+  max_allocated_storage = 50 # auto-scale up to 50GB
   storage_type          = "gp3"
   storage_encrypted     = true
 
@@ -31,8 +31,8 @@ resource "aws_db_instance" "postgres" {
 
   # Cost optimization
   publicly_accessible = var.environment == "dev" ? true : false
-  multi_az            = false  # single-AZ saves ~50%
-  
+  multi_az            = false # single-AZ saves ~50%
+
   # Backup
   backup_retention_period = var.environment == "prod" ? 7 : 1
   backup_window           = "03:00-04:00"

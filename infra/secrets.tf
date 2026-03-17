@@ -14,21 +14,21 @@ resource "aws_secretsmanager_secret" "app_config" {
 resource "aws_secretsmanager_secret_version" "app_config" {
   secret_id = aws_secretsmanager_secret.app_config.id
   secret_string = jsonencode({
-    DB_HOST                = aws_db_instance.postgres.address
-    DB_PORT                = tostring(aws_db_instance.postgres.port)
-    DB_NAME                = var.db_name
-    DB_USERNAME            = var.db_username
-    DB_PASSWORD            = var.db_password
-    JWT_SECRET             = var.jwt_secret
-    OPENAI_API_KEY         = var.openai_api_key
-    AWS_REGION             = var.aws_region
-    S3_BUCKET_NAME         = aws_s3_bucket.storage.id
-    ENVIRONMENT            = var.environment
-    EMAIL_POLLING_ENABLED  = tostring(var.email_polling_enabled)
-    AZURE_CLIENT_ID        = var.azure_client_id
-    AZURE_CLIENT_SECRET    = var.azure_client_secret
-    AZURE_TENANT_ID        = var.azure_tenant_id
-    CORS_ALLOWED_ORIGINS   = local.cors_origins
+    DB_HOST               = aws_db_instance.postgres.address
+    DB_PORT               = tostring(aws_db_instance.postgres.port)
+    DB_NAME               = var.db_name
+    DB_USERNAME           = var.db_username
+    DB_PASSWORD           = var.db_password
+    JWT_SECRET            = var.jwt_secret
+    OPENAI_API_KEY        = var.openai_api_key
+    AWS_REGION            = var.aws_region
+    S3_BUCKET_NAME        = aws_s3_bucket.storage.id
+    ENVIRONMENT           = var.environment
+    EMAIL_POLLING_ENABLED = tostring(var.email_polling_enabled)
+    AZURE_CLIENT_ID       = var.azure_client_id
+    AZURE_CLIENT_SECRET   = var.azure_client_secret
+    AZURE_TENANT_ID       = var.azure_tenant_id
+    CORS_ALLOWED_ORIGINS  = local.cors_origins
   })
 }
 

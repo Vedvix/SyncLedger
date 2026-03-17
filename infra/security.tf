@@ -8,24 +8,6 @@ resource "aws_security_group" "ec2" {
   description = "Security group for EC2 application instances"
   vpc_id      = aws_vpc.main.id
 
-  # HTTP
-  ingress {
-    description = "HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # HTTPS
-  ingress {
-    description = "HTTPS"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   # All outbound
   egress {
     description = "Allow all outbound"
@@ -36,6 +18,41 @@ resource "aws_security_group" "ec2" {
   }
 
   tags = { Name = "${local.name_prefix}-ec2-sg" }
+}
+
+# HTTP/HTTPS directly to EC2 (dev/staging only — prod goes through ALB)
+resource "aws_security_group_rule" "ec2_http_direct" {
+  count             = var.environment != "prod" ? 1 : 0
+  type              = "ingress"
+  description       = "HTTP direct access (non-prod)"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.ec2.id
+}
+
+resource "aws_security_group_rule" "ec2_https_direct" {
+  count             = var.environment != "prod" ? 1 : 0
+  type              = "ingress"
+  description       = "HTTPS direct access (non-prod)"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.ec2.id
+}
+
+# HTTP from ALB only (prod — EC2 sits behind ALB)
+resource "aws_security_group_rule" "ec2_http_from_alb" {
+  count                    = var.environment == "prod" ? 1 : 0
+  type                     = "ingress"
+  description              = "HTTP from ALB only (prod)"
+  from_port                = 80
+  to_port                  = 80
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.alb[0].id
+  security_group_id        = aws_security_group.ec2.id
 }
 
 # SSH access (optional, non-prod only)

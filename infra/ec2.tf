@@ -111,8 +111,9 @@ resource "aws_iam_instance_profile" "ec2" {
   role = aws_iam_role.ec2.name
 }
 
-# ---- EC2 Instance ----
+# ---- EC2 Instance (dev/staging only — prod uses ASG) ----
 resource "aws_instance" "app" {
+  count                  = var.environment != "prod" ? 1 : 0
   ami                    = local.ami_id
   instance_type          = var.ec2_instance_type
   key_name               = var.ec2_key_name != "" ? var.ec2_key_name : null
@@ -128,15 +129,15 @@ resource "aws_instance" "app" {
   }
 
   user_data = base64encode(templatefile("${path.module}/user_data.sh.tpl", {
-    environment      = var.environment
-    region           = var.aws_region
-    project_name     = var.project_name
-    db_host          = aws_db_instance.postgres.address
-    db_port          = aws_db_instance.postgres.port
-    db_name          = var.db_name
-    image_tag        = var.image_tag
-    ghcr_owner       = var.ghcr_owner
-    s3_config_bucket = var.s3_config_bucket
+    environment       = var.environment
+    region            = var.aws_region
+    project_name      = var.project_name
+    db_host           = aws_db_instance.postgres.address
+    db_port           = aws_db_instance.postgres.port
+    db_name           = var.db_name
+    image_tag         = var.image_tag
+    ghcr_owner        = var.ghcr_owner
+    s3_config_bucket  = var.s3_config_bucket
     s3_storage_bucket = aws_s3_bucket.storage.id
   }))
 
@@ -147,9 +148,10 @@ resource "aws_instance" "app" {
   }
 }
 
-# ---- Elastic IP (free when attached) ----
+# ---- Elastic IP (dev/staging only — prod uses ALB DNS) ----
 resource "aws_eip" "app" {
-  instance = aws_instance.app.id
+  count    = var.environment != "prod" ? 1 : 0
+  instance = aws_instance.app[0].id
   domain   = "vpc"
 
   tags = { Name = "${local.name_prefix}-eip" }
