@@ -25,18 +25,11 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8001 ^| findstr LISTENING 2^
     taskkill /PID %%a /F >nul 2>&1
 )
 
-REM Kill Frontend (port 5173)
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :5173 ^| findstr LISTENING 2^>nul') do (
-    echo   Killing Frontend (PID: %%a)
-    taskkill /PID %%a /F >nul 2>&1
-)
-
 echo [OK] Application processes stopped
 
 REM ---- Close service terminal windows ----
 taskkill /FI "WINDOWTITLE eq SyncLedger - Backend*" /F >nul 2>&1
 taskkill /FI "WINDOWTITLE eq SyncLedger - PDF Service*" /F >nul 2>&1
-taskkill /FI "WINDOWTITLE eq SyncLedger - Frontend*" /F >nul 2>&1
 
 REM ---- Stop Docker ----
 echo.

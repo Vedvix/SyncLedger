@@ -1,7 +1,7 @@
 @echo off
 REM =============================================================================
 REM SYNCLEDGER - START ALL SERVICES (Windows)
-REM Starts PostgreSQL, Backend, PDF Service, and Frontend
+REM Starts PostgreSQL, Backend, and PDF Service
 REM =============================================================================
 setlocal enabledelayedexpansion
 
@@ -49,20 +49,9 @@ if errorlevel 1 (
 )
 echo [OK] PostgreSQL is ready!
 
-REM ---- Install Frontend Dependencies ----
-echo.
-echo [2/4] Installing Frontend Dependencies...
-cd frontend
-if not exist node_modules (
-    call npm install
-) else (
-    echo [OK] node_modules already exists, skipping
-)
-cd ..
-
 REM ---- Install PDF Microservice Dependencies ----
 echo.
-echo [3/4] Setting Up PDF Microservice...
+echo [2/3] Setting Up PDF Microservice...
 if not exist .venv (
     echo Creating virtual environment...
     python -m venv .venv
@@ -74,7 +63,7 @@ cd ..
 
 REM ---- Start Services in Separate Windows ----
 echo.
-echo [4/4] Starting Application Services...
+echo [3/3] Starting Application Services...
 
 echo Starting Backend (Spring Boot)...
 start "SyncLedger - Backend" cmd /k "cd syncledger-backend && mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=docker"
@@ -82,21 +71,18 @@ start "SyncLedger - Backend" cmd /k "cd syncledger-backend && mvnw.cmd spring-bo
 echo Starting PDF Microservice (FastAPI)...
 start "SyncLedger - PDF Service" cmd /k "call .venv\Scripts\activate.bat && cd pdf-microservice && python main.py"
 
-echo Starting Frontend (Vite)...
-start "SyncLedger - Frontend" cmd /k "cd frontend && npm run dev"
-
 REM ---- Done ----
 echo.
 echo =======================================================
 echo   All Services Started!
 echo =======================================================
 echo.
-echo   Frontend:     http://localhost:5173
 echo   Backend API:  http://localhost:8080/api
 echo   Swagger UI:   http://localhost:8080/api/swagger-ui.html
 echo   PDF Service:  http://localhost:8001
 echo   PostgreSQL:   localhost:5432
 echo.
+echo   Frontend runs separately from syncledger-frontend repo.
 echo   To stop all services: stop.bat
 echo.
 pause

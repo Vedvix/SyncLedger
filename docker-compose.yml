@@ -120,27 +120,6 @@ services:
       - all
 
   # ===========================================================================
-  # React Frontend
-  # ===========================================================================
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #     args:
-  #       VITE_API_URL: ${API_URL:-http://localhost:8080/api}
-  #   container_name: syncledger-frontend
-  #   restart: unless-stopped
-  #   depends_on:
-  #     - backend
-  #   ports:
-  #     - "3000:80"
-  #   networks:
-  #     - syncledger-network
-  #   profiles:
-  #     - frontend
-  #     - all
-
-  # ===========================================================================
   # LocalStack - AWS Services Mock (S3, SQS)
   # ===========================================================================
   localstack:

@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # SYNCLEDGER - START ALL SERVICES
-# Starts PostgreSQL, builds backend JAR, and runs all services
+# Starts PostgreSQL, builds backend JAR, and runs backend + PDF services
 # =============================================================================
 set -e
 
@@ -84,7 +84,7 @@ if command -v java &> /dev/null; then
     echo -e "${GREEN}  Java: $JAVA_VER${NC}"
 fi
 
-# Check Node.js (optional - needed only for frontend dev server)
+# Check Node.js
 if command -v node &> /dev/null; then
     echo -e "${GREEN}  Node.js: $(node --version)${NC}"
 fi
@@ -114,21 +114,8 @@ for i in $(seq 1 30); do
     sleep 2
 done
 
-# ---- Step 4: Install frontend dependencies ----
-print_header "Step 2/4: Installing Frontend Dependencies"
-if [ -f frontend/package.json ]; then
-    cd frontend
-    if [ ! -d node_modules ]; then
-        echo "Running npm install..."
-        npm install
-    else
-        echo -e "${GREEN}  node_modules already exists, skipping install${NC}"
-    fi
-    cd "$ROOT_DIR"
-fi
-
-# ---- Step 5: Install PDF microservice dependencies ----
-print_header "Step 3/4: Setting Up PDF Microservice"
+# ---- Step 4: Install PDF microservice dependencies ----
+print_header "Step 2/3: Setting Up PDF Microservice"
 if [ -f pdf-microservice/requirements.txt ]; then
     cd pdf-microservice
     if [ ! -d ../.venv ]; then
@@ -142,13 +129,11 @@ if [ -f pdf-microservice/requirements.txt ]; then
 fi
 
 # ---- Step 6: Start services ----
-print_header "Step 4/4: Starting Application Services"
+print_header "Step 3/3: Starting Application Services"
 
 echo -e "${YELLOW}Checking and freeing required ports...${NC}"
 ensure_port_free 8080 "Backend"
 ensure_port_free 8001 "PDF Microservice"
-ensure_port_free 3000 "Frontend"
-ensure_port_free 5173 "Frontend"
 
 mkdir -p .pids
 
@@ -173,27 +158,19 @@ python main.py &
 PDF_PID=$!
 cd "$ROOT_DIR"
 
-# Start frontend
-echo -e "${YELLOW}Starting Frontend (Vite)...${NC}"
-cd frontend
-npm run dev &
-FRONTEND_PID=$!
-cd "$ROOT_DIR"
-
 # Save PIDs for stop script
 echo "$BACKEND_PID" > .pids/backend.pid
 echo "$PDF_PID" > .pids/pdf.pid
-echo "$FRONTEND_PID" > .pids/frontend.pid
 
 # ---- Done ----
 print_header "All Services Started!"
 
-echo -e "  ${GREEN}Frontend:${NC}     http://localhost:5173"
 echo -e "  ${GREEN}Backend API:${NC}  http://localhost:8080/api"
 echo -e "  ${GREEN}Swagger UI:${NC}   http://localhost:8080/api/swagger-ui.html"
 echo -e "  ${GREEN}PDF Service:${NC}  http://localhost:8001"
 echo -e "  ${GREEN}PostgreSQL:${NC}   localhost:5432"
 echo ""
+echo -e "  ${YELLOW}Frontend runs separately from syncledger-frontend repo.${NC}"
 echo -e "  ${YELLOW}To stop all services:${NC} ./stop.sh"
 echo -e "  ${YELLOW}Logs:${NC} docker compose logs -f postgres"
 echo ""

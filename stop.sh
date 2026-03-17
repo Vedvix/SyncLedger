@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # SYNCLEDGER - STOP ALL SERVICES
-# Stops PostgreSQL, backend, frontend, and PDF microservice
+# Stops PostgreSQL, backend, and PDF microservice
 # =============================================================================
 
 GREEN='\033[0;32m'
@@ -44,7 +44,7 @@ print_header "SyncLedger - Stopping All Services"
 echo -e "${YELLOW}Stopping application processes...${NC}"
 
 # Kill by known ports
-for PORT in 8080 8001 3000 5173; do
+for PORT in 8080 8001; do
     PIDS=$(get_pids_by_port "$PORT")
     if [ -n "$PIDS" ]; then
         for PID in $PIDS; do
@@ -69,7 +69,6 @@ fi
 pkill -f "syncledger-backend" 2>/dev/null || true
 pkill -f "spring-boot:run" 2>/dev/null || true
 pkill -f "pdf-microservice/main.py" 2>/dev/null || true
-pkill -f "vite.*frontend" 2>/dev/null || true
 
 echo -e "${GREEN}  Application processes stopped${NC}"
 
