@@ -118,6 +118,52 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate Required GitHub Configuration
+        env:
+          AWS_ACCESS_KEY_ID_VAL: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY_VAL: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          DB_PASSWORD_VAL: ${{ secrets.DB_PASSWORD }}
+          JWT_SECRET_VAL: ${{ secrets.JWT_SECRET }}
+          OPENAI_API_KEY_VAL: ${{ secrets.OPENAI_API_KEY }}
+          S3_CONFIG_BUCKET_VAL: ${{ vars.S3_CONFIG_BUCKET || '' }}
+          TF_STATE_BUCKET_VAL: ${{ vars.TF_STATE_BUCKET || '' }}
+          TF_LOCK_TABLE_VAL: ${{ vars.TF_LOCK_TABLE || '' }}
+        run: |
+          set -euo pipefail
+          MISSING=0
+
+          check_required() {
+            local name="$1"
+            local value="$2"
+            if [ -z "$value" ]; then
+              echo "::error::Missing required GitHub secret/variable: $name"
+              MISSING=1
+            fi
+          }
+
+          # Required for successful terraform + app runtime
+          check_required "AWS_ACCESS_KEY_ID" "$AWS_ACCESS_KEY_ID_VAL"
+          check_required "AWS_SECRET_ACCESS_KEY" "$AWS_SECRET_ACCESS_KEY_VAL"
+          check_required "DB_PASSWORD" "$DB_PASSWORD_VAL"
+          check_required "JWT_SECRET" "$JWT_SECRET_VAL"
+          check_required "OPENAI_API_KEY" "$OPENAI_API_KEY_VAL"
+
+          # Strongly recommended (workflow has defaults, but explicit values avoid drift)
+          if [ -z "$S3_CONFIG_BUCKET_VAL" ]; then
+            echo "::warning::S3_CONFIG_BUCKET not set. Using default: syncledger-config"
+          fi
+          if [ -z "$TF_STATE_BUCKET_VAL" ]; then
+            echo "::warning::TF_STATE_BUCKET not set. Using default: syncledger-terraform-state"
+          fi
+          if [ -z "$TF_LOCK_TABLE_VAL" ]; then
+            echo "::warning::TF_LOCK_TABLE not set. Using default: syncledger-terraform-locks"
+          fi
+
+          if [ "$MISSING" -ne 0 ]; then
+            echo "::error::Deployment blocked due to missing required configuration."
+            exit 1
+          fi
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -196,6 +242,57 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Validate Runtime Secrets Manager Configuration
+        run: |
+          set -euo pipefail
+          ENV="${{ needs.resolve.outputs.environment }}"
+
+          echo "Validating syncledger/${ENV}/app-config ..."
+          APP_SECRET=$(aws secretsmanager get-secret-value \
+            --secret-id "syncledger/${ENV}/app-config" \
+            --region "${{ env.AWS_REGION }}" \
+            --query 'SecretString' --output text 2>/dev/null || echo "")
+
+          if [ -z "$APP_SECRET" ] || [ "$APP_SECRET" = "null" ]; then
+            echo "::error::Missing Secrets Manager secret: syncledger/${ENV}/app-config"
+            echo "::error::Run deploy with action=deploy to let Terraform create/update this secret."
+            exit 1
+          fi
+
+          check_json_key() {
+            local key="$1"
+            local value
+            value=$(echo "$APP_SECRET" | jq -r --arg k "$key" '.[$k] // empty')
+            if [ -z "$value" ] || [ "$value" = "null" ]; then
+              echo "::error::app-config missing required key: $key"
+              return 1
+            fi
+            return 0
+          }
+
+          FAIL=0
+          for K in DB_HOST DB_PORT DB_NAME DB_USERNAME DB_PASSWORD JWT_SECRET OPENAI_API_KEY S3_BUCKET_NAME; do
+            check_json_key "$K" || FAIL=1
+          done
+
+          echo "Validating syncledger/${ENV}/ghcr ..."
+          GHCR_SECRET=$(aws secretsmanager get-secret-value \
+            --secret-id "syncledger/${ENV}/ghcr" \
+            --region "${{ env.AWS_REGION }}" \
+            --query 'SecretString' --output text 2>/dev/null || echo "")
+
+          GHCR_USER=$(echo "$GHCR_SECRET" | jq -r '.username // empty' 2>/dev/null || echo "")
+          GHCR_TOKEN=$(echo "$GHCR_SECRET" | jq -r '.token // empty' 2>/dev/null || echo "")
+          if [ -z "$GHCR_USER" ] || [ -z "$GHCR_TOKEN" ]; then
+            echo "::error::Missing or incomplete secret: syncledger/${ENV}/ghcr"
+            echo "::error::Set GHCR_PAT secret and rerun deploy with update_secrets=true."
+            FAIL=1
+          fi
+
+          if [ "$FAIL" -ne 0 ]; then
+            exit 1
+          fi
 
       # Upload docker-compose.deploy.yml to S3 config bucket
       - name: Upload docker-compose to S3
