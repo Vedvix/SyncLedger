@@ -245,6 +245,20 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # Update GHCR credentials FIRST (before validation, so first deploy works)
+      - name: Update GHCR credentials
+        if: inputs.update_secrets
+        run: |
+          ENV="${{ needs.resolve.outputs.environment }}"
+          aws secretsmanager put-secret-value \
+            --secret-id "syncledger/${ENV}/ghcr" \
+            --secret-string "{\"username\":\"${{ github.actor }}\",\"token\":\"${{ secrets.GHCR_PAT }}\"}" \
+            --region ${{ env.AWS_REGION }} || \
+          aws secretsmanager create-secret \
+            --name "syncledger/${ENV}/ghcr" \
+            --secret-string "{\"username\":\"${{ github.actor }}\",\"token\":\"${{ secrets.GHCR_PAT }}\"}" \
+            --region ${{ env.AWS_REGION }}
+
       - name: Validate Runtime Secrets Manager Configuration
         run: |
           set -euo pipefail
@@ -296,26 +310,11 @@ jobs:
             exit 1
           fi
 
-      # Upload docker-compose.deploy.yml to S3 config bucket
       - name: Upload docker-compose to S3
         run: |
           ENV="${{ needs.resolve.outputs.environment }}"
           aws s3 cp docker-compose.deploy.yml \
             "s3://${{ vars.S3_CONFIG_BUCKET || 'syncledger-config' }}/${ENV}/docker-compose.yml"
-
-      # Update GHCR credentials in Secrets Manager
-      - name: Update GHCR credentials
-        if: inputs.update_secrets
-        run: |
-          ENV="${{ needs.resolve.outputs.environment }}"
-          aws secretsmanager put-secret-value \
-            --secret-id "syncledger/${ENV}/ghcr" \
-            --secret-string "{\"username\":\"${{ github.actor }}\",\"token\":\"${{ secrets.GHCR_PAT }}\"}" \
-            --region ${{ env.AWS_REGION }} || \
-          aws secretsmanager create-secret \
-            --name "syncledger/${ENV}/ghcr" \
-            --secret-string "{\"username\":\"${{ github.actor }}\",\"token\":\"${{ secrets.GHCR_PAT }}\"}" \
-            --region ${{ env.AWS_REGION }}
 
       # Deploy via SSM Run Command
       - name: Deploy via SSM
