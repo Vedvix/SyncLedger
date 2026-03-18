@@ -230,14 +230,15 @@ jobs:
           
           DEPLOY_SCRIPT=$(cat <<'EOF'
           set -eu
+          RUN_USER="${SUDO_USER:-${USER:-$(id -un)}}"
           # Bootstrap target directory for first-time deployments.
           if [ ! -d /opt/syncledger ]; then
             if command -v sudo >/dev/null 2>&1; then
               sudo mkdir -p /opt/syncledger
-              sudo chown "$USER":"$USER" /opt/syncledger || true
+              sudo chown "$RUN_USER":"$RUN_USER" /opt/syncledger || true
             else
               mkdir -p /opt/syncledger
-              chown "$USER":"$USER" /opt/syncledger || true
+              chown "$RUN_USER":"$RUN_USER" /opt/syncledger || true
             fi
           fi
           cd /opt/syncledger
