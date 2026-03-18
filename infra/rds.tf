@@ -39,9 +39,9 @@ resource "aws_db_instance" "postgres" {
   maintenance_window      = "sun:04:00-sun:05:00"
 
   # Lifecycle
-  skip_final_snapshot       = var.environment != "prod"
-  final_snapshot_identifier = var.environment == "prod" ? "${local.name_prefix}-final-snapshot" : null
-  deletion_protection       = var.environment == "prod" ? true : false
+  skip_final_snapshot       = var.environment != "prod" || var.force_skip_final_snapshot
+  final_snapshot_identifier = var.environment == "prod" && !var.force_skip_final_snapshot ? "${local.name_prefix}-final-snapshot" : null
+  deletion_protection       = var.environment == "prod" && !var.force_disable_deletion_protection
 
   # Performance Insights (free tier includes basic)
   performance_insights_enabled = true

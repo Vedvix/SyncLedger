@@ -166,3 +166,15 @@ variable "asg_desired" {
   type        = number
   default     = 1
 }
+
+variable "force_skip_final_snapshot" {
+  description = "Destroy override: skip final RDS snapshot even in prod"
+  type        = bool
+  default     = false
+}
+
+variable "force_disable_deletion_protection" {
+  description = "Destroy override: disable RDS deletion protection even in prod"
+  type        = bool
+  default     = false
+}
