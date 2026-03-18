@@ -9,3 +9,7 @@ enable_ssh        = true
 # my_ip           = "YOUR_IP/32"
 
 email_polling_enabled = false
+
+# ---- Domain ----
+domain_name = "api.sandbox.viaflo.ai"
+# route53_zone_id = ""   # set after running bootstrap with domain_name=viaflo.ai

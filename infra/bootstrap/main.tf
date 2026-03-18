@@ -109,6 +109,23 @@ resource "aws_s3_bucket_public_access_block" "config" {
   restrict_public_buckets = true
 }
 
+# ---- Route53 Hosted Zone (shared across all environments) ----
+variable "domain_name" {
+  description = "Root domain name for the application (e.g., viaflo.ai)"
+  type        = string
+  default     = ""
+}
+
+resource "aws_route53_zone" "main" {
+  count = var.domain_name != "" ? 1 : 0
+  name  = var.domain_name
+
+  tags = {
+    Name    = "${var.project_name}-dns-zone"
+    Project = var.project_name
+  }
+}
+
 # ---- Outputs ----
 output "state_bucket" {
   value = aws_s3_bucket.terraform_state.id
@@ -122,6 +139,16 @@ output "config_bucket" {
   value = aws_s3_bucket.config.id
 }
 
+output "route53_zone_id" {
+  description = "Route53 hosted zone ID — set as ROUTE53_ZONE_ID in GitHub vars"
+  value       = var.domain_name != "" ? aws_route53_zone.main[0].zone_id : "N/A — no domain_name set"
+}
+
+output "route53_nameservers" {
+  description = "Point your domain registrar (Squarespace) NS records to these"
+  value       = var.domain_name != "" ? aws_route53_zone.main[0].name_servers : []
+}
+
 output "next_steps" {
   value = <<-EOT
     
@@ -131,7 +158,7 @@ output "next_steps" {
     2. Set up GitHub repository secrets (see DEPLOYMENT.md)
     3. Push code to trigger the build workflow
     4. Run the deploy workflow for your environment
-    
+    ${var.domain_name != "" ? "\n    5. Point your domain registrar NS records to the Route53 nameservers above\n    6. Set ROUTE53_ZONE_ID GitHub variable to: ${aws_route53_zone.main[0].zone_id}" : ""}
     State backend config for GitHub Actions:
       bucket         = "${aws_s3_bucket.terraform_state.id}"
       dynamodb_table = "${aws_dynamodb_table.terraform_locks.name}"

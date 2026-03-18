@@ -1,28 +1,13 @@
 # =============================================================================
-# SYNCLEDGER - ACM CERTIFICATE + ROUTE53 + HTTPS
-# Only created when domain_name is set (prod recommended)
-# Provides free, auto-renewing SSL via AWS Certificate Manager
+# SYNCLEDGER - ACM CERTIFICATE + DNS RECORDS + HTTPS
+# Requires: Route53 hosted zone created in bootstrap (shared across envs)
+# Set domain_name + route53_zone_id to enable
+#
+# Prod (ALB):     HTTPS via ACM + HTTP→HTTPS redirect
+# Dev/Staging:    DNS A record → EIP (HTTP)
 # =============================================================================
 
-# ---- Route53 Hosted Zone ----
-# Create a new hosted zone if no existing zone ID is provided
-resource "aws_route53_zone" "app" {
-  count = var.domain_name != "" && var.route53_zone_id == "" ? 1 : 0
-  name  = var.domain_name
-
-  tags = { Name = "${local.name_prefix}-zone" }
-}
-
-locals {
-  # Use provided zone ID or the one we created
-  route53_zone_id = (
-    var.domain_name == "" ? "" :
-    var.route53_zone_id != "" ? var.route53_zone_id :
-    aws_route53_zone.app[0].zone_id
-  )
-}
-
-# ---- ACM Certificate ----
+# ---- ACM Certificate (all envs with domain) ----
 resource "aws_acm_certificate" "app" {
   count             = var.domain_name != "" ? 1 : 0
   domain_name       = var.domain_name
@@ -49,7 +34,7 @@ resource "aws_route53_record" "cert_validation" {
   allow_overwrite = true
   name            = each.value.name
   type            = each.value.type
-  zone_id         = local.route53_zone_id
+  zone_id         = var.route53_zone_id
   records         = [each.value.record]
   ttl             = 60
 }
@@ -61,10 +46,10 @@ resource "aws_acm_certificate_validation" "app" {
   validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
 }
 
-# ---- DNS Record: domain -> ALB (prod only, alias record) ----
+# ---- DNS Record: domain → ALB (prod, alias record) ----
 resource "aws_route53_record" "app_alb" {
   count   = var.domain_name != "" && var.environment == "prod" ? 1 : 0
-  zone_id = local.route53_zone_id
+  zone_id = var.route53_zone_id
   name    = var.domain_name
   type    = "A"
 
@@ -75,17 +60,17 @@ resource "aws_route53_record" "app_alb" {
   }
 }
 
-# ---- DNS Record: domain -> EIP (non-prod, standard A record) ----
+# ---- DNS Record: domain → EIP (dev/staging, standard A record) ----
 resource "aws_route53_record" "app_eip" {
   count   = var.domain_name != "" && var.environment != "prod" ? 1 : 0
-  zone_id = local.route53_zone_id
+  zone_id = var.route53_zone_id
   name    = var.domain_name
   type    = "A"
   ttl     = 300
   records = [aws_eip.app[0].public_ip]
 }
 
-# ---- HTTPS Listener (port 443) ----
+# ---- HTTPS Listener (port 443, prod only) ----
 resource "aws_lb_listener" "https" {
   count             = var.environment == "prod" && var.domain_name != "" ? 1 : 0
   load_balancer_arn = aws_lb.app[0].arn

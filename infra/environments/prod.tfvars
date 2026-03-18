@@ -10,9 +10,9 @@ enable_ssh        = false
 
 email_polling_enabled = true
 
-# ---- HTTPS Setup (uncomment and set your domain) ----
-# domain_name    = "app.syncledger.com"
-# route53_zone_id = ""   # leave empty to create a new hosted zone
+# ---- Domain + HTTPS ----
+domain_name = "api.viaflo.ai"
+# route53_zone_id = ""   # set after running bootstrap with domain_name=viaflo.ai
 
 # Auto Scaling
 asg_min     = 1
