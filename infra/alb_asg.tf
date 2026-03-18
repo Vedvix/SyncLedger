@@ -4,6 +4,12 @@
 # Dev/staging use the standalone EC2 instance directly
 # =============================================================================
 
+# Migrate from split http/http_redirect listeners to single http listener
+moved {
+  from = aws_lb_listener.http_redirect[0]
+  to   = aws_lb_listener.http[0]
+}
+
 # ---- ALB Security Group ----
 resource "aws_security_group" "alb" {
   count       = var.environment == "prod" ? 1 : 0
@@ -79,32 +85,25 @@ resource "aws_lb_target_group" "app" {
   tags = { Name = "${local.name_prefix}-tg" }
 }
 
-# ---- HTTP Listener: forward (no domain — plain HTTP) ----
+# ---- HTTP Listener (port 80) ----
+# Redirects to HTTPS when domain_name is set, otherwise forwards to target group
 resource "aws_lb_listener" "http" {
-  count             = var.environment == "prod" && var.domain_name == "" ? 1 : 0
+  count             = var.environment == "prod" ? 1 : 0
   load_balancer_arn = aws_lb.app[0].arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.app[0].arn
-  }
-}
+    type             = var.domain_name != "" ? "redirect" : "forward"
+    target_group_arn = var.domain_name == "" ? aws_lb_target_group.app[0].arn : null
 
-# ---- HTTP Listener: redirect to HTTPS (domain set) ----
-resource "aws_lb_listener" "http_redirect" {
-  count             = var.environment == "prod" && var.domain_name != "" ? 1 : 0
-  load_balancer_arn = aws_lb.app[0].arn
-  port              = 80
-  protocol          = "HTTP"
-
-  default_action {
-    type = "redirect"
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
+    dynamic "redirect" {
+      for_each = var.domain_name != "" ? [1] : []
+      content {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
     }
   }
 }
