@@ -118,7 +118,13 @@ variable "private_subnet_cidrs" {
 
 # ---- Optional ----
 variable "domain_name" {
-  description = "Custom domain name (optional). Leave empty to use EC2 public IP."
+  description = "Custom domain name (optional). Enables HTTPS via ACM + Route53 when set."
+  type        = string
+  default     = ""
+}
+
+variable "route53_zone_id" {
+  description = "Route53 hosted zone ID for the domain. If empty, a new zone is created when domain_name is set."
   type        = string
   default     = ""
 }

@@ -71,6 +71,16 @@ output "asg_name" {
   value       = var.environment == "prod" ? aws_autoscaling_group.app[0].name : "N/A — no ASG in ${var.environment}"
 }
 
+output "route53_nameservers" {
+  description = "Route53 nameservers — point your domain registrar to these (only when a new zone is created)"
+  value       = var.domain_name != "" && var.route53_zone_id == "" ? aws_route53_zone.app[0].name_servers : []
+}
+
+output "acm_certificate_arn" {
+  description = "ACM certificate ARN"
+  value       = var.domain_name != "" ? aws_acm_certificate.app[0].arn : "N/A — set domain_name to enable HTTPS"
+}
+
 output "cost_estimate" {
   description = "Estimated monthly cost"
   value       = var.environment == "prod" ? local.cost_estimate_prod : local.cost_estimate_nonprod

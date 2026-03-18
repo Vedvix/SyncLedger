@@ -79,9 +79,9 @@ resource "aws_lb_target_group" "app" {
   tags = { Name = "${local.name_prefix}-tg" }
 }
 
-# ---- HTTP Listener (redirect to HTTPS if domain, else forward) ----
+# ---- HTTP Listener: forward (no domain — plain HTTP) ----
 resource "aws_lb_listener" "http" {
-  count             = var.environment == "prod" ? 1 : 0
+  count             = var.environment == "prod" && var.domain_name == "" ? 1 : 0
   load_balancer_arn = aws_lb.app[0].arn
   port              = 80
   protocol          = "HTTP"
@@ -89,6 +89,23 @@ resource "aws_lb_listener" "http" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.app[0].arn
+  }
+}
+
+# ---- HTTP Listener: redirect to HTTPS (domain set) ----
+resource "aws_lb_listener" "http_redirect" {
+  count             = var.environment == "prod" && var.domain_name != "" ? 1 : 0
+  load_balancer_arn = aws_lb.app[0].arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
   }
 }
 
