@@ -111,7 +111,6 @@ jobs:
       TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
       TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
       TF_VAR_ec2_key_name: ${{ vars.EC2_KEY_NAME || '' }}
-      TF_VAR_route53_zone_id: ${{ vars.ROUTE53_ZONE_ID || '' }}
       TF_VAR_s3_config_bucket: ${{ vars.S3_CONFIG_BUCKET || 'syncledger-config' }}
       TF_VAR_azure_client_id: ${{ secrets.AZURE_CLIENT_ID || '' }}
       TF_VAR_azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET || '' }}

@@ -72,13 +72,24 @@ output "asg_name" {
 }
 
 output "acm_certificate_arn" {
-  description = "ACM certificate ARN"
-  value       = var.domain_name != "" ? aws_acm_certificate.app[0].arn : "N/A — set domain_name to enable HTTPS"
+  description = "ACM certificate ARN (prod only)"
+  value       = var.domain_name != "" && var.environment == "prod" ? aws_acm_certificate.app[0].arn : "N/A"
+}
+
+output "acm_validation_records" {
+  description = "Add these CNAME records in Squarespace DNS to validate the ACM certificate"
+  value = var.domain_name != "" && var.environment == "prod" ? [
+    for dvo in aws_acm_certificate.app[0].domain_validation_options : {
+      name  = dvo.resource_record_name
+      type  = dvo.resource_record_type
+      value = dvo.resource_record_value
+    }
+  ] : []
 }
 
 output "domain_url" {
   description = "Domain URL for this environment"
-  value       = var.domain_name != "" ? (var.environment == "prod" ? "https://${var.domain_name}" : "http://${var.domain_name}") : "N/A — no domain configured"
+  value       = var.domain_name != "" && var.environment == "prod" ? "https://${var.domain_name}" : "N/A"
 }
 
 output "cost_estimate" {

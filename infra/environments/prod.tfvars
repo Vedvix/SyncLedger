@@ -10,9 +10,8 @@ enable_ssh        = false
 
 email_polling_enabled = true
 
-# ---- Domain + HTTPS ----
+# ---- Domain + HTTPS (DNS managed in Squarespace) ----
 domain_name = "api.viaflo.ai"
-# route53_zone_id = ""   # set after running bootstrap with domain_name=viaflo.ai
 
 # Auto Scaling
 asg_min     = 1

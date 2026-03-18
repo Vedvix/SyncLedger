@@ -10,6 +10,5 @@ enable_ssh        = true
 
 email_polling_enabled = false
 
-# ---- Domain ----
-domain_name = "api.sandbox.viaflo.ai"
-# route53_zone_id = ""   # set after running bootstrap with domain_name=viaflo.ai
+# Domain DNS managed in Squarespace (CNAME → EIP)
+# domain_name = "api.sandbox.viaflo.ai"
