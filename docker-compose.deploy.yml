@@ -33,6 +33,8 @@ services:
       AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
       # CORS
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost}
+      # Encryption key for secrets at rest
+      ENCRYPTION_MASTER_KEY: ${ENCRYPTION_MASTER_KEY:-}
       # Backend-only mode (no frontend reverse proxy)
       SERVER_SERVLET_CONTEXT_PATH: /
       # Organization Seed - LongHome

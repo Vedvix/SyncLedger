@@ -148,6 +148,19 @@ variable "azure_tenant_id" {
   default     = ""
 }
 
+variable "cors_allowed_origins" {
+  description = "CORS allowed origins (comma-separated). Set to frontend URL(s) for production."
+  type        = string
+  default     = ""
+}
+
+variable "encryption_master_key" {
+  description = "AES-256 master key for encrypting secrets at rest (base64-encoded). Generate: openssl rand -base64 32"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # ---- Auto Scaling (prod only) ----
 variable "asg_min" {
   description = "Minimum number of instances in ASG (prod only)"

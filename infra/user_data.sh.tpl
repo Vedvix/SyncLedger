@@ -96,6 +96,9 @@ AZURE_TENANT_ID=$(echo "$APP_SECRET" | jq -r '.AZURE_TENANT_ID')
 
 # CORS
 CORS_ALLOWED_ORIGINS=$(echo "$APP_SECRET" | jq -r '.CORS_ALLOWED_ORIGINS')
+
+# Encryption
+ENCRYPTION_MASTER_KEY=$(echo "$APP_SECRET" | jq -r '.ENCRYPTION_MASTER_KEY // ""')
 ENVEOF
 
 chmod 600 /opt/syncledger/.env

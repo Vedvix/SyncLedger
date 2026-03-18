@@ -61,6 +61,8 @@ jobs:
       TF_VAR_force_disable_deletion_protection: 'true'
       TF_VAR_s3_config_bucket: ${{ vars.S3_CONFIG_BUCKET || 'syncledger-config' }}
       TF_VAR_ec2_key_name: ${{ vars.EC2_KEY_NAME || '' }}
+      TF_VAR_cors_allowed_origins: ${{ vars.CORS_ALLOWED_ORIGINS || '' }}
+      TF_VAR_encryption_master_key: ${{ secrets.ENCRYPTION_MASTER_KEY || '' }}
     steps:
       - uses: actions/checkout@v4
 

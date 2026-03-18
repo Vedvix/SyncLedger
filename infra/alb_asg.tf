@@ -194,58 +194,17 @@ resource "aws_autoscaling_group" "app" {
   }
 }
 
-# ---- Scaling Policies ----
-resource "aws_autoscaling_policy" "scale_up" {
+# ---- Target Tracking Scaling (industry-standard, no extra CloudWatch alarm costs) ----
+resource "aws_autoscaling_policy" "cpu_target_tracking" {
   count                  = var.environment == "prod" ? 1 : 0
-  name                   = "${local.name_prefix}-scale-up"
+  name                   = "${local.name_prefix}-cpu-tracking"
   autoscaling_group_name = aws_autoscaling_group.app[0].name
-  adjustment_type        = "ChangeInCapacity"
-  scaling_adjustment     = 1
-  cooldown               = 300
-}
+  policy_type            = "TargetTrackingScaling"
 
-resource "aws_autoscaling_policy" "scale_down" {
-  count                  = var.environment == "prod" ? 1 : 0
-  name                   = "${local.name_prefix}-scale-down"
-  autoscaling_group_name = aws_autoscaling_group.app[0].name
-  adjustment_type        = "ChangeInCapacity"
-  scaling_adjustment     = -1
-  cooldown               = 300
-}
-
-# ---- CloudWatch Alarms for Scaling ----
-resource "aws_cloudwatch_metric_alarm" "high_cpu" {
-  count               = var.environment == "prod" ? 1 : 0
-  alarm_name          = "${local.name_prefix}-high-cpu"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 2
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/EC2"
-  period              = 120
-  statistic           = "Average"
-  threshold           = 70
-  alarm_description   = "Scale up when CPU > 70% for 4 minutes"
-  alarm_actions       = [aws_autoscaling_policy.scale_up[0].arn]
-
-  dimensions = {
-    AutoScalingGroupName = aws_autoscaling_group.app[0].name
-  }
-}
-
-resource "aws_cloudwatch_metric_alarm" "low_cpu" {
-  count               = var.environment == "prod" ? 1 : 0
-  alarm_name          = "${local.name_prefix}-low-cpu"
-  comparison_operator = "LessThanThreshold"
-  evaluation_periods  = 3
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/EC2"
-  period              = 120
-  statistic           = "Average"
-  threshold           = 25
-  alarm_description   = "Scale down when CPU < 25% for 6 minutes"
-  alarm_actions       = [aws_autoscaling_policy.scale_down[0].arn]
-
-  dimensions = {
-    AutoScalingGroupName = aws_autoscaling_group.app[0].name
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+    target_value = 60.0
   }
 }

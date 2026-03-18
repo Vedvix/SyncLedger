@@ -29,6 +29,7 @@ resource "aws_secretsmanager_secret_version" "app_config" {
     AZURE_CLIENT_SECRET   = var.azure_client_secret
     AZURE_TENANT_ID       = var.azure_tenant_id
     CORS_ALLOWED_ORIGINS  = local.cors_origins
+    ENCRYPTION_MASTER_KEY = var.encryption_master_key
   })
 }
 

@@ -61,4 +61,4 @@ logging:
 
 email:
   polling:
-    enabled: true
+    enabled: ${EMAIL_POLLING_ENABLED:false}

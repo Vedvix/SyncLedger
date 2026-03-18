@@ -115,6 +115,8 @@ jobs:
       TF_VAR_azure_client_id: ${{ secrets.AZURE_CLIENT_ID || '' }}
       TF_VAR_azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET || '' }}
       TF_VAR_azure_tenant_id: ${{ secrets.AZURE_TENANT_ID || '' }}
+      TF_VAR_cors_allowed_origins: ${{ vars.CORS_ALLOWED_ORIGINS || '' }}
+      TF_VAR_encryption_master_key: ${{ secrets.ENCRYPTION_MASTER_KEY || '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -371,6 +373,7 @@ jobs:
           AZURE_CLIENT_SECRET=$(echo "$APP_SECRET" | jq -r '.AZURE_CLIENT_SECRET // ""')
           AZURE_TENANT_ID=$(echo "$APP_SECRET" | jq -r '.AZURE_TENANT_ID // ""')
           CORS_ALLOWED_ORIGINS=$(echo "$APP_SECRET" | jq -r '.CORS_ALLOWED_ORIGINS // "http://localhost"')
+          ENCRYPTION_MASTER_KEY=$(echo "$APP_SECRET" | jq -r '.ENCRYPTION_MASTER_KEY // ""')
           ENVEOF
           chmod 600 .env
           

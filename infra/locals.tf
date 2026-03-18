@@ -29,7 +29,12 @@ locals {
   )
 
   # CORS origins based on environment
-  cors_origins = var.domain_name != "" ? "https://${var.domain_name}" : "http://localhost"
+  # Priority: explicit variable > domain-based > localhost defaults
+  cors_origins = (
+    var.cors_allowed_origins != "" ? var.cors_allowed_origins :
+    var.domain_name != "" ? "https://${var.domain_name}" :
+    "http://localhost:3000,http://localhost:5173"
+  )
 
   # Cost estimates (heredocs can't be used in ternary expressions)
   cost_estimate_prod = <<-EOT
