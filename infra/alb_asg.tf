@@ -66,7 +66,7 @@ resource "aws_lb_target_group" "app" {
 
   health_check {
     enabled             = true
-    path                = "/api/actuator/health"
+    path                = "/actuator/health"
     port                = "traffic-port"
     protocol            = "HTTP"
     healthy_threshold   = 2

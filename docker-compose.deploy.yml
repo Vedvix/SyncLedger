@@ -33,6 +33,8 @@ services:
       AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
       # CORS
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost}
+      # Backend-only mode (no frontend reverse proxy)
+      SERVER_SERVLET_CONTEXT_PATH: /
       # Organization Seed - LongHome
       SEED_LONGHOME_ENABLED: ${SEED_LONGHOME_ENABLED:-true}
       SEED_LONGHOME_MS_CLIENT_ID: ${SEED_LONGHOME_MS_CLIENT_ID:-}
@@ -47,8 +49,10 @@ services:
       SEED_LONGHOME_ADMIN_PASSWORD: ${SEED_LONGHOME_ADMIN_PASSWORD:-LongHome@2026!}
     volumes:
       - uploads_data:/app/uploads
+    ports:
+      - "80:8080"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/actuator/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 30s
       timeout: 10s
       start_period: 60s
@@ -88,24 +92,6 @@ services:
         limits:
           memory: 256M
 
-  # ---------------------------------------------------------------------------
-  # Nginx Reverse Proxy + Frontend
-  # ---------------------------------------------------------------------------
-  frontend:
-    image: ghcr.io/${GHCR_OWNER:-vedvix}/syncledger-frontend:${IMAGE_TAG:-latest}
-    container_name: syncledger-frontend
-    restart: always
-    depends_on:
-      backend:
-        condition: service_healthy
-    ports:
-      - "80:80"
-    networks:
-      - syncledger
-    deploy:
-      resources:
-        limits:
-          memory: 64M
 
 volumes:
   uploads_data:

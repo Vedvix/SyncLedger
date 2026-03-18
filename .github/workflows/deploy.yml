@@ -466,7 +466,7 @@ jobs:
       - name: Health Check
         run: |
           IP="${{ needs.terraform.outputs.instance_ip }}"
-          URL="http://$IP/api/actuator/health"
+          URL="http://$IP/actuator/health"
           echo "Checking health at $URL ..."
           HEALTHY=false
           
@@ -496,7 +496,7 @@ jobs:
           done
 
           if [ "$HEALTHY" != "true" ]; then
-            echo "Health check failed: application is not reachable on /api/actuator/health"
+            echo "Health check failed: application is not reachable on /actuator/health"
             exit 1
           fi
 
@@ -590,5 +590,5 @@ jobs:
           echo "  RDS:          ${{ needs.terraform.outputs.rds_endpoint }}"
           echo "  S3 Bucket:    ${{ needs.terraform.outputs.s3_bucket }}"
           echo "  App URL:      http://${{ needs.terraform.outputs.instance_ip }}"
-          echo "  API URL:      http://${{ needs.terraform.outputs.instance_ip }}/api"
+          echo "  API URL:      http://${{ needs.terraform.outputs.instance_ip }}"
           echo "========================================"

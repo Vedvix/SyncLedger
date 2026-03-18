@@ -147,7 +147,7 @@ systemctl enable syncledger.service
 # ---- Health check ----
 echo "Waiting for application to start..."
 for i in $(seq 1 30); do
-  HTTP_CODE=$(curl -s -o /dev/null -w "%%{http_code}" http://localhost/api/actuator/health 2>/dev/null || echo "000")
+  HTTP_CODE=$(curl -s -o /dev/null -w "%%{http_code}" http://localhost/actuator/health 2>/dev/null || echo "000")
   if [ "$HTTP_CODE" = "200" ]; then
     echo "Application is healthy! (attempt $i)"
     break

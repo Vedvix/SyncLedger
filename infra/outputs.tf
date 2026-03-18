@@ -30,9 +30,9 @@ output "app_url" {
 output "api_url" {
   description = "Backend API URL"
   value = (
-    var.domain_name != "" ? "https://${var.domain_name}/api" :
-    var.environment == "prod" ? "http://${aws_lb.app[0].dns_name}/api" :
-    "http://${aws_eip.app[0].public_ip}/api"
+    var.domain_name != "" ? "https://${var.domain_name}" :
+    var.environment == "prod" ? "http://${aws_lb.app[0].dns_name}" :
+    "http://${aws_eip.app[0].public_ip}"
   )
 }
 
