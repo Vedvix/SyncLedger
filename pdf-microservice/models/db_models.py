@@ -195,6 +195,7 @@ class MappingProfileDB(Base):
     is_builtin: Mapped[bool] = mapped_column(Boolean, default=False)
     erp_type: Mapped[Optional[str]] = mapped_column(String(20))
     rules_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    match_conditions_json: Mapped[Optional[str]] = mapped_column(Text, default="[]")
     created_by: Mapped[Optional[int]] = mapped_column(BigInteger)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

@@ -58,6 +58,10 @@ public class MappingProfile {
     @Builder.Default
     private String rulesJson = "[]";
 
+    @Column(name = "match_conditions_json", columnDefinition = "TEXT")
+    @Builder.Default
+    private String matchConditionsJson = "[]";
+
     @Column(name = "created_by")
     private Long createdBy;
 

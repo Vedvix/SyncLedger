@@ -28,4 +28,6 @@ public class MappingProfileRequest {
 
     @NotBlank(message = "Rules JSON is required")
     private String rulesJson;
+
+    private String matchConditionsJson;
 }

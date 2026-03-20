@@ -17,6 +17,7 @@ import structlog
 from dateutil import parser as date_parser
 
 from models.invoice_data import InvoiceData, LineItem, VendorInfo
+from models.ocr_field_aliases import DEFAULT_FIELD_ALIASES
 
 logger = structlog.get_logger(__name__)
 
@@ -342,6 +343,12 @@ class FieldParser:
         fields["product_category"] = self._extract_pattern(text, self.PATTERNS['product_category'])
         fields["created_by"] = self._extract_pattern(text, self.PATTERNS['created_by'])
         
+        # ── Second pass: OCR alias-based extraction for missing fields ──
+        # Uses the comprehensive DEFAULT_FIELD_ALIASES to catch label
+        # variations the primary patterns missed (e.g. international terms,
+        # unusual abbreviations, ERP-specific labels).
+        self._apply_alias_fallback(text, fields)
+
         # Store raw text for downstream use
         fields["raw_text"] = text
         
@@ -391,7 +398,123 @@ class FieldParser:
         return raw_fields, line_items
     
     # ─── Private extraction methods ─────────────────────────────────────────
-    
+
+    # ── OCR-alias based fallback extraction ──────────────────────────────
+
+    # Maps alias groups → (field_key, extraction_type)
+    # extraction_type: "text" (alphanumeric ID), "amount" ($), "date"
+    _ALIAS_FIELD_CONFIG: Dict[str, Tuple[str, str]] = {
+        "invoice_number":    ("invoice_number",    "text"),
+        "po_number":         ("po_number",         "text"),
+        "vendor_name":       ("vendor_name",       "text"),
+        "vendor_address":    ("vendor_address",    "text"),
+        "vendor_phone":      ("vendor_phone",      "text"),
+        "vendor_email":      ("vendor_email",      "text"),
+        "vendor_tax_id":     ("vendor_tax_id",     "text"),
+        "bill_to_name":      ("bill_to_name",      "text"),
+        "bill_to_address":   ("bill_to_address",   "text"),
+        "ship_to_name":      ("ship_to_name",      "text"),
+        "ship_to_address":   ("ship_to_address",   "text"),
+        "invoice_date":      ("invoice_date",      "date"),
+        "due_date":          ("due_date",           "date"),
+        "ship_date":         ("ship_date",          "date"),
+        "delivery_date":     ("delivery_date",      "date"),
+        "subtotal":          ("subtotal",           "amount"),
+        "tax_amount":        ("tax_amount",         "amount"),
+        "shipping_amount":   ("shipping_amount",    "amount"),
+        "discount_amount":   ("discount_amount",    "amount"),
+        "total":             ("total",              "amount"),
+        "amount_due":        ("amount_due",         "amount"),
+        "customer_number":   ("customer_number",    "text"),
+        "reference_number":  ("reference_number",   "text"),
+        "order_number":      ("order_number",       "text"),
+        "project_number":    ("project_number",     "text"),
+        "payment_terms":     ("payment_terms",      "text"),
+        "currency":          ("currency",           "text"),
+        "gl_account":        ("gl_account",         "text"),
+        "cost_center":       ("cost_center",        "text"),
+    }
+
+    def _apply_alias_fallback(
+        self,
+        text: str,
+        fields: Dict[str, Any],
+        custom_aliases: Optional[Dict[str, List[str]]] = None,
+    ) -> None:
+        """
+        Second-pass extraction using OCR field aliases.
+
+        For every field that is still None in *fields*, try the comprehensive
+        alias patterns from DEFAULT_FIELD_ALIASES (merged with any org-level
+        *custom_aliases*).  This fills gaps left by the primary regex patterns.
+        """
+        aliases = dict(DEFAULT_FIELD_ALIASES)
+        if custom_aliases:
+            for key, patterns in custom_aliases.items():
+                aliases.setdefault(key, []).extend(patterns)
+
+        for alias_key, (field_key, extraction_type) in self._ALIAS_FIELD_CONFIG.items():
+            # Skip if already populated
+            if fields.get(field_key) is not None:
+                continue
+
+            label_patterns = aliases.get(alias_key)
+            if not label_patterns:
+                continue
+
+            value = self._extract_by_alias(text, label_patterns, extraction_type)
+            if value is not None:
+                fields[field_key] = value
+                logger.debug(
+                    "Alias fallback extracted field",
+                    field=field_key,
+                    alias_group=alias_key,
+                )
+
+    def _extract_by_alias(
+        self,
+        text: str,
+        label_patterns: List[str],
+        extraction_type: str,
+    ) -> Any:
+        """
+        Try each alias pattern as a label, then capture the adjacent value.
+
+        Builds ``label_pattern\\s*:?\\s*<value_capture>`` regexes on the fly.
+        """
+        for label in label_patterns:
+            if extraction_type == "amount":
+                # Label followed by optional separator and dollar amount
+                pattern = label + r'\s*:?\s*\$?\s*([\d,]+\.?\d*)'
+            elif extraction_type == "date":
+                # Label followed by a date
+                pattern = label + r'\s*:?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})'
+            else:
+                # Label followed by a text value (up to end of line)
+                pattern = label + r'\s*:?\s*([^\n\r]{2,60})'
+
+            match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
+            if match:
+                raw = match.group(1).strip()
+                if not raw:
+                    continue
+
+                if extraction_type == "amount":
+                    try:
+                        cleaned = raw.replace(',', '').replace('$', '').strip()
+                        if cleaned:
+                            return Decimal(cleaned)
+                    except InvalidOperation:
+                        continue
+                elif extraction_type == "date":
+                    try:
+                        return date_parser.parse(raw, fuzzy=True).date()
+                    except Exception:
+                        continue
+                else:
+                    return raw
+        return None
+
     def _extract_po_number(self, text: str) -> Optional[str]:
         """Extract PO number from text, checking first line first."""
         lines = text.strip().split('\n')

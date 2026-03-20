@@ -23,6 +23,7 @@ public class MappingProfileDTO {
     private Boolean isBuiltin;
     private String erpType;
     private String rulesJson;
+    private String matchConditionsJson;
     private Long createdBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

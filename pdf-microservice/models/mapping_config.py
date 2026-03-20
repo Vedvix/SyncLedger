@@ -165,12 +165,54 @@ class FieldMappingRule(BaseModel):
         use_enum_values = True
 
 
+class ProfileMatchCondition(BaseModel):
+    """
+    Condition that determines whether a mapping profile should be auto-selected.
+
+    Unlike FieldMappingRule conditions (which control individual field rules),
+    these conditions control *which profile* gets picked for an incoming invoice.
+
+    Example conditions:
+        - vendor_name CONTAINS "Example1"  → use this profile
+        - gl_account EQUALS "51"           → use this profile
+        - po_number STARTS_WITH "PO-"      → use this profile
+    """
+
+    source_field: MappingSourceField = Field(
+        ..., description="Extracted field to evaluate (from raw OCR output)"
+    )
+    operator: MappingConditionOperator = Field(
+        default=MappingConditionOperator.EQUALS,
+        description="Comparison operator"
+    )
+    value: Optional[str] = Field(
+        None, description="Comparison value (ignored for EXISTS/NOT_EXISTS)"
+    )
+    case_sensitive: bool = Field(
+        default=False, description="Case-sensitive comparison"
+    )
+    description: Optional[str] = Field(
+        None, description="Human-readable description"
+    )
+
+    class Config:
+        use_enum_values = True
+
+
 class InvoiceMappingProfile(BaseModel):
     """
     A complete mapping profile for a specific invoice format.
     
     Each profile defines how extracted PDF fields map to the target system model.
     Organizations can have multiple profiles for different vendor invoice formats.
+
+    Profile auto-selection priority:
+        1. Explicit profile_id passed in request
+        2. match_conditions evaluated against raw extracted fields (org-specific first)
+        3. vendor_pattern regex match against vendor_name (org-specific first)
+        4. Organization default profile
+        5. Global default profile
+        6. Built-in subcontractor fallback
     """
     
     id: Optional[str] = Field(None, description="Unique profile identifier")
@@ -179,6 +221,13 @@ class InvoiceMappingProfile(BaseModel):
     vendor_pattern: Optional[str] = Field(
         None, 
         description="Regex pattern to auto-match this profile to a vendor name"
+    )
+    match_conditions: List[ProfileMatchCondition] = Field(
+        default_factory=list,
+        description=(
+            "Conditions evaluated against raw extracted fields to auto-select this profile. "
+            "ALL conditions must match (AND logic). Takes priority over vendor_pattern."
+        ),
     )
     is_default: bool = Field(
         default=False, description="Whether this is the default profile"

@@ -79,6 +79,7 @@ public class MappingProfileService {
                 .isBuiltin(false)
                 .erpType(request.getErpType())
                 .rulesJson(request.getRulesJson())
+                .matchConditionsJson(request.getMatchConditionsJson() != null ? request.getMatchConditionsJson() : "[]")
                 .createdBy(userId)
                 .build();
 
@@ -120,6 +121,9 @@ public class MappingProfileService {
         profile.setVendorPattern(request.getVendorPattern());
         profile.setErpType(request.getErpType());
         profile.setRulesJson(request.getRulesJson());
+        if (request.getMatchConditionsJson() != null) {
+            profile.setMatchConditionsJson(request.getMatchConditionsJson());
+        }
 
         if (request.getIsDefault() != null) {
             if (Boolean.TRUE.equals(request.getIsDefault()) && !Boolean.TRUE.equals(profile.getIsDefault())) {
@@ -187,6 +191,7 @@ public class MappingProfileService {
                 .isBuiltin(profile.getIsBuiltin())
                 .erpType(profile.getErpType())
                 .rulesJson(profile.getRulesJson())
+                .matchConditionsJson(profile.getMatchConditionsJson())
                 .createdBy(profile.getCreatedBy())
                 .createdAt(profile.getCreatedAt())
                 .updatedAt(profile.getUpdatedAt())

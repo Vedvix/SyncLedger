@@ -27,6 +27,7 @@ from models.mapping_config import (
     MappingConditionOperator,
     MappingSourceField,
     MappingTargetField,
+    ProfileMatchCondition,
     get_default_subcontractor_profile,
     get_standard_invoice_profile,
 )
@@ -111,12 +112,19 @@ class MappingEngine:
             if db_profile.rules_json:
                 rules_data = json.loads(db_profile.rules_json)
                 rules = [FieldMappingRule(**r) for r in rules_data]
-            
+
+            match_conditions = []
+            match_cond_raw = getattr(db_profile, "match_conditions_json", None)
+            if match_cond_raw:
+                match_cond_data = json.loads(match_cond_raw)
+                match_conditions = [ProfileMatchCondition(**c) for c in match_cond_data]
+
             return InvoiceMappingProfile(
                 id=db_profile.id,
                 name=db_profile.name,
                 description=db_profile.description,
                 vendor_pattern=db_profile.vendor_pattern,
+                match_conditions=match_conditions,
                 is_default=db_profile.is_default or False,
                 organization_id=db_profile.organization_id,
                 rules=rules,
@@ -131,7 +139,11 @@ class MappingEngine:
         from models.db_models import MappingProfileDB
         
         rules_json = json.dumps([r.dict() for r in profile.rules]) if profile.rules else "[]"
-        
+        match_conditions_json = (
+            json.dumps([c.dict() for c in profile.match_conditions])
+            if profile.match_conditions else "[]"
+        )
+
         return MappingProfileDB(
             id=profile.id,
             organization_id=profile.organization_id,
@@ -141,6 +153,7 @@ class MappingEngine:
             is_default=profile.is_default,
             is_builtin=profile.id and (profile.id.startswith("default-") or profile.id.startswith("standard-")),
             rules_json=rules_json,
+            match_conditions_json=match_conditions_json,
         )
     
     def _load_builtin_profiles(self):
@@ -186,21 +199,44 @@ class MappingEngine:
         vendor_name: Optional[str] = None,
         profile_id: Optional[str] = None,
         organization_id: Optional[int] = None,
+        raw_fields: Optional[Dict[str, Any]] = None,
     ) -> InvoiceMappingProfile:
         """
         Select the best mapping profile for the given context.
         
         Priority:
         1. Explicit profile_id
-        2. Vendor pattern match (organization-specific first, then global)
-        3. Organization default
-        4. Global default
+        2. match_conditions evaluated against raw_fields (org-specific, then global)
+        3. Vendor pattern match (organization-specific first, then global)
+        4. Organization default
+        5. Global default
+        6. Built-in subcontractor fallback
         """
         # 1. Explicit profile
         if profile_id and profile_id in self._profiles:
             return self._profiles[profile_id]
         
-        # 2. Vendor pattern match
+        fields_for_eval = raw_fields or {}
+
+        # 2. Match conditions (org-specific first, then global)
+        for scope_filter in (
+            lambda p: p.organization_id == organization_id,
+            lambda p: p.organization_id is None,
+        ):
+            for profile in self._profiles.values():
+                if (
+                    profile.match_conditions
+                    and scope_filter(profile)
+                    and self._profile_conditions_match(profile.match_conditions, fields_for_eval)
+                ):
+                    logger.info(
+                        "Auto-matched profile via match_conditions",
+                        profile=profile.name,
+                        conditions_count=len(profile.match_conditions),
+                    )
+                    return profile
+
+        # 3. Vendor pattern match
         if vendor_name:
             # Organization-specific profiles first
             for profile in self._profiles.values():
@@ -225,7 +261,7 @@ class MappingEngine:
                 ):
                     return profile
         
-        # 3/4. Default profile
+        # 4/5. Default profile
         for profile in self._profiles.values():
             if profile.is_default:
                 if organization_id and profile.organization_id == organization_id:
@@ -235,8 +271,18 @@ class MappingEngine:
             if profile.is_default and profile.organization_id is None:
                 return profile
         
-        # Ultimate fallback: subcontractor profile
+        # 6. Ultimate fallback: subcontractor profile
         return get_default_subcontractor_profile()
+
+    def _profile_conditions_match(
+        self,
+        conditions: List,
+        raw_fields: Dict[str, Any],
+    ) -> bool:
+        """Evaluate profile-level match conditions against extracted fields (AND logic)."""
+        if not conditions:
+            return False
+        return all(self._condition_matches(c, raw_fields) for c in conditions)
     
     # ── Mapping Execution ───────────────────────────────────────────────────
     
@@ -268,6 +314,7 @@ class MappingEngine:
                 vendor_name=vendor_name,
                 profile_id=profile_id,
                 organization_id=organization_id,
+                raw_fields=raw_fields,
             )
         
         logger.info(
