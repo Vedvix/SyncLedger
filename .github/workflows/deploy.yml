@@ -36,7 +36,7 @@ on:
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
-  DEPLOY_WORKFLOW_VERSION: '2026-03-11-ssm-fix-v3'
+  DEPLOY_WORKFLOW_VERSION: '2026-03-21-docker-bootstrap-v4'
 
 permissions:
   contents: read
@@ -328,6 +328,39 @@ jobs:
           
           DEPLOY_SCRIPT=$(cat <<'EOF'
           set -eu
+          export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+          
+          # Ensure Docker is installed (handles race when user_data hasn't finished)
+          if ! command -v docker >/dev/null 2>&1; then
+            echo "Docker not found — installing..."
+            dnf install -y docker || yum install -y docker
+            systemctl enable docker
+            systemctl start docker
+          fi
+          if ! docker info >/dev/null 2>&1; then
+            systemctl start docker
+          fi
+          
+          # Ensure docker-compose is installed
+          if ! command -v docker-compose >/dev/null 2>&1; then
+            echo "docker-compose not found — installing..."
+            ARCH=$(uname -m)
+            case $ARCH in
+              x86_64)  COMPOSE_ARCH="x86_64" ;;
+              aarch64) COMPOSE_ARCH="aarch64" ;;
+              *)       COMPOSE_ARCH="x86_64" ;;
+            esac
+            curl -SL "https://github.com/docker/compose/releases/download/v2.29.0/docker-compose-linux-${COMPOSE_ARCH}" \
+              -o /usr/local/bin/docker-compose
+            chmod +x /usr/local/bin/docker-compose
+            ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
+          fi
+          
+          # Ensure jq is installed
+          if ! command -v jq >/dev/null 2>&1; then
+            dnf install -y jq || yum install -y jq
+          fi
+          
           RUN_USER="${SUDO_USER:-${USER:-$(id -un)}}"
           # Bootstrap target directory for first-time deployments.
           if [ ! -d /opt/syncledger ]; then
