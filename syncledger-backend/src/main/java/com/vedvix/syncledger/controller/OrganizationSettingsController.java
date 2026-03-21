@@ -133,7 +133,8 @@ public class OrganizationSettingsController {
     @PostMapping("/microsoft-config/verify")
     @Operation(
         summary = "Verify Microsoft Graph credentials",
-        description = "Tests the configured Azure AD credentials by attempting to authenticate with Microsoft Graph API"
+        description = "Tests the configured Azure AD credentials by attempting to authenticate with Microsoft Graph API. " +
+                       "If a request body with msClientSecret is provided, that raw secret is used directly (bypassing encryption round-trip)."
     )
     @SecurityRequirement(name = "Bearer Authentication")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
@@ -142,29 +143,45 @@ public class OrganizationSettingsController {
         @ApiResponse(responseCode = "400", description = "Credentials not configured")
     })
     public ResponseEntity<ApiResponseDto<MicrosoftConfigDTO>> verifyMicrosoftConfig(
+            @RequestBody(required = false) UpdateMicrosoftConfigRequest rawRequest,
             @Parameter(hidden = true)
             @AuthenticationPrincipal UserPrincipal currentUser) {
 
         Organization org = resolveOrganization(currentUser);
 
-        if (org.getMsClientId() == null || org.getMsClientSecretEncrypted() == null || org.getMsTenantId() == null) {
-            throw new BadRequestException("Microsoft credentials are not configured. Please update them first.");
+        // Determine which credentials to use
+        String clientId;
+        String clientSecret;
+        String tenantId;
+
+        if (rawRequest != null && rawRequest.getMsClientSecret() != null && !rawRequest.getMsClientSecret().isBlank()) {
+            // Use raw credentials from request body (bypasses encryption round-trip)
+            clientId = rawRequest.getMsClientId() != null ? rawRequest.getMsClientId() : org.getMsClientId();
+            clientSecret = rawRequest.getMsClientSecret();
+            tenantId = rawRequest.getMsTenantId() != null ? rawRequest.getMsTenantId() : org.getMsTenantId();
+            log.info("Verify using RAW credentials from request body for org {}", org.getName());
+        } else {
+            // Use stored encrypted credentials
+            if (org.getMsClientId() == null || org.getMsClientSecretEncrypted() == null || org.getMsTenantId() == null) {
+                throw new BadRequestException("Microsoft credentials are not configured. Please update them first.");
+            }
+            clientId = org.getMsClientId();
+            clientSecret = encryptionService.decrypt(org.getMsClientSecretEncrypted());
+            tenantId = org.getMsTenantId();
+            log.info("Verify using STORED (encrypted) credentials for org {}", org.getName());
         }
 
+        log.info("Verify attempt for org {}: clientId={}, tenantId={}, secretLength={}, secretPrefix={}",
+                org.getName(), clientId, tenantId,
+                clientSecret != null ? clientSecret.length() : 0,
+                clientSecret != null && clientSecret.length() >= 5 ? clientSecret.substring(0, 5) + "..." : "null");
+
         try {
-            // Attempt to get an access token to verify credentials
-            String clientSecret = encryptionService.decrypt(org.getMsClientSecretEncrypted());
-
-            log.info("Verify attempt for org {}: clientId={}, tenantId={}, secretLength={}, secretPrefix={}",
-                    org.getName(), org.getMsClientId(), org.getMsTenantId(),
-                    clientSecret != null ? clientSecret.length() : 0,
-                    clientSecret != null && clientSecret.length() >= 5 ? clientSecret.substring(0, 5) + "..." : "null");
-
             com.azure.identity.ClientSecretCredential credential =
                 new com.azure.identity.ClientSecretCredentialBuilder()
-                    .clientId(org.getMsClientId())
+                    .clientId(clientId)
                     .clientSecret(clientSecret)
-                    .tenantId(org.getMsTenantId())
+                    .tenantId(tenantId)
                     .build();
 
             com.azure.core.credential.TokenRequestContext context =
@@ -174,7 +191,16 @@ public class OrganizationSettingsController {
             // This will throw if credentials are invalid
             credential.getToken(context).block();
 
-            // Mark as verified
+            // Mark as verified and save the working credentials
+            if (rawRequest != null && rawRequest.getMsClientSecret() != null && !rawRequest.getMsClientSecret().isBlank()) {
+                org.setMsClientId(clientId);
+                org.setMsClientSecretEncrypted(encryptionService.encrypt(clientSecret));
+                org.setMsTenantId(tenantId);
+                if (rawRequest.getMsMailboxEmail() != null) {
+                    org.setMsMailboxEmail(rawRequest.getMsMailboxEmail());
+                    org.setEmailAddress(rawRequest.getMsMailboxEmail());
+                }
+            }
             org.setMsCredentialsVerified(true);
             org.setMsCredentialsVerifiedAt(LocalDateTime.now());
             organizationRepository.save(org);
