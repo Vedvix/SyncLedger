@@ -24,7 +24,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.bind.annotation.*;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.time.LocalDateTime;
 
@@ -408,11 +412,54 @@ public class OrganizationSettingsController {
      */
     private Organization resolveOrganization(UserPrincipal currentUser) {
         Long orgId = currentUser.getOrganizationId();
-        if (orgId == null) {
-            throw new ForbiddenException("Super Admin must use admin-specific endpoints for org management");
+        if (orgId != null) {
+            return organizationRepository.findById(orgId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
         }
-        return organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
+
+        if (currentUser.isSuperAdmin()) {
+            Long requestedOrgId = resolveRequestedOrganizationId();
+            if (requestedOrgId == null) {
+                throw new BadRequestException("For Platform Admin, provide organization context via query param 'organizationId' or header 'X-Organization-Id'.");
+            }
+
+            return organizationRepository.findById(requestedOrgId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", requestedOrgId));
+        }
+
+        throw new ForbiddenException("User is not associated with an organization");
+    }
+
+    private Long resolveRequestedOrganizationId() {
+        ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attrs == null) {
+            return null;
+        }
+
+        HttpServletRequest request = attrs.getRequest();
+        if (request == null) {
+            return null;
+        }
+
+        String param = request.getParameter("organizationId");
+        Long fromParam = parseOrganizationId(param);
+        if (fromParam != null) {
+            return fromParam;
+        }
+
+        String header = request.getHeader("X-Organization-Id");
+        return parseOrganizationId(header);
+    }
+
+    private Long parseOrganizationId(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     private ErpConfigDTO buildErpConfigDTO(Organization org) {
