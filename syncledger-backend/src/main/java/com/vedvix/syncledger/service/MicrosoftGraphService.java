@@ -2,6 +2,7 @@ package com.vedvix.syncledger.service;
 
 import com.azure.core.credential.TokenRequestContext;
 import com.azure.identity.ClientSecretCredential;
+import com.azure.identity.ClientSecretCredentialBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vedvix.syncledger.dto.EmailAttachmentDTO;
@@ -392,6 +393,40 @@ public class MicrosoftGraphService {
             return response.getStatusCode() == HttpStatus.OK;
         } catch (Exception e) {
             log.error("Mailbox connection test failed for {}: {}", mailboxEmail, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Test mailbox connection using explicit organization-level Azure AD credentials.
+     */
+    public boolean testMailboxConnection(String mailboxEmail, String clientId, String clientSecret, String tenantId) {
+        try {
+            ClientSecretCredential orgCredential = new ClientSecretCredentialBuilder()
+                    .clientId(clientId)
+                    .clientSecret(clientSecret)
+                    .tenantId(tenantId)
+                    .build();
+
+            TokenRequestContext context = new TokenRequestContext();
+            context.addScopes(SCOPE);
+            String token = orgCredential.getToken(context).block().getToken();
+
+            String url = String.format(
+                "%s/users/%s/mailFolders?$top=1",
+                GRAPH_API_BASE, mailboxEmail
+            );
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(token);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+            return response.getStatusCode() == HttpStatus.OK;
+        } catch (Exception e) {
+            log.error("Mailbox connection test failed for {} with org credentials: {}", mailboxEmail, e.getMessage());
             return false;
         }
     }

@@ -50,6 +50,7 @@ public class EmailPollingService {
     private final EmailLogRepository emailLogRepository;
     private final StorageService storageService;
     private final InvoiceProcessingService invoiceProcessingService;
+    private final EncryptionService encryptionService;
 
     @Value("${email.polling.max-emails-per-batch:50}")
     private int maxEmailsPerBatch;
@@ -383,11 +384,23 @@ public class EmailPollingService {
         Organization org = organizationRepository.findById(organizationId)
                 .orElseThrow(() -> new RuntimeException("Organization not found: " + organizationId));
         
-        if (org.getEmailAddress() == null || org.getEmailAddress().isBlank()) {
+        if (org.getMsMailboxEmail() == null || org.getMsMailboxEmail().isBlank()) {
             return false;
         }
-        
-        return graphService.testMailboxConnection(org.getEmailAddress());
+
+        if (org.getMsClientId() == null || org.getMsClientId().isBlank()
+                || org.getMsClientSecretEncrypted() == null || org.getMsClientSecretEncrypted().isBlank()
+                || org.getMsTenantId() == null || org.getMsTenantId().isBlank()) {
+            return false;
+        }
+
+        String clientSecret = encryptionService.decrypt(org.getMsClientSecretEncrypted());
+        return graphService.testMailboxConnection(
+                org.getMsMailboxEmail(),
+                org.getMsClientId(),
+                clientSecret,
+                org.getMsTenantId()
+        );
     }
 
     /**
