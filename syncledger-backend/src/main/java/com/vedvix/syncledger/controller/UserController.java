@@ -63,9 +63,11 @@ public class UserController {
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
             @Parameter(description = "Search query to filter users by name or email")
             @RequestParam(required = false) String search,
+            @Parameter(description = "Organization ID to filter users (Super Admin only)")
+            @RequestParam(required = false) Long organizationId,
             @Parameter(hidden = true)
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        PagedResponse<UserDTO> users = userService.getUsers(pageable, search, currentUser);
+        PagedResponse<UserDTO> users = userService.getUsers(pageable, search, organizationId, currentUser);
         return ResponseEntity.ok(ApiResponseDto.success(users));
     }
 

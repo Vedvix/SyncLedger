@@ -40,15 +40,25 @@ public class UserService {
      * Get users for current user's organization (or all for Super Admin).
      */
     @Transactional(readOnly = true)
-    public PagedResponse<UserDTO> getUsers(Pageable pageable, String search, UserPrincipal currentUser) {
+    public PagedResponse<UserDTO> getUsers(Pageable pageable, String search, Long organizationId, UserPrincipal currentUser) {
         Page<User> users;
 
         if (currentUser.isSuperAdmin()) {
-            // Super Admin sees all users
-            if (search != null && !search.isEmpty()) {
-                users = userRepository.searchUsers(search, pageable);
+            // If organizationId is provided, filter by that org
+            Long orgId = organizationId;
+            if (orgId != null) {
+                if (search != null && !search.isEmpty()) {
+                    users = userRepository.searchUsersInOrganization(orgId, search, pageable);
+                } else {
+                    users = userRepository.findByOrganization_Id(orgId, pageable);
+                }
             } else {
-                users = userRepository.findAll(pageable);
+                // No org filter — Super Admin sees all users
+                if (search != null && !search.isEmpty()) {
+                    users = userRepository.searchUsers(search, pageable);
+                } else {
+                    users = userRepository.findAll(pageable);
+                }
             }
         } else {
             // Org users see only their organization's users
