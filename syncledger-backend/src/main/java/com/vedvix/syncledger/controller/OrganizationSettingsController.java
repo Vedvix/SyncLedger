@@ -155,6 +155,11 @@ public class OrganizationSettingsController {
             // Attempt to get an access token to verify credentials
             String clientSecret = encryptionService.decrypt(org.getMsClientSecretEncrypted());
 
+            log.info("Verify attempt for org {}: clientId={}, tenantId={}, secretLength={}, secretPrefix={}",
+                    org.getName(), org.getMsClientId(), org.getMsTenantId(),
+                    clientSecret != null ? clientSecret.length() : 0,
+                    clientSecret != null && clientSecret.length() >= 5 ? clientSecret.substring(0, 5) + "..." : "null");
+
             com.azure.identity.ClientSecretCredential credential =
                 new com.azure.identity.ClientSecretCredentialBuilder()
                     .clientId(org.getMsClientId())
