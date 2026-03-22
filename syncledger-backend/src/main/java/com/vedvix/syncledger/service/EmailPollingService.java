@@ -127,10 +127,10 @@ public class EmailPollingService {
      */
     @Transactional
     public int pollOrganizationEmails(Organization organization) {
-        String mailbox = organization.getEmailAddress();
+        String mailbox = organization.getMsMailboxEmail();
         
         if (mailbox == null || mailbox.isBlank()) {
-            log.warn("Organization {} has no email address configured", organization.getSlug());
+            log.warn("Organization {} has no MS mailbox email configured", organization.getSlug());
             return 0;
         }
 
@@ -139,11 +139,24 @@ public class EmailPollingService {
             return 0;
         }
 
+        // Validate MS credentials
+        if (organization.getMsClientId() == null || organization.getMsClientId().isBlank()
+                || organization.getMsClientSecretEncrypted() == null || organization.getMsClientSecretEncrypted().isBlank()
+                || organization.getMsTenantId() == null || organization.getMsTenantId().isBlank()) {
+            log.warn("Organization {} has incomplete MS credentials, skipping", organization.getSlug());
+            return 0;
+        }
+
+        String clientId = organization.getMsClientId();
+        String clientSecret = encryptionService.decrypt(organization.getMsClientSecretEncrypted());
+        String tenantId = organization.getMsTenantId();
+
         log.info("Polling emails for organization: {} ({})", organization.getName(), mailbox);
         
         try {
-            // Get unread emails with attachments
-            List<EmailMessageDTO> emails = graphService.getUnreadEmails(mailbox, maxEmailsPerBatch);
+            // Get unread emails with attachments using org-specific credentials
+            List<EmailMessageDTO> emails = graphService.getUnreadEmails(
+                    mailbox, maxEmailsPerBatch, clientId, clientSecret, tenantId);
             
             if (emails.isEmpty()) {
                 log.debug("No new emails for organization: {}", organization.getSlug());
@@ -156,13 +169,12 @@ public class EmailPollingService {
             
             for (EmailMessageDTO email : emails) {
                 try {
-                    if (processEmail(organization, email, mailbox)) {
+                    if (processEmail(organization, email, mailbox, clientId, clientSecret, tenantId)) {
                         processedCount++;
                     }
                 } catch (Exception e) {
                     log.error("Error processing email {} for org {}: {}", 
                             email.getMessageId(), organization.getSlug(), e.getMessage());
-                    // Log the failed email
                     logFailedEmail(organization, email, e.getMessage());
                 }
             }
@@ -184,14 +196,14 @@ public class EmailPollingService {
      * @param mailbox The mailbox email address
      * @return true if processed successfully
      */
-    private boolean processEmail(Organization organization, EmailMessageDTO email, String mailbox) {
+    private boolean processEmail(Organization organization, EmailMessageDTO email, String mailbox,
+                                  String clientId, String clientSecret, String tenantId) {
         String messageId = email.getMessageId();
         
         // Check if already processed
         if (emailLogRepository.existsByMessageId(messageId)) {
             log.debug("Email {} already processed, skipping", messageId);
-            // Still mark as read
-            graphService.markAsRead(mailbox, messageId);
+            graphService.markAsRead(mailbox, messageId, clientId, clientSecret, tenantId);
             return false;
         }
 
@@ -206,7 +218,8 @@ public class EmailPollingService {
         
         try {
             // Get attachments
-            List<EmailAttachmentDTO> attachments = graphService.getEmailAttachments(mailbox, messageId);
+            List<EmailAttachmentDTO> attachments = graphService.getEmailAttachments(
+                    mailbox, messageId, clientId, clientSecret, tenantId);
             log.debug("Retrieved {} total attachments from email", attachments.size());
             
             // Log all attachments for debugging
@@ -225,8 +238,7 @@ public class EmailPollingService {
                     email.getSubject(), attachments.size());
                 emailLog.markProcessed(0);
                 emailLogRepository.save(emailLog);
-                graphService.markAsRead(mailbox, messageId);
-                return true;
+                graphService.markAsRead(mailbox, messageId, clientId, clientSecret, tenantId);
             }
 
             log.info("Found {} processable attachments in email (out of {} total)", 
@@ -258,8 +270,8 @@ public class EmailPollingService {
             emailLogRepository.save(emailLog);
 
             // Mark email as read and move to processed folder
-            graphService.markAsRead(mailbox, messageId);
-            graphService.moveToProcessedFolder(mailbox, messageId);
+            graphService.markAsRead(mailbox, messageId, clientId, clientSecret, tenantId);
+            graphService.moveToProcessedFolder(mailbox, messageId, clientId, clientSecret, tenantId);
 
             log.info("Successfully processed email {} with {} invoices in {}ms", 
                     messageId, invoicesCreated, duration);
@@ -413,7 +425,7 @@ public class EmailPollingService {
                 .map(o -> EmailPollingStatus.PolledOrganization.builder()
                         .id(o.getId())
                         .slug(o.getSlug())
-                        .email(o.getEmailAddress())
+                        .email(o.getMsMailboxEmail())
                         .build())
                 .collect(Collectors.toList());
 

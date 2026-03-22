@@ -54,7 +54,7 @@ public class MicrosoftGraphService {
     }
 
     /**
-     * Get access token for Graph API.
+     * Get access token for Graph API using default (global) credentials.
      */
     private String getAccessToken() {
         try {
@@ -69,7 +69,26 @@ public class MicrosoftGraphService {
     }
 
     /**
-     * Create HTTP headers with bearer token.
+     * Get access token using organization-specific Azure AD credentials.
+     */
+    private String getAccessToken(String clientId, String clientSecret, String tenantId) {
+        try {
+            ClientSecretCredential orgCredential = new ClientSecretCredentialBuilder()
+                    .clientId(clientId)
+                    .clientSecret(clientSecret)
+                    .tenantId(tenantId)
+                    .build();
+            TokenRequestContext context = new TokenRequestContext();
+            context.addScopes(SCOPE);
+            return orgCredential.getToken(context).block().getToken();
+        } catch (Exception e) {
+            log.error("Failed to get access token with org credentials: {}", e.getMessage());
+            throw new RuntimeException("Failed to authenticate with Azure AD using org credentials", e);
+        }
+    }
+
+    /**
+     * Create HTTP headers with bearer token (global credentials).
      */
     private HttpHeaders createHeaders() {
         HttpHeaders headers = new HttpHeaders();
@@ -79,13 +98,31 @@ public class MicrosoftGraphService {
     }
 
     /**
-     * Get unread emails from a specific mailbox.
-     * 
-     * @param mailboxEmail The email address of the mailbox to read
-     * @param maxResults Maximum number of emails to retrieve
-     * @return List of email DTOs
+     * Create HTTP headers with bearer token (organization-specific credentials).
+     */
+    private HttpHeaders createHeaders(String clientId, String clientSecret, String tenantId) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(getAccessToken(clientId, clientSecret, tenantId));
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        return headers;
+    }
+
+    /**
+     * Get unread emails from a specific mailbox using default credentials.
      */
     public List<EmailMessageDTO> getUnreadEmails(String mailboxEmail, int maxResults) {
+        return getUnreadEmailsInternal(mailboxEmail, maxResults, createHeaders());
+    }
+
+    /**
+     * Get unread emails from a specific mailbox using organization-specific credentials.
+     */
+    public List<EmailMessageDTO> getUnreadEmails(String mailboxEmail, int maxResults,
+                                                  String clientId, String clientSecret, String tenantId) {
+        return getUnreadEmailsInternal(mailboxEmail, maxResults, createHeaders(clientId, clientSecret, tenantId));
+    }
+
+    private List<EmailMessageDTO> getUnreadEmailsInternal(String mailboxEmail, int maxResults, HttpHeaders headers) {
         log.info("Fetching unread emails from mailbox: {}", mailboxEmail);
         
         try {
@@ -96,7 +133,7 @@ public class MicrosoftGraphService {
                 GRAPH_API_BASE, mailboxEmail, maxResults
             );
 
-            HttpEntity<Void> entity = new HttpEntity<>(createHeaders());
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
 
             if (response.getStatusCode() != HttpStatus.OK) {
@@ -145,6 +182,15 @@ public class MicrosoftGraphService {
      * @return List of attachment DTOs with content
      */
     public List<EmailAttachmentDTO> getEmailAttachments(String mailboxEmail, String messageId) {
+        return getEmailAttachmentsInternal(mailboxEmail, messageId, createHeaders());
+    }
+
+    public List<EmailAttachmentDTO> getEmailAttachments(String mailboxEmail, String messageId,
+                                                        String clientId, String clientSecret, String tenantId) {
+        return getEmailAttachmentsInternal(mailboxEmail, messageId, createHeaders(clientId, clientSecret, tenantId));
+    }
+
+    private List<EmailAttachmentDTO> getEmailAttachmentsInternal(String mailboxEmail, String messageId, HttpHeaders headers) {
         log.debug("Fetching attachments for message {} in {}", messageId, mailboxEmail);
         
         try {
@@ -154,7 +200,7 @@ public class MicrosoftGraphService {
                 GRAPH_API_BASE, mailboxEmail, messageId
             );
 
-            HttpEntity<Void> entity = new HttpEntity<>(createHeaders());
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
             ResponseEntity<String> response = restTemplate.exchange(listUrl, HttpMethod.GET, entity, String.class);
 
             if (response.getStatusCode() != HttpStatus.OK) {
@@ -231,6 +277,15 @@ public class MicrosoftGraphService {
      * @param messageId The message ID
      */
     public void markAsRead(String mailboxEmail, String messageId) {
+        markAsReadInternal(mailboxEmail, messageId, createHeaders());
+    }
+
+    public void markAsRead(String mailboxEmail, String messageId,
+                           String clientId, String clientSecret, String tenantId) {
+        markAsReadInternal(mailboxEmail, messageId, createHeaders(clientId, clientSecret, tenantId));
+    }
+
+    private void markAsReadInternal(String mailboxEmail, String messageId, HttpHeaders headers) {
         log.debug("Marking message {} as read in {}", messageId, mailboxEmail);
         
         try {
@@ -240,7 +295,7 @@ public class MicrosoftGraphService {
             );
 
             String body = "{\"isRead\": true}";
-            HttpEntity<String> entity = new HttpEntity<>(body, createHeaders());
+            HttpEntity<String> entity = new HttpEntity<>(body, headers);
             
             restTemplate.exchange(url, HttpMethod.PATCH, entity, String.class);
             log.info("Marked message {} as read", messageId);
@@ -258,11 +313,20 @@ public class MicrosoftGraphService {
      * @param messageId The message ID
      */
     public void moveToProcessedFolder(String mailboxEmail, String messageId) {
+        moveToProcessedFolderInternal(mailboxEmail, messageId, createHeaders());
+    }
+
+    public void moveToProcessedFolder(String mailboxEmail, String messageId,
+                                      String clientId, String clientSecret, String tenantId) {
+        moveToProcessedFolderInternal(mailboxEmail, messageId, createHeaders(clientId, clientSecret, tenantId));
+    }
+
+    private void moveToProcessedFolderInternal(String mailboxEmail, String messageId, HttpHeaders headers) {
         log.debug("Moving message {} to Processed folder in {}", messageId, mailboxEmail);
         
         try {
             // First, find or create the Processed folder
-            String processedFolderId = getOrCreateFolder(mailboxEmail, "Processed Invoices");
+            String processedFolderId = getOrCreateFolder(mailboxEmail, "Processed Invoices", headers);
             
             if (processedFolderId != null) {
                 // Move the message
@@ -272,7 +336,7 @@ public class MicrosoftGraphService {
                 );
                 
                 String body = String.format("{\"destinationId\": \"%s\"}", processedFolderId);
-                HttpEntity<String> entity = new HttpEntity<>(body, createHeaders());
+                HttpEntity<String> entity = new HttpEntity<>(body, headers);
                 
                 restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
                 log.info("Moved message {} to Processed Invoices folder", messageId);
@@ -286,7 +350,7 @@ public class MicrosoftGraphService {
     /**
      * Get or create a mail folder.
      */
-    private String getOrCreateFolder(String mailboxEmail, String folderName) {
+    private String getOrCreateFolder(String mailboxEmail, String folderName, HttpHeaders headers) {
         try {
             // Try to find existing folder
             String searchUrl = String.format(
@@ -294,7 +358,7 @@ public class MicrosoftGraphService {
                 GRAPH_API_BASE, mailboxEmail, folderName
             );
 
-            HttpEntity<Void> entity = new HttpEntity<>(createHeaders());
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
             ResponseEntity<String> response = restTemplate.exchange(searchUrl, HttpMethod.GET, entity, String.class);
 
             JsonNode root = objectMapper.readTree(response.getBody());
@@ -311,7 +375,7 @@ public class MicrosoftGraphService {
             );
             
             String body = String.format("{\"displayName\": \"%s\"}", folderName);
-            HttpEntity<String> createEntity = new HttpEntity<>(body, createHeaders());
+            HttpEntity<String> createEntity = new HttpEntity<>(body, headers);
             
             ResponseEntity<String> createResponse = restTemplate.exchange(
                 createUrl, HttpMethod.POST, createEntity, String.class

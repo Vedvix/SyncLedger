@@ -71,7 +71,7 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
     /**
      * Find organizations needing email sync (active with email configured).
      */
-    @Query("SELECT o FROM Organization o WHERE o.status = 'ACTIVE' AND o.emailAddress IS NOT NULL")
+    @Query("SELECT o FROM Organization o WHERE o.status = 'ACTIVE' AND o.msMailboxEmail IS NOT NULL AND o.msClientId IS NOT NULL AND o.msClientSecretEncrypted IS NOT NULL AND o.msTenantId IS NOT NULL AND o.msCredentialsVerified = true")
     List<Organization> findOrganizationsForEmailSync();
 
     /**
