@@ -111,26 +111,31 @@ public class RefreshTokenService {
         RefreshToken existingToken = refreshTokenRepository.findByTokenHash(tokenHash)
                 .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
 
-        // Check if token family is compromised (reuse attack detection)
-        if (refreshTokenRepository.isTokenFamilyCompromised(existingToken.getTokenFamily())) {
-            // Token family was already used! This indicates a token reuse attack.
-            // Revoke ALL tokens in this family for security
-            log.warn("Token reuse detected for user {}! Revoking entire token family: {}", 
-                    existingToken.getUser().getId(), existingToken.getTokenFamily());
-            
-            refreshTokenRepository.revokeTokenFamily(
-                    existingToken.getTokenFamily(), 
-                    LocalDateTime.now(), 
-                    "Token reuse attack detected"
-            );
-            
-            throw new UnauthorizedException("Session invalidated due to security concern. Please login again.");
-        }
-
-        // Check if token is already revoked
+        // Token reuse detection: if this specific token was already revoked (used in
+        // a previous rotation), someone is replaying it — possible token theft.
         if (existingToken.getRevoked()) {
-            log.warn("Attempted use of revoked token for user {}", existingToken.getUser().getId());
-            throw new UnauthorizedException("Refresh token has been revoked");
+            // Grace period for multi-tab race: if the token was rotated very recently,
+            // this is likely a concurrent request from another browser tab, not an attack.
+            boolean isRecentRotation = existingToken.getRevokedAt() != null
+                    && existingToken.getRevokedAt().isAfter(LocalDateTime.now().minusSeconds(30))
+                    && "Token rotated".equals(existingToken.getRevocationReason());
+
+            if (!isRecentRotation) {
+                log.warn("Token reuse detected for user {}! Revoking entire token family: {}",
+                        existingToken.getUser().getId(), existingToken.getTokenFamily());
+
+                refreshTokenRepository.revokeTokenFamily(
+                        existingToken.getTokenFamily(),
+                        LocalDateTime.now(),
+                        "Token reuse attack detected"
+                );
+
+                throw new UnauthorizedException("Session invalidated due to security concern. Please login again.");
+            }
+
+            log.debug("Concurrent refresh detected for user {} (multi-tab), rejecting gracefully",
+                    existingToken.getUser().getId());
+            throw new UnauthorizedException("Token already used. Please retry with the latest token.");
         }
 
         // Check if token is expired
