@@ -36,6 +36,7 @@ public class OrganizationService {
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final InvoiceRepository invoiceRepository;
+    private final EncryptionService encryptionService;
 
     /**
      * Create a new organization.
@@ -58,6 +59,10 @@ public class OrganizationService {
                 .slug(request.getSlug().toLowerCase())
                 .emailAddress(request.getEmailAddress())
                 .status(OrganizationStatus.ONBOARDING)
+                .msClientId(request.getMsClientId())
+                .msClientSecretEncrypted(request.getMsClientSecret() != null ? encryptionService.encrypt(request.getMsClientSecret()) : null)
+                .msTenantId(request.getMsTenantId())
+                .msMailboxEmail(request.getMsMailboxEmail())
                 .sageApiEndpoint(request.getSageApiEndpoint())
                 .sageApiKey(request.getSageApiKey())
                 .erpType(request.getErpType() != null ? ErpType.valueOf(request.getErpType()) : ErpType.NONE)
