@@ -147,6 +147,19 @@ public class OrganizationService {
         if (request.getSageApiKey() != null) {
             org.setSageApiKey(request.getSageApiKey());
         }
+        // Microsoft credentials
+        if (request.getMsClientId() != null) {
+            org.setMsClientId(request.getMsClientId());
+        }
+        if (request.getMsClientSecret() != null) {
+            org.setMsClientSecretEncrypted(encryptionService.encrypt(request.getMsClientSecret()));
+        }
+        if (request.getMsTenantId() != null) {
+            org.setMsTenantId(request.getMsTenantId());
+        }
+        if (request.getMsMailboxEmail() != null) {
+            org.setMsMailboxEmail(request.getMsMailboxEmail());
+        }
         // ERP configuration
         if (request.getErpType() != null) {
             org.setErpType(ErpType.valueOf(request.getErpType()));
