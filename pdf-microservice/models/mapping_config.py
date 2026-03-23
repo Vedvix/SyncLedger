@@ -490,6 +490,7 @@ class MappingProfileUpdateRequest(BaseModel):
     description: Optional[str] = None
     vendor_pattern: Optional[str] = None
     is_default: Optional[bool] = None
+    organization_id: Optional[int] = None
     rules: Optional[List[FieldMappingRule]] = None
 
     class Config:

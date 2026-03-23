@@ -973,24 +973,31 @@ async def update_mapping_profile(profile_id: str, request: MappingProfileUpdateR
             detail=f"Mapping profile '{profile_id}' not found"
         )
     
-    # Prevent modification of built-in profiles by non-super-admins
-    if profile_id.startswith("default-") or profile_id.startswith("standard-"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Built-in mapping profiles can only be modified by platform administrators"
-        )
+    is_builtin = profile_id.startswith("default-") or profile_id.startswith("standard-")
 
-    # Apply updates
-    if request.name is not None:
-        existing.name = request.name
-    if request.description is not None:
-        existing.description = request.description
-    if request.vendor_pattern is not None:
-        existing.vendor_pattern = request.vendor_pattern
-    if request.is_default is not None:
-        existing.is_default = request.is_default
-    if request.rules is not None:
-        existing.rules = request.rules
+    # For built-in profiles, only allow organization_id assignment
+    if is_builtin:
+        if request.organization_id is not None:
+            existing.organization_id = request.organization_id
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Built-in profiles only support organization assignment"
+            )
+    else:
+        # Apply all updates for custom profiles
+        if request.name is not None:
+            existing.name = request.name
+        if request.description is not None:
+            existing.description = request.description
+        if request.vendor_pattern is not None:
+            existing.vendor_pattern = request.vendor_pattern
+        if request.is_default is not None:
+            existing.is_default = request.is_default
+        if request.organization_id is not None:
+            existing.organization_id = request.organization_id
+        if request.rules is not None:
+            existing.rules = request.rules
     
     mapping_engine.register_profile(existing)
     

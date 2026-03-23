@@ -184,7 +184,8 @@ class MappingEngine:
         if organization_id is not None:
             profiles = [
                 p for p in profiles
-                if p.organization_id is None or p.organization_id == organization_id
+                if p.organization_id == organization_id
+                or (p.organization_id is None and p.is_default)
             ]
         return profiles
     
