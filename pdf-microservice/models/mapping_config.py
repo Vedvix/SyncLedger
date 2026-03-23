@@ -212,7 +212,7 @@ class InvoiceMappingProfile(BaseModel):
         3. vendor_pattern regex match against vendor_name (org-specific first)
         4. Organization default profile
         5. Global default profile
-        6. Built-in subcontractor fallback
+        6. Built-in standard invoice fallback
     """
     
     id: Optional[str] = Field(None, description="Unique profile identifier")
@@ -231,6 +231,9 @@ class InvoiceMappingProfile(BaseModel):
     )
     is_default: bool = Field(
         default=False, description="Whether this is the default profile"
+    )
+    is_builtin: bool = Field(
+        default=False, description="Whether this is a built-in profile (not editable by orgs)"
     )
     organization_id: Optional[int] = Field(
         None, description="Organization this profile belongs to (None = global)"
@@ -260,12 +263,13 @@ def get_default_subcontractor_profile() -> InvoiceMappingProfile:
     """
     return InvoiceMappingProfile(
         id="default-subcontractor",
-        name="Subcontractor Invoice (Default)",
-        description="Default mapping for subcontractor invoices. "
+        name="Subcontractor Invoice",
+        description="Mapping for subcontractor invoices (LongHome). "
                     "Maps PO as invoice number, calculates next Friday for due date, "
                     "uses GL 5100, maps opportunity number to project.",
         vendor_pattern=r"(?i)MGD|Master\s+Gutters|Mayan.?s\s+Construction",
-        is_default=True,
+        is_default=False,
+        is_builtin=True,
         rules=[
             FieldMappingRule(
                 target_field=MappingTargetField.INVOICE_NUMBER,
@@ -365,9 +369,10 @@ def get_standard_invoice_profile() -> InvoiceMappingProfile:
     """
     return InvoiceMappingProfile(
         id="standard-invoice",
-        name="Standard Invoice",
-        description="Standard mapping for typical vendor invoices with direct field mapping.",
-        is_default=False,
+        name="Standard Invoice (Default)",
+        description="Default mapping for typical vendor invoices with direct field mapping.",
+        is_default=True,
+        is_builtin=True,
         rules=[
             FieldMappingRule(
                 target_field=MappingTargetField.INVOICE_NUMBER,

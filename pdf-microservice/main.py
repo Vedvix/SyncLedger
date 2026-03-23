@@ -973,6 +973,13 @@ async def update_mapping_profile(profile_id: str, request: MappingProfileUpdateR
             detail=f"Mapping profile '{profile_id}' not found"
         )
     
+    # Prevent modification of built-in profiles by non-super-admins
+    if profile_id.startswith("default-") or profile_id.startswith("standard-"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Built-in mapping profiles can only be modified by platform administrators"
+        )
+
     # Apply updates
     if request.name is not None:
         existing.name = request.name

@@ -126,6 +126,7 @@ class MappingEngine:
                 vendor_pattern=db_profile.vendor_pattern,
                 match_conditions=match_conditions,
                 is_default=db_profile.is_default or False,
+                is_builtin=db_profile.is_builtin or False,
                 organization_id=db_profile.organization_id,
                 rules=rules,
             )
@@ -151,7 +152,7 @@ class MappingEngine:
             description=profile.description,
             vendor_pattern=profile.vendor_pattern,
             is_default=profile.is_default,
-            is_builtin=profile.id and (profile.id.startswith("default-") or profile.id.startswith("standard-")),
+            is_builtin=profile.is_builtin,
             rules_json=rules_json,
             match_conditions_json=match_conditions_json,
         )
@@ -271,8 +272,8 @@ class MappingEngine:
             if profile.is_default and profile.organization_id is None:
                 return profile
         
-        # 6. Ultimate fallback: subcontractor profile
-        return get_default_subcontractor_profile()
+        # 6. Ultimate fallback: standard invoice profile
+        return get_standard_invoice_profile()
 
     def _profile_conditions_match(
         self,
