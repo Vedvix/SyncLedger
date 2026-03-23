@@ -57,7 +57,14 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .headers(headers -> headers
-                .frameOptions(frame -> frame.sameOrigin())
+                .frameOptions(frame -> frame.disable())
+                .contentSecurityPolicy(csp -> {
+                    String origins = runtimeConfigService.getString(
+                            "cors.allowed-origins",
+                            "http://localhost:3000,http://localhost:5173,http://localhost:8080");
+                    String frameAncestors = String.join(" ", origins.split(","));
+                    csp.policyDirectives("frame-ancestors 'self' " + frameAncestors);
+                })
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
