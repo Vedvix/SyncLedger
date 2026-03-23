@@ -582,6 +582,7 @@ public class InvoiceService {
     /**
      * Download invoice file as InputStream.
      */
+    @Transactional(readOnly = true)
     public InputStream downloadInvoiceFile(Long id, UserPrincipal currentUser) {
         Invoice invoice = findInvoiceWithAccessCheck(id, currentUser);
         if (invoice.getS3Key() == null || invoice.getS3Key().isBlank()) {
@@ -593,6 +594,7 @@ public class InvoiceService {
     /**
      * Get original filename for invoice.
      */
+    @Transactional(readOnly = true)
     public String getInvoiceFileName(Long id, UserPrincipal currentUser) {
         Invoice invoice = findInvoiceWithAccessCheck(id, currentUser);
         return invoice.getOriginalFileName();
