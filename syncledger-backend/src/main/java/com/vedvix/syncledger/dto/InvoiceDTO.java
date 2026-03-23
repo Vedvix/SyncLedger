@@ -86,6 +86,7 @@ public class InvoiceDTO {
     private String costCenter;
     private String mappingProfileId;
     private String fieldMappings;
+    private String rawExtractedData;
     
     // Assignment
     private Long assignedToId;

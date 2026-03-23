@@ -528,6 +528,7 @@ public class InvoiceService {
                 .costCenter(invoice.getCostCenter())
                 .mappingProfileId(invoice.getMappingProfileId())
                 .fieldMappings(invoice.getFieldMappings())
+                .rawExtractedData(invoice.getRawExtractedData())
                 // Assignment
                 .assignedToId(invoice.getAssignedTo() != null ? invoice.getAssignedTo().getId() : null)
                 .assignedToName(invoice.getAssignedTo() != null
