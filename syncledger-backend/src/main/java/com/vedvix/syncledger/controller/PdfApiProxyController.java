@@ -6,8 +6,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * Reverse proxy that forwards /pdf-api/** requests to the PDF microservice.
@@ -17,7 +17,6 @@ import org.springframework.web.util.UriComponentsBuilder;
  */
 @Slf4j
 @RestController
-@RequestMapping("/pdf-api")
 public class PdfApiProxyController {
 
     private final RestTemplate restTemplate;
@@ -28,35 +27,48 @@ public class PdfApiProxyController {
             @Value("${pdf-service.url:http://localhost:8001}") String pdfServiceUrl) {
         this.restTemplate = restTemplate;
         this.pdfServiceUrl = pdfServiceUrl;
+        log.info("PdfApiProxyController initialized with PDF service URL: {}", pdfServiceUrl);
     }
 
-    @RequestMapping(value = "/**", method = {RequestMethod.GET, RequestMethod.POST,
+    @RequestMapping(value = "/pdf-api/**", method = {RequestMethod.GET, RequestMethod.POST,
             RequestMethod.PUT, RequestMethod.DELETE})
-    public ResponseEntity<byte[]> proxy(
-            HttpServletRequest request,
-            @RequestBody(required = false) byte[] body) {
+    public ResponseEntity<byte[]> proxy(HttpServletRequest request) {
 
-        // Strip the /pdf-api prefix (and optional context-path prefix)
+        // Build downstream URL: strip /pdf-api (or /api/pdf-api) prefix
         String requestUri = request.getRequestURI();
-        String contextPath = request.getContextPath();
-        String path = requestUri.substring(contextPath.length());          // e.g. /pdf-api/api/v1/mapping/profiles
-        String downstream = path.replaceFirst("^/pdf-api", "");           // e.g. /api/v1/mapping/profiles
+        // Handle both context-path=/api and context-path=/ deployments
+        String downstream = requestUri.replaceFirst("^(/api)?/pdf-api", "");
+        if (downstream.isEmpty()) {
+            downstream = "/";
+        }
 
-        String targetUrl = UriComponentsBuilder
-                .fromHttpUrl(pdfServiceUrl + downstream)
-                .query(request.getQueryString())
-                .build(true)
-                .toUriString();
+        // Build target URL
+        StringBuilder targetBuilder = new StringBuilder(pdfServiceUrl);
+        targetBuilder.append(downstream);
+        String queryString = request.getQueryString();
+        if (queryString != null && !queryString.isEmpty()) {
+            targetBuilder.append('?').append(queryString);
+        }
+        String targetUrl = targetBuilder.toString();
 
+        HttpMethod method = HttpMethod.valueOf(request.getMethod());
+        log.debug("Proxying {} {} -> {}", method, requestUri, targetUrl);
+
+        // Forward request headers
         HttpHeaders headers = new HttpHeaders();
         String contentType = request.getContentType();
         if (contentType != null) {
             headers.setContentType(MediaType.parseMediaType(contentType));
         }
 
-        HttpMethod method = HttpMethod.valueOf(request.getMethod());
-
         try {
+            // Read body for non-GET requests
+            byte[] body = null;
+            if (method != HttpMethod.GET && method != HttpMethod.DELETE) {
+                body = request.getInputStream().readAllBytes();
+                if (body.length == 0) body = null;
+            }
+
             ResponseEntity<byte[]> response = restTemplate.exchange(
                     targetUrl, method, new HttpEntity<>(body, headers), byte[].class);
 
@@ -65,9 +77,29 @@ public class PdfApiProxyController {
                 responseHeaders.setContentType(response.getHeaders().getContentType());
             }
             return new ResponseEntity<>(response.getBody(), responseHeaders, response.getStatusCode());
+
         } catch (HttpStatusCodeException ex) {
-            return new ResponseEntity<>(ex.getResponseBodyAsByteArray(),
-                    ex.getResponseHeaders(), ex.getStatusCode());
+            log.warn("PDF service returned {}: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+            HttpHeaders responseHeaders = new HttpHeaders();
+            if (ex.getResponseHeaders() != null && ex.getResponseHeaders().getContentType() != null) {
+                responseHeaders.setContentType(ex.getResponseHeaders().getContentType());
+            }
+            return new ResponseEntity<>(ex.getResponseBodyAsByteArray(), responseHeaders, ex.getStatusCode());
+
+        } catch (RestClientException ex) {
+            log.error("Failed to reach PDF service at {}: {}", targetUrl, ex.getMessage());
+            String errorJson = "{\"success\":false,\"message\":\"PDF microservice is unreachable\"}";
+            HttpHeaders responseHeaders = new HttpHeaders();
+            responseHeaders.setContentType(MediaType.APPLICATION_JSON);
+            return new ResponseEntity<>(errorJson.getBytes(), responseHeaders, HttpStatus.BAD_GATEWAY);
+
+        } catch (Exception ex) {
+            log.error("Proxy error for {}: ", targetUrl, ex);
+            String errorJson = "{\"success\":false,\"message\":\"Proxy error: " +
+                    ex.getMessage().replace("\"", "'") + "\"}";
+            HttpHeaders responseHeaders = new HttpHeaders();
+            responseHeaders.setContentType(MediaType.APPLICATION_JSON);
+            return new ResponseEntity<>(errorJson.getBytes(), responseHeaders, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 }
