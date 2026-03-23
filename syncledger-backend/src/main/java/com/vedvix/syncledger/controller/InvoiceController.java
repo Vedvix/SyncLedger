@@ -447,5 +447,25 @@ public class InvoiceController {
     public ResponseEntity<ApiResponseDto<Map<String, String>>> getExportColumns() {
         return ResponseEntity.ok(ApiResponseDto.success(excelExportService.getAvailableColumns()));
     }
+
+    // ── Reprocess Invoice ────────────────────────────────────────────────
+    @PostMapping("/{id}/reprocess")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
+    @Operation(
+        summary = "Reprocess invoice",
+        description = "Re-trigger PDF extraction for an invoice that failed or needs reprocessing"
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Invoice reprocessing started"),
+        @ApiResponse(responseCode = "400", description = "Invoice has no uploaded file"),
+        @ApiResponse(responseCode = "404", description = "Invoice not found")
+    })
+    public ResponseEntity<ApiResponseDto<InvoiceDTO>> reprocessInvoice(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        InvoiceDTO invoice = invoiceService.reprocessInvoice(id, currentUser);
+        return ResponseEntity.ok(ApiResponseDto.success("Invoice reprocessing started", invoice));
+    }
 }
 

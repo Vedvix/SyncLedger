@@ -75,6 +75,31 @@ public class InvoiceService {
     }
 
     /**
+     * Re-process an invoice that failed extraction.
+     */
+    @Transactional
+    public InvoiceDTO reprocessInvoice(Long id, UserPrincipal currentUser) {
+        Invoice invoice = findInvoiceWithAccessCheck(id, currentUser);
+
+        if (invoice.getS3Key() == null || invoice.getS3Key().isBlank()) {
+            throw new BadRequestException("Invoice has no uploaded file to reprocess");
+        }
+
+        log.info("Reprocessing invoice {} (current status: {})", id, invoice.getStatus());
+
+        invoice.setStatus(InvoiceStatus.PENDING);
+        invoice.setRequiresManualReview(false);
+        invoice.setReviewNotes(null);
+        invoiceRepository.save(invoice);
+
+        invoiceProcessingService.processInvoiceAsync(id);
+
+        Invoice updated = invoiceRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice", "id", id));
+        return mapToDTO(updated);
+    }
+
+    /**
      * Get invoices for current user's organization (or all for Super Admin).
      */
     @Transactional(readOnly = true)
