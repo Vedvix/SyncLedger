@@ -47,6 +47,7 @@ public class InvoiceProcessingService {
     /**
      * Queue invoice for processing.
      */
+    @Transactional
     public Invoice queueForProcessing(Organization org, String s3Key, String fileName,
                                        String emailId, String emailFrom, String emailSubject,
                                        LocalDateTime emailReceivedAt) {
@@ -87,6 +88,7 @@ public class InvoiceProcessingService {
     /**
      * Upload a PDF, store it, create invoice record, and trigger extraction.
      */
+    @Transactional
     public Invoice uploadAndProcess(Organization org, MultipartFile file) throws IOException {
         String fileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload.pdf";
         
