@@ -133,7 +133,7 @@ public class Invoice {
     @Column(name = "s3_key", nullable = false, length = 500)
     private String s3Key;
 
-    @Column(name = "s3_url", length = 500)
+    @Column(name = "s3_url", length = 2048)
     private String s3Url;
 
     @Column(name = "file_size_bytes")
