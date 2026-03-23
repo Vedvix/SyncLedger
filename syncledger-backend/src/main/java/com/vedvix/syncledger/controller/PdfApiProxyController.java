@@ -95,8 +95,8 @@ public class PdfApiProxyController {
 
         } catch (Exception ex) {
             log.error("Proxy error for {}: ", targetUrl, ex);
-            String errorJson = "{\"success\":false,\"message\":\"Proxy error: " +
-                    ex.getMessage().replace("\"", "'") + "\"}";
+            String msg = ex.getMessage() != null ? ex.getMessage().replace("\"", "'") : "Unknown proxy error";
+            String errorJson = "{\"success\":false,\"message\":\"Proxy error: " + msg + "\"}";
             HttpHeaders responseHeaders = new HttpHeaders();
             responseHeaders.setContentType(MediaType.APPLICATION_JSON);
             return new ResponseEntity<>(errorJson.getBytes(), responseHeaders, HttpStatus.INTERNAL_SERVER_ERROR);

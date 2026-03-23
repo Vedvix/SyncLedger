@@ -101,11 +101,18 @@ public class SubscriptionService {
 
     /**
      * Get subscription for an organization.
+     * If no subscription exists yet (e.g. org created before auto-creation logic),
+     * a trial subscription is created automatically.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public SubscriptionDTO getSubscription(Long organizationId) {
         Subscription subscription = subscriptionRepository.findByOrganization_Id(organizationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Subscription", "organizationId", organizationId));
+                .orElseGet(() -> {
+                    log.info("No subscription found for orgId={}, auto-creating trial", organizationId);
+                    Organization org = organizationRepository.findById(organizationId)
+                            .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", organizationId));
+                    return createTrialSubscription(org);
+                });
         return mapToDTO(subscription);
     }
 
