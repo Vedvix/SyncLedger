@@ -10,7 +10,6 @@ import com.vedvix.syncledger.repository.EmailLogRepository;
 import com.vedvix.syncledger.repository.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -51,12 +50,7 @@ public class EmailPollingService {
     private final StorageService storageService;
     private final InvoiceProcessingService invoiceProcessingService;
     private final EncryptionService encryptionService;
-
-    @Value("${email.polling.max-emails-per-batch:50}")
-    private int maxEmailsPerBatch;
-
-    @Value("${email.polling.enabled:true}")
-    private boolean pollingEnabled;
+    private final RuntimeConfigService runtimeConfigService;
 
     // Prevent concurrent polls
     private final AtomicBoolean isPolling = new AtomicBoolean(false);
@@ -67,7 +61,7 @@ public class EmailPollingService {
      */
     @Scheduled(fixedDelayString = "${email.polling.interval:300000}")
     public void scheduledPoll() {
-        if (!pollingEnabled) {
+        if (!runtimeConfigService.getBoolean("email.polling.enabled", true)) {
             log.debug("Email polling is disabled");
             return;
         }
@@ -155,8 +149,9 @@ public class EmailPollingService {
         
         try {
             // Get unread emails with attachments using org-specific credentials
+            int maxBatch = runtimeConfigService.getInt("email.polling.max-emails-per-batch", 50);
             List<EmailMessageDTO> emails = graphService.getUnreadEmails(
-                    mailbox, maxEmailsPerBatch, clientId, clientSecret, tenantId);
+                    mailbox, maxBatch, clientId, clientSecret, tenantId);
             
             if (emails.isEmpty()) {
                 log.debug("No new emails for organization: {}", organization.getSlug());
@@ -430,7 +425,7 @@ public class EmailPollingService {
                 .collect(Collectors.toList());
 
         return EmailPollingStatus.builder()
-                .enabled(pollingEnabled)
+                .enabled(runtimeConfigService.getBoolean("email.polling.enabled", true))
                 .currentlyPolling(isPolling.get())
                 .totalOrganizations(organizationRepository.countByStatus(OrganizationStatus.ACTIVE))
                 .organizationsWithEmail(orgsForEmail.size())

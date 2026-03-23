@@ -9,7 +9,6 @@ import com.vedvix.syncledger.repository.InvoiceRepository;
 import com.vedvix.syncledger.repository.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,12 +42,7 @@ public class InvoiceProcessingService {
     private final InvoiceAuditService invoiceAuditService;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
-
-    @Value("${pdf-service.url:http://localhost:8001}")
-    private String pdfServiceUrl;
-
-    @Value("${invoice.auto-approval.confidence-threshold:0.87}")
-    private BigDecimal autoApprovalConfidenceThreshold;
+    private final RuntimeConfigService runtimeConfigService;
 
     /**
      * Queue invoice for processing.
@@ -149,6 +143,7 @@ public class InvoiceProcessingService {
             log.debug("Generated file URL for PDF service: {}", fileUrl);
             
             // Call PDF extraction service
+            String pdfServiceUrl = runtimeConfigService.getString("pdf-service.url", "http://localhost:8001");
             String extractionUrl = pdfServiceUrl + "/api/v1/extract";
             log.info("Calling PDF service at: {}", extractionUrl);
             
@@ -297,6 +292,8 @@ public class InvoiceProcessingService {
             // ── Confidence and review flags ───────────────────────────────
             if (data.has("confidence_score") && !data.get("confidence_score").isNull()) {
                 BigDecimal confidence = toBigDecimal(data.get("confidence_score"));
+                BigDecimal autoApprovalConfidenceThreshold = runtimeConfigService.getDecimal(
+                        "invoice.auto-approval.confidence-threshold", new BigDecimal("0.87"));
                 invoice.setConfidenceScore(confidence);
                 invoice.setRequiresManualReview(confidence.compareTo(autoApprovalConfidenceThreshold) < 0);
                 log.debug("Invoice confidence: {}, threshold: {}, requires review: {}", 
