@@ -152,11 +152,15 @@ public class InvoiceProcessingService {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             
+            // Build AI config from runtime configs
+            AiConfigPayload aiConfig = buildAiConfig();
+            
             String requestBody = objectMapper.writeValueAsString(new ExtractionRequest(
                 fileUrl,
                 invoice.getOriginalFileName(),
                 invoice.getOrganization().getId(),
-                invoiceId
+                invoiceId,
+                aiConfig
             ));
             
             log.debug("PDF service request body: {}", requestBody);
@@ -462,6 +466,32 @@ public class InvoiceProcessingService {
         invoiceAuditService.logExtractionFailed(invoice, errorMessage);
     }
 
+    /**
+     * Build AI config payload from runtime configs.
+     * Only includes non-empty values so the PDF service falls back to its env vars for unset keys.
+     */
+    private AiConfigPayload buildAiConfig() {
+        AiConfigPayload config = new AiConfigPayload();
+        
+        String provider = runtimeConfigService.getString("ai.provider", "");
+        if (!provider.isEmpty()) config.setProvider(provider);
+        
+        String apiKey = runtimeConfigService.getString("ai.openai.api-key", "");
+        if (!apiKey.isEmpty()) config.setApiKey(apiKey);
+        
+        String visionModel = runtimeConfigService.getString("ai.openai.vision-model", "");
+        if (!visionModel.isEmpty()) config.setVisionModel(visionModel);
+        
+        String textModel = runtimeConfigService.getString("ai.openai.text-model", "");
+        if (!textModel.isEmpty()) config.setTextModel(textModel);
+        
+        config.setEnableVision(runtimeConfigService.getBoolean("ai.enable-vision", true));
+        config.setEnableTextLlm(runtimeConfigService.getBoolean("ai.enable-text-llm", true));
+        config.setEnableCrossValidation(runtimeConfigService.getBoolean("ai.enable-cross-validation", true));
+        
+        return config;
+    }
+
     // Inner class for extraction request - uses snake_case for Python API
     @lombok.Data
     @lombok.AllArgsConstructor
@@ -477,5 +507,27 @@ public class InvoiceProcessingService {
         
         @JsonProperty("invoice_id")
         private Long invoiceId;
+        
+        @JsonProperty("ai_config")
+        private AiConfigPayload aiConfig;
+    }
+    
+    @lombok.Data
+    @lombok.AllArgsConstructor
+    @lombok.NoArgsConstructor
+    private static class AiConfigPayload {
+        private String provider;
+        @JsonProperty("api_key")
+        private String apiKey;
+        @JsonProperty("vision_model")
+        private String visionModel;
+        @JsonProperty("text_model")
+        private String textModel;
+        @JsonProperty("enable_vision")
+        private Boolean enableVision;
+        @JsonProperty("enable_text_llm")
+        private Boolean enableTextLlm;
+        @JsonProperty("enable_cross_validation")
+        private Boolean enableCrossValidation;
     }
 }

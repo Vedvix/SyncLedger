@@ -100,6 +100,43 @@ class AIExtractionService:
             return
         
         api_key = os.getenv("OPENAI_API_KEY")
+        await self._init_with_key(api_key)
+    
+    async def apply_config(self, ai_config) -> None:
+        """
+        Apply per-request AI configuration overrides from runtime config.
+        Reinitializes the OpenAI client if the API key changes.
+        
+        Args:
+            ai_config: AiConfig object with optional overrides
+        """
+        if ai_config is None:
+            return
+        
+        # Update feature toggles if provided
+        if ai_config.enable_vision is not None:
+            self.enable_vision = ai_config.enable_vision
+        if ai_config.enable_text_llm is not None:
+            self.enable_text_llm = ai_config.enable_text_llm
+        if ai_config.enable_cross_validation is not None:
+            self.enable_cross_validation = ai_config.enable_cross_validation
+        
+        # Update model names if provided
+        if ai_config.vision_model:
+            self.vision_service.model = ai_config.vision_model
+        if ai_config.text_model:
+            self.text_llm_service.model = ai_config.text_model
+        
+        # Reinitialize client if API key is provided and different
+        if ai_config.api_key:
+            current_key = getattr(self._openai_client, 'api_key', None) if self._openai_client else None
+            if ai_config.api_key != current_key:
+                self._initialized = False
+                await self._init_with_key(ai_config.api_key)
+                logger.info("OpenAI client reinitialized with runtime config API key")
+    
+    async def _init_with_key(self, api_key: str | None) -> None:
+        """Initialize the OpenAI client with the given API key."""
         if not api_key:
             logger.warning(
                 "OPENAI_API_KEY not set — AI extraction disabled, falling back to regex only"

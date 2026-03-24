@@ -161,6 +161,18 @@ class BatchProcessResponse(BaseModel):
     results: List[ExtractionResponse] = Field(..., description="Individual results")
 
 
+class AiConfig(BaseModel):
+    """Optional AI configuration overrides passed per-request from runtime config."""
+    
+    provider: Optional[str] = Field(None, description="AI provider (openai)")
+    api_key: Optional[str] = Field(None, description="AI provider API key")
+    vision_model: Optional[str] = Field(None, description="Model for vision extraction")
+    text_model: Optional[str] = Field(None, description="Model for text extraction")
+    enable_vision: Optional[bool] = Field(None, description="Enable vision extraction")
+    enable_text_llm: Optional[bool] = Field(None, description="Enable text LLM extraction")
+    enable_cross_validation: Optional[bool] = Field(None, description="Enable cross-validation")
+
+
 class ExtractFromUrlRequest(BaseModel):
     """Request to extract invoice from URL (multi-tenant)."""
     
@@ -168,6 +180,7 @@ class ExtractFromUrlRequest(BaseModel):
     file_name: str = Field(..., description="Original filename")
     organization_id: int = Field(..., description="Organization ID for multi-tenant context")
     invoice_id: Optional[int] = Field(None, description="Existing invoice ID to update")
+    ai_config: Optional[AiConfig] = Field(None, description="AI configuration overrides from runtime config")
 
 
 class HealthResponse(BaseModel):

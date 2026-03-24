@@ -165,6 +165,7 @@ async def _extract_with_ai_pipeline(
     extraction_result,
     organization_id: Optional[int] = None,
     profile_id: Optional[str] = None,
+    ai_config=None,
 ) -> ExtractionResponse:
     """
     Core extraction helper that runs the AI pipeline with fallback.
@@ -180,6 +181,10 @@ async def _extract_with_ai_pipeline(
     raw_text = extraction_result.text
     ai_result = None
     ai_response_fields = {}
+    
+    # ── Apply per-request AI config overrides ─────────────────────────
+    if ai_config and ai_service:
+        await ai_service.apply_config(ai_config)
     
     # ── Run AI Pipeline ───────────────────────────────────────────────
     if ai_service and ai_service.is_ai_enabled:
@@ -521,6 +526,7 @@ async def extract_invoice_from_url(request: ExtractFromUrlRequest):
                 tmp_path=tmp_path,
                 extraction_result=extraction_result,
                 organization_id=request.organization_id,
+                ai_config=request.ai_config,
             )
             
             processing_time = int((time.time() - start_time) * 1000)
