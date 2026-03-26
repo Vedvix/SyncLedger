@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -113,8 +115,13 @@ public class SageIntacctService {
                     gatewayUrl, HttpMethod.POST, entity, String.class);
             responseBody = response.getBody();
             httpStatus = response.getStatusCode().value();
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            // Sage returns XML error bodies on 4xx/5xx — extract and parse them
+            responseBody = e.getResponseBodyAsString();
+            httpStatus = e.getStatusCode().value();
+            log.warn("Sage Intacct HTTP {}: {}", httpStatus, responseBody);
         } catch (Exception e) {
-            log.error("Sage Intacct HTTP error: {}", e.getMessage());
+            log.error("Sage Intacct connection error: {}", e.getMessage());
             return SageResponse.fail(null, 0, "CONNECTION_ERROR",
                     "Failed to connect to Sage Intacct: " + e.getMessage(), maskedXml, null);
         }
