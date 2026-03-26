@@ -4,6 +4,7 @@ import com.vedvix.syncledger.dto.*;
 import com.vedvix.syncledger.model.InvoiceStatus;
 import com.vedvix.syncledger.security.UserPrincipal;
 import com.vedvix.syncledger.service.ExcelExportService;
+import com.vedvix.syncledger.service.ErpSyncService;
 import com.vedvix.syncledger.service.InvoiceAuditService;
 import com.vedvix.syncledger.service.InvoiceService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -54,6 +55,7 @@ public class InvoiceController {
     private final InvoiceService invoiceService;
     private final ExcelExportService excelExportService;
     private final InvoiceAuditService invoiceAuditService;
+    private final ErpSyncService erpSyncService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'APPROVER', 'VIEWER')")
@@ -487,6 +489,28 @@ public class InvoiceController {
             @AuthenticationPrincipal UserPrincipal currentUser) {
         InvoiceDTO invoice = invoiceService.reprocessInvoice(id, currentUser);
         return ResponseEntity.ok(ApiResponseDto.success("Invoice reprocessing started", invoice));
+    }
+
+    // ── Sync Invoice to ERP ──────────────────────────────────────────────
+    @PostMapping("/{id}/sync")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
+    @Operation(
+        summary = "Sync invoice to ERP",
+        description = "Syncs an approved invoice to the organization's configured ERP system (e.g., Sage Intacct, QuickBooks)"
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Invoice synced successfully"),
+        @ApiResponse(responseCode = "400", description = "Invoice cannot be synced (not approved, no ERP configured, etc.)"),
+        @ApiResponse(responseCode = "404", description = "Invoice not found")
+    })
+    public ResponseEntity<ApiResponseDto<InvoiceDTO>> syncInvoice(
+            @Parameter(description = "Invoice ID to sync", required = true)
+            @PathVariable Long id,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        InvoiceDTO invoice = erpSyncService.syncInvoice(id, currentUser);
+        return ResponseEntity.ok(ApiResponseDto.success("Invoice synced to ERP", invoice));
     }
 }
 
