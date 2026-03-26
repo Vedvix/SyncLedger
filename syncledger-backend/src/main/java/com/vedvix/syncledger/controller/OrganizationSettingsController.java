@@ -9,6 +9,7 @@ import com.vedvix.syncledger.model.Organization;
 import com.vedvix.syncledger.repository.OrganizationRepository;
 import com.vedvix.syncledger.security.UserPrincipal;
 import com.vedvix.syncledger.service.EncryptionService;
+import com.vedvix.syncledger.service.SageIntacctService;
 import com.vedvix.syncledger.model.ErpType;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -31,6 +32,8 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Organization settings controller for managing Microsoft credentials
@@ -49,6 +52,7 @@ public class OrganizationSettingsController {
 
     private final OrganizationRepository organizationRepository;
     private final EncryptionService encryptionService;
+    private final SageIntacctService sageIntacctService;
 
     @GetMapping("/microsoft-config")
     @Operation(
@@ -436,6 +440,93 @@ public class OrganizationSettingsController {
                 org.getName(), currentUser.getEmail());
 
         return ResponseEntity.ok(ApiResponseDto.success("ERP configuration updated", buildErpConfigDTO(org)));
+    }
+
+    // ==================== ERP Connection Verification ====================
+
+    @PostMapping("/erp-config/verify")
+    @Operation(
+        summary = "Verify ERP connection",
+        description = "Tests the configured ERP credentials by attempting to authenticate with the ERP API."
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponseDto<Map<String, Object>>> verifyErpConfig(
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+
+        Organization org = resolveOrganization(currentUser);
+        return ResponseEntity.ok(doVerifyErpConfig(org, currentUser.getEmail()));
+    }
+
+    @PostMapping("/admin/{organizationId}/erp-config/verify")
+    @Operation(
+        summary = "Verify ERP connection for any org (Super Admin)",
+        description = "Super Admin can test ERP credentials for any organization."
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<ApiResponseDto<Map<String, Object>>> verifyErpConfigForOrg(
+            @PathVariable Long organizationId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+
+        Organization org = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", organizationId));
+        return ResponseEntity.ok(doVerifyErpConfig(org, currentUser.getEmail()));
+    }
+
+    private ApiResponseDto<Map<String, Object>> doVerifyErpConfig(Organization org, String userEmail) {
+        if (org.getErpType() == null || org.getErpType() == ErpType.NONE) {
+            throw new BadRequestException("No ERP integration configured. Please set up ERP settings first.");
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("erpType", org.getErpType().name());
+        result.put("companyId", org.getErpCompanyId());
+        result.put("userId", org.getErpTenantId());
+
+        if (org.getErpType() == ErpType.SAGE) {
+            SageIntacctService.SageResponse response = sageIntacctService.testConnection(org);
+            result.put("connected", response.success());
+            result.put("httpStatus", response.httpStatusCode());
+            if (response.success()) {
+                result.put("message", "Successfully connected to Sage Intacct");
+            } else {
+                result.put("errorCode", response.errorCode());
+                result.put("errorMessage", response.errorMessage());
+                String guidance = getSageErrorGuidance(response.errorCode());
+                if (guidance != null) result.put("guidance", guidance);
+            }
+        } else {
+            throw new BadRequestException(org.getErpType().name() + " verification is not yet implemented.");
+        }
+
+        boolean connected = Boolean.TRUE.equals(result.get("connected"));
+        log.info("ERP verify for org {}: connected={}, user={}", org.getName(), connected, userEmail);
+
+        if (connected) {
+            return ApiResponseDto.success("ERP connection verified successfully", result);
+        } else {
+            return ApiResponseDto.<Map<String, Object>>builder()
+                    .success(false)
+                    .message("ERP connection failed")
+                    .data(result)
+                    .timestamp(java.time.LocalDateTime.now())
+                    .build();
+        }
+    }
+
+    private String getSageErrorGuidance(String errorCode) {
+        if (errorCode == null) return null;
+        return switch (errorCode) {
+            case "GW-0011" -> "The Sage Intacct gateway rejected the request. "
+                    + "The User ID in ERP settings must be authorized as a Web Services sender "
+                    + "in your Sage Intacct company (Company > Setup > Company > Security > Web Services authorizations).";
+            case "XL03000006" -> "Invalid login credentials. Verify your User ID, Company ID, and Password in ERP settings.";
+            case "XL03000009" -> "User account is locked or inactive in Sage Intacct.";
+            default -> null;
+        };
     }
 
     /**

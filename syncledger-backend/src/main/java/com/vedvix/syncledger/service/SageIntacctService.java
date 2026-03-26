@@ -68,30 +68,32 @@ public class SageIntacctService {
     }
 
     /**
+     * Test connectivity to Sage Intacct using the org's ERP credentials.
+     * Performs a simple getAPISession call to validate sender + login auth.
+     */
+    public SageResponse testConnection(Organization org) {
+        SageCredentials creds = resolveCredentials(org);
+
+        String controlId = UUID.randomUUID().toString();
+        String requestXml = buildTestConnectionXml(creds, controlId);
+        String maskedXml = requestXml.replaceAll("<password>[^<]*</password>", "<password>***</password>");
+        String gatewayUrl = resolveGatewayUrl(org.getErpApiEndpoint());
+
+        log.info("Sage Intacct: Testing connection [gateway={}, senderId={}, company={}]",
+                gatewayUrl, creds.senderId, creds.companyId);
+
+        return executeRequest(requestXml, maskedXml, gatewayUrl);
+    }
+
+    /**
      * Create an AP Bill in Sage Intacct for the given invoice.
      */
     public SageResponse createBill(Invoice invoice, Organization org) {
-        // --- Resolve sender credentials (app-level override → org-level) ---
-        String senderId = nonBlank(appSenderId) != null ? appSenderId : org.getErpTenantId();
-        String senderPassword = nonBlank(appSenderPassword) != null
-                ? appSenderPassword : decryptSafe(org.getErpApiKeyEncrypted());
-
-        // --- Login credentials always from org ---
-        String userId = org.getErpTenantId();
-        String companyId = org.getErpCompanyId();
-        String userPassword = decryptSafe(org.getErpApiKeyEncrypted());
-
-        if (nonBlank(senderId) == null)
-            throw new BadRequestException("Sage Sender ID is not configured. Set it in ERP settings (User ID field).");
-        if (nonBlank(companyId) == null)
-            throw new BadRequestException("Sage Company ID is not configured for this organization.");
-        if (nonBlank(userPassword) == null)
-            throw new BadRequestException("Sage password is not configured for this organization.");
+        SageCredentials creds = resolveCredentials(org);
 
         // --- Build XML ---
         String controlId = UUID.randomUUID().toString();
-        String requestXml = buildCreateBillXml(invoice, senderId, senderPassword,
-                userId, companyId, userPassword, controlId);
+        String requestXml = buildCreateBillXml(invoice, creds, controlId);
 
         // Mask credentials for logging / sync log
         String maskedXml = requestXml
@@ -100,10 +102,49 @@ public class SageIntacctService {
         // --- Resolve gateway URL ---
         String gatewayUrl = resolveGatewayUrl(org.getErpApiEndpoint());
 
-        log.info("Sage Intacct: Creating AP Bill [gateway={}, company={}, invoiceNo={}]",
-                gatewayUrl, companyId, invoice.getInvoiceNumber());
+        log.info("Sage Intacct: Creating AP Bill [gateway={}, senderId={}, company={}, invoiceNo={}]",
+                gatewayUrl, creds.senderId, creds.companyId, invoice.getInvoiceNumber());
 
-        // --- Send HTTP ---
+        // --- Send HTTP and parse ---
+        SageResponse result = executeRequest(requestXml, maskedXml, gatewayUrl);
+
+        if (result.success()) {
+            log.info("Sage Intacct: AP Bill created [RECORDNO={}, invoiceNo={}]",
+                    result.recordNo(), invoice.getInvoiceNumber());
+        } else {
+            log.warn("Sage Intacct error [invoiceNo={}, code={}, msg={}]",
+                    invoice.getInvoiceNumber(), result.errorCode(), result.errorMessage());
+        }
+        return result;
+    }
+
+    // ─── Shared infrastructure ────────────────────────────────────────────────────
+
+    private record SageCredentials(String senderId, String senderPassword,
+                                    String userId, String companyId, String userPassword) {}
+
+    private SageCredentials resolveCredentials(Organization org) {
+        // Sender credentials: app-level override → org-level (same user ID & password)
+        String senderId = nonBlank(appSenderId) != null ? appSenderId : org.getErpTenantId();
+        String senderPassword = nonBlank(appSenderPassword) != null
+                ? appSenderPassword : decryptSafe(org.getErpApiKeyEncrypted());
+
+        // Login credentials always from org
+        String userId = org.getErpTenantId();
+        String companyId = org.getErpCompanyId();
+        String userPassword = decryptSafe(org.getErpApiKeyEncrypted());
+
+        if (nonBlank(senderId) == null)
+            throw new BadRequestException("Sage User ID is not configured. Set it in ERP settings.");
+        if (nonBlank(companyId) == null)
+            throw new BadRequestException("Sage Company ID is not configured for this organization.");
+        if (nonBlank(userPassword) == null)
+            throw new BadRequestException("Sage password is not configured for this organization.");
+
+        return new SageCredentials(senderId, senderPassword, userId, companyId, userPassword);
+    }
+
+    private SageResponse executeRequest(String requestXml, String maskedXml, String gatewayUrl) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_XML);
         HttpEntity<String> entity = new HttpEntity<>(requestXml, headers);
@@ -116,7 +157,6 @@ public class SageIntacctService {
             responseBody = response.getBody();
             httpStatus = response.getStatusCode().value();
         } catch (HttpClientErrorException | HttpServerErrorException e) {
-            // Sage returns XML error bodies on 4xx/5xx — extract and parse them
             responseBody = e.getResponseBodyAsString();
             httpStatus = e.getStatusCode().value();
             log.warn("Sage Intacct HTTP {}: {}", httpStatus, responseBody);
@@ -126,24 +166,38 @@ public class SageIntacctService {
                     "Failed to connect to Sage Intacct: " + e.getMessage(), maskedXml, null);
         }
 
-        // --- Parse response ---
-        SageResponse result = parseResponse(responseBody, httpStatus, maskedXml);
-
-        if (result.success()) {
-            log.info("Sage Intacct: AP Bill created [RECORDNO={}, invoiceNo={}]",
-                    result.recordNo(), invoice.getInvoiceNumber());
-        } else {
-            log.warn("Sage Intacct error [invoiceNo={}, code={}, msg={}]",
-                    invoice.getInvoiceNumber(), result.errorCode(), result.errorMessage());
-        }
-        return result;
+        return parseResponse(responseBody, httpStatus, maskedXml);
     }
 
-    // ─── XML Builder ─────────────────────────────────────────────────────────────
+    // ─── XML Builders ─────────────────────────────────────────────────────────────
 
-    private String buildCreateBillXml(Invoice invoice, String senderId, String senderPwd,
-                                      String userId, String companyId, String userPwd,
-                                      String controlId) {
+    private void appendControlAndLogin(StringBuilder x, SageCredentials creds, String controlId) {
+        x.append("<control>\n");
+        tag(x, "senderid", creds.senderId);
+        tag(x, "password", creds.senderPassword);
+        tag(x, "controlid", controlId);
+        x.append("<uniqueid>false</uniqueid>\n");
+        x.append("<dtdversion>3.0</dtdversion>\n");
+        x.append("</control>\n");
+        x.append("<operation>\n<authentication>\n<login>\n");
+        tag(x, "userid", creds.userId);
+        tag(x, "companyid", creds.companyId);
+        tag(x, "password", creds.userPassword);
+        x.append("</login>\n</authentication>\n<content>\n");
+    }
+
+    private String buildTestConnectionXml(SageCredentials creds, String controlId) {
+        StringBuilder x = new StringBuilder();
+        x.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<request>\n");
+        appendControlAndLogin(x, creds, controlId);
+        x.append("<function controlid=\"test_connection\">\n");
+        x.append("<getAPISession />\n");
+        x.append("</function>\n");
+        x.append("</content>\n</operation>\n</request>");
+        return x.toString();
+    }
+
+    private String buildCreateBillXml(Invoice invoice, SageCredentials creds, String controlId) {
         StringBuilder items = new StringBuilder();
         if (invoice.getLineItems() != null && !invoice.getLineItems().isEmpty()) {
             for (InvoiceLineItem li : invoice.getLineItems()) {
@@ -175,22 +229,7 @@ public class SageIntacctService {
 
         StringBuilder x = new StringBuilder();
         x.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<request>\n");
-
-        // Control block
-        x.append("<control>\n");
-        tag(x, "senderid", senderId);
-        tag(x, "password", senderPwd);
-        tag(x, "controlid", controlId);
-        x.append("<uniqueid>false</uniqueid>\n");
-        x.append("<dtdversion>3.0</dtdversion>\n");
-        x.append("</control>\n");
-
-        // Operation block
-        x.append("<operation>\n<authentication>\n<login>\n");
-        tag(x, "userid", userId);
-        tag(x, "companyid", companyId);
-        tag(x, "password", userPwd);
-        x.append("</login>\n</authentication>\n<content>\n");
+        appendControlAndLogin(x, creds, controlId);
 
         // Function: create AP Bill
         x.append("<function controlid=\"create_bill_").append(invoice.getId()).append("\">\n");
@@ -321,7 +360,7 @@ public class SageIntacctService {
         try {
             return encryptionService.decrypt(encrypted);
         } catch (Exception e) {
-            log.debug("Decryption failed, trying raw value");
+            log.warn("ERP API key decryption failed — key may have been stored unencrypted. Re-save ERP config to fix.");
             return encrypted;
         }
     }

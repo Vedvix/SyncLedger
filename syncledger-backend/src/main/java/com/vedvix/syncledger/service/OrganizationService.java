@@ -67,7 +67,7 @@ public class OrganizationService {
                 .sageApiKey(request.getSageApiKey())
                 .erpType(request.getErpType() != null ? ErpType.valueOf(request.getErpType()) : ErpType.NONE)
                 .erpApiEndpoint(request.getErpApiEndpoint())
-                .erpApiKeyEncrypted(request.getErpApiKey())
+                .erpApiKeyEncrypted(request.getErpApiKey() != null ? encryptionService.encrypt(request.getErpApiKey()) : null)
                 .erpTenantId(request.getErpTenantId())
                 .erpCompanyId(request.getErpCompanyId())
                 .s3FolderPath(generateS3FolderPath(request.getSlug()))
@@ -168,7 +168,7 @@ public class OrganizationService {
             org.setErpApiEndpoint(request.getErpApiEndpoint());
         }
         if (request.getErpApiKey() != null) {
-            org.setErpApiKeyEncrypted(request.getErpApiKey());
+            org.setErpApiKeyEncrypted(encryptionService.encrypt(request.getErpApiKey()));
         }
         if (request.getErpTenantId() != null) {
             org.setErpTenantId(request.getErpTenantId());
