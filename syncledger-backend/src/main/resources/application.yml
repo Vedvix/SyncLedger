@@ -82,14 +82,19 @@ encryption:
   master-key: ${ENCRYPTION_MASTER_KEY:change-me-in-production}
 
 # =============================================================================
-# SAGE INTACCT CONFIGURATION (optional app-level sender credentials)
+# SAGE CONFIGURATION
 # =============================================================================
+# Intacct: optional app-level sender credentials.
 # If set, these override the per-org erpTenantId/erpApiKey as sender credentials.
 # Leave blank to use the per-org User ID / Password as both sender and login.
 sage:
   intacct:
     sender-id: ${SAGE_SENDER_ID:}
     sender-password: ${SAGE_SENDER_PASSWORD:}
+  api:
+    base-url: ${SAGE_API_URL:https://api.sage.com}
+    client-id: ${SAGE_CLIENT_ID:}
+    client-secret: ${SAGE_CLIENT_SECRET:}
 
 # =============================================================================
 # SPRING MAIL CONFIGURATION (Subscription Notifications)
@@ -197,15 +202,6 @@ jwt:
 # =============================================================================
 session:
   max-active: ${SESSION_MAX_ACTIVE:10}  # Maximum active sessions per user
-
-# =============================================================================
-# SAGE API CONFIGURATION
-# =============================================================================
-sage:
-  api:
-    base-url: ${SAGE_API_URL:https://api.sage.com}
-    client-id: ${SAGE_CLIENT_ID:}
-    client-secret: ${SAGE_CLIENT_SECRET:}
 
 # =============================================================================
 # LOGGING CONFIGURATION
