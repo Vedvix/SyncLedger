@@ -6,8 +6,8 @@ import com.vedvix.syncledger.model.InvoiceLineItem;
 import com.vedvix.syncledger.model.Organization;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.*;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.w3c.dom.Document;
@@ -27,21 +27,21 @@ public class SageIntacctService {
 
     private static final String DEFAULT_GATEWAY = "https://api.intacct.com/ia/xml/xmlgw.phtml";
 
-    @Value("${sage.intacct.sender-id:#{null}}")
+    @Value("${sage.intacct.sender-id:}")
     private String appSenderId;
 
-    @Value("${sage.intacct.sender-password:#{null}}")
+    @Value("${sage.intacct.sender-password:}")
     private String appSenderPassword;
 
     private final EncryptionService encryptionService;
     private final RestTemplate restTemplate;
 
-    public SageIntacctService(EncryptionService encryptionService) {
+    public SageIntacctService(EncryptionService encryptionService, RestTemplateBuilder restTemplateBuilder) {
         this.encryptionService = encryptionService;
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(30_000);
-        factory.setReadTimeout(60_000);
-        this.restTemplate = new RestTemplate(factory);
+        this.restTemplate = restTemplateBuilder
+                .connectTimeout(java.time.Duration.ofSeconds(30))
+                .readTimeout(java.time.Duration.ofSeconds(60))
+                .build();
     }
 
     /**
