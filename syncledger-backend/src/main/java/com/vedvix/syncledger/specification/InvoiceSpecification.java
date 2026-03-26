@@ -25,6 +25,66 @@ public class InvoiceSpecification {
     }
 
     /**
+     * Build a specification for the invoice listing page.
+     * Combines all filters (org scoping, status, search, vendor, date range) into one query.
+     *
+     * @param organizationId Organization ID for scoping (null for super admin / platform-wide)
+     * @param statuses       Status filter list (null or empty for all statuses)
+     * @param search         Free-text search across invoice number, vendor, PO number
+     * @param vendorName     Vendor name filter
+     * @param dateFrom       Invoice date range start
+     * @param dateTo         Invoice date range end
+     * @return Specification for querying invoices
+     */
+    public static Specification<Invoice> buildListingSpec(
+            Long organizationId,
+            List<InvoiceStatus> statuses,
+            String search,
+            String vendorName,
+            LocalDate dateFrom,
+            LocalDate dateTo) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // Organization scoping (null = super admin sees all)
+            if (organizationId != null) {
+                predicates.add(cb.equal(root.get("organization").get("id"), organizationId));
+            }
+
+            // Status filter
+            if (statuses != null && !statuses.isEmpty()) {
+                predicates.add(root.get("status").in(statuses));
+            }
+
+            // Free-text search (across invoice number, vendor name, PO number)
+            if (search != null && !search.isBlank()) {
+                String pattern = "%" + search.toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("invoiceNumber")), pattern),
+                        cb.like(cb.lower(root.get("vendorName")), pattern),
+                        cb.like(cb.lower(root.get("poNumber")), pattern)
+                ));
+            }
+
+            // Vendor name filter
+            if (vendorName != null && !vendorName.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("vendorName")),
+                        "%" + vendorName.toLowerCase() + "%"));
+            }
+
+            // Date range filter
+            if (dateFrom != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("invoiceDate"), dateFrom));
+            }
+            if (dateTo != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("invoiceDate"), dateTo));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    /**
      * Build a specification from an ExportRequest with organization scoping.
      * 
      * @param request The export filter criteria

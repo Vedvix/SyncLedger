@@ -20,6 +20,7 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +29,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.InputStream;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
@@ -82,6 +84,12 @@ public class InvoiceController {
             @RequestParam(required = false) String search,
             @Parameter(description = "Filter by invoice status (comma-separated, e.g. PENDING,UNDER_REVIEW)")
             @RequestParam(required = false) String status,
+            @Parameter(description = "Filter by vendor name (partial match)")
+            @RequestParam(required = false) String vendorName,
+            @Parameter(description = "Filter invoices from this date (yyyy-MM-dd)")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @Parameter(description = "Filter invoices up to this date (yyyy-MM-dd)")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @Parameter(hidden = true)
             @AuthenticationPrincipal UserPrincipal currentUser) {
         
@@ -93,7 +101,8 @@ public class InvoiceController {
                     .map(InvoiceStatus::valueOf)
                     .collect(Collectors.toList());
         }
-        PagedResponse<InvoiceDTO> invoices = invoiceService.getInvoices(pageable, search, statuses, currentUser);
+        PagedResponse<InvoiceDTO> invoices = invoiceService.getInvoices(
+                pageable, search, statuses, vendorName, dateFrom, dateTo, currentUser);
         return ResponseEntity.ok(ApiResponseDto.success(invoices));
     }
 
@@ -299,17 +308,29 @@ public class InvoiceController {
         @ApiResponse(responseCode = "200", description = "File served for preview"),
         @ApiResponse(responseCode = "404", description = "Invoice or file not found")
     })
-    public ResponseEntity<InputStreamResource> previewInvoice(
+    public ResponseEntity<?> previewInvoice(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        InputStream fileStream = invoiceService.downloadInvoiceFile(id, currentUser);
-        String fileName = invoiceService.getInvoiceFileName(id, currentUser);
-        
-        return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_PDF)
-                .header(HttpHeaders.CONTENT_DISPOSITION, 
-                        "inline; filename=\"" + (fileName != null ? fileName : "invoice.pdf") + "\"")
-                .body(new InputStreamResource(fileStream));
+        try {
+            InputStream fileStream = invoiceService.downloadInvoiceFile(id, currentUser);
+            String fileName = invoiceService.getInvoiceFileName(id, currentUser);
+            
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, 
+                            "inline; filename=\"" + (fileName != null ? fileName : "invoice.pdf") + "\"")
+                    .body(new InputStreamResource(fileStream));
+        } catch (Exception e) {
+            // Return HTML error so the iframe renders a readable message instead of JSON parse errors
+            String html = "<html><body style='font-family:sans-serif;display:flex;align-items:center;"
+                    + "justify-content:center;height:100vh;margin:0;color:#666'>"
+                    + "<div style='text-align:center'>"
+                    + "<p style='font-size:48px;margin:0'>&#128196;</p>"
+                    + "<p>PDF preview unavailable</p></div></body></html>";
+            return ResponseEntity.status(404)
+                    .contentType(MediaType.TEXT_HTML)
+                    .body(html);
+        }
     }
 
     // ── Audit Trail ──────────────────────────────────────────────────────

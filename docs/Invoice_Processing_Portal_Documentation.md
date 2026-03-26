@@ -5332,6 +5332,235 @@ And: Manual retry option is available
 
 ---
 
+## 15A. AI / LLM Integration Setup Guide
+
+> **🤖 SyncLedger uses OpenAI GPT-4o for intelligent invoice data extraction.** This section walks you through creating an OpenAI account, generating an API key, and configuring SyncLedger to use it — both via environment variables (local dev) and via the Super Admin UI (production).
+
+### 15A.1 How AI Extraction Works in SyncLedger
+
+SyncLedger uses a **3-tier AI extraction pipeline** to maximize accuracy across any invoice format:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                     AI EXTRACTION PIPELINE (3-TIER CASCADE)                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+   PDF Invoice
+       │
+       ▼
+  ┌──────────────────────┐
+  │  Tier 1: OCR + Text  │  ◄── PyMuPDF + pytesseract (FREE, local)
+  │  Extraction          │      Extracts raw text from PDF
+  └──────────┬───────────┘
+             │
+             ▼
+  ┌──────────────────────┐
+  │  Tier 2: GPT-4o      │  ◄── Vision: Sends PDF page images to GPT-4o
+  │  Vision Extraction   │      Understands layout, tables, handwriting
+  │  (if enabled)        │      Best accuracy for complex invoices
+  └──────────┬───────────┘
+             │
+             ▼
+  ┌──────────────────────┐
+  │  Tier 3: GPT-4o      │  ◄── Text+LLM: Sends OCR text to GPT-4o
+  │  Text Extraction     │      Extracts structured fields from raw text
+  │  (if enabled)        │      Good accuracy, lower cost than Vision
+  └──────────┬───────────┘
+             │
+             ▼
+  ┌──────────────────────┐
+  │  Cross-Validation    │  ◄── Compares Vision vs Text vs Regex results
+  │  & Confidence Score  │      Picks highest-confidence values
+  └──────────┬───────────┘
+             │
+             ▼
+  ┌──────────────────────┐
+  │  Fallback: Regex     │  ◄── Rule-based pattern matching (FREE)
+  │  Field Parser        │      Works without API key, limited accuracy
+  └──────────────────────┘
+```
+
+| Tier | Method | Requires API Key | Cost per Page | Accuracy |
+|------|--------|------------------|---------------|----------|
+| **Tier 1** | OCR (PyMuPDF + pytesseract) | No | Free | Text extraction only |
+| **Tier 2** | GPT-4o Vision | **Yes** | ~$0.01–0.03 | 95%+ (best) |
+| **Tier 3** | GPT-4o Text+LLM | **Yes** | ~$0.005–0.01 | 90%+ |
+| **Fallback** | Regex parser | No | Free | 70–85% |
+
+> **💡 Without an API key**, SyncLedger still works — it falls back to regex-based extraction. AI tiers are skipped. You'll get lower accuracy for complex or variable invoice layouts.
+
+---
+
+### 15A.2 Step 1 — Create an OpenAI Account
+
+1. Go to **[https://platform.openai.com/signup](https://platform.openai.com/signup)**
+2. Click **"Sign up"** — you can use Google, Microsoft, or Apple SSO, or create with email
+3. Verify your email address if prompted
+4. Complete phone verification (required by OpenAI)
+5. You now have an OpenAI Platform account
+
+---
+
+### 15A.3 Step 2 — Add Billing & Set a Spending Limit
+
+> **⚠️ IMPORTANT:** OpenAI API access requires a paid account with billing enabled. Free-tier accounts do NOT have API access to GPT-4o models.
+
+1. Go to **[https://platform.openai.com/settings/organization/billing/overview](https://platform.openai.com/settings/organization/billing/overview)**
+2. Click **"Add payment method"** → enter a credit/debit card
+3. Add an initial credit balance (minimum $5 recommended to start)
+4. Set a **monthly spending limit** to avoid surprise charges:
+   - Go to **Settings → Organization → Limits**
+   - Set a **hard limit** (API stops working when reached) — e.g., `$20`
+   - Set a **soft limit** (email notification when reached) — e.g., `$10`
+
+**Estimated costs for SyncLedger:**
+
+| Monthly Volume | Vision Only | Text+LLM Only | Both (Recommended) |
+|----------------|-------------|----------------|---------------------|
+| 100 invoices | ~$1–3 | ~$0.50–1 | ~$1.50–4 |
+| 500 invoices | ~$5–15 | ~$2.50–5 | ~$7.50–20 |
+| 1,000 invoices | ~$10–30 | ~$5–10 | ~$15–40 |
+| 5,000 invoices | ~$50–150 | ~$25–50 | ~$75–200 |
+
+---
+
+### 15A.4 Step 3 — Generate an API Key
+
+1. Go to **[https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)**
+2. Click **"+ Create new secret key"**
+3. Give it a name: e.g., `SyncLedger Production`
+4. **Permissions:** Select **"All"** (or at minimum, **"Chat completions: Write"**)
+5. Click **"Create secret key"**
+6. **Copy the key immediately** — it starts with `sk-` and will only be shown once
+
+```
+Example key format:  sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+> **🔒 SECURITY:** Treat this key like a password. Never commit it to source code or share it publicly. SyncLedger masks this value in the Super Admin UI.
+
+---
+
+### 15A.5 Step 4 — Configure SyncLedger
+
+There are **two ways** to configure the API key and AI settings:
+
+#### Option A: Environment Variables (Local Development / Docker)
+
+Set these in your `.env` file or `docker-compose.yml`:
+
+```bash
+# Required — your OpenAI API key
+OPENAI_API_KEY=sk-proj-your-actual-key-here
+
+# Optional — model selection (defaults shown)
+OPENAI_VISION_MODEL=gpt-4o          # Model for vision-based extraction
+OPENAI_TEXT_MODEL=gpt-4o            # Model for text-based extraction
+
+# Optional — feature toggles (defaults shown)
+AI_ENABLE_VISION=true               # Enable/disable vision extraction
+AI_ENABLE_TEXT_LLM=true             # Enable/disable text+LLM extraction
+AI_ENABLE_VALIDATION=true           # Enable/disable cross-validation
+```
+
+For **Docker Compose**, these are already wired in `docker-compose.yml`:
+
+```yaml
+pdf-service:
+  environment:
+    OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    OPENAI_VISION_MODEL: ${OPENAI_VISION_MODEL:-gpt-4o}
+    OPENAI_TEXT_MODEL: ${OPENAI_TEXT_MODEL:-gpt-4o}
+```
+
+Create a `.env` file in the project root with your key:
+
+```bash
+OPENAI_API_KEY=sk-proj-your-actual-key-here
+```
+
+Then start with `docker compose up`.
+
+#### Option B: Super Admin Runtime Config UI (Production — Recommended)
+
+In production, manage AI settings through the **Super Admin Console** without redeploying:
+
+1. Log in as a **Super Admin** user
+2. Navigate to **Admin → Configuration**
+3. Expand the **"AI / LLM Integration"** category (indigo icon)
+4. Configure these settings:
+
+| Config Key | Description | Default | Example |
+|------------|-------------|---------|---------|
+| `ai.provider` | AI provider name | `openai` | `openai` |
+| `ai.openai.api-key` | Your OpenAI API key (masked in UI) | *(empty)* | `sk-proj-xxx...` |
+| `ai.openai.vision-model` | Model for vision extraction | `gpt-4o` | `gpt-4o`, `gpt-4o-mini` |
+| `ai.openai.text-model` | Model for text extraction | `gpt-4o` | `gpt-4o`, `gpt-4o-mini` |
+| `ai.enable-vision` | Enable vision-based extraction | `true` | `true` / `false` |
+| `ai.enable-text-llm` | Enable text+LLM extraction | `true` | `true` / `false` |
+| `ai.enable-cross-validation` | Enable cross-validation | `true` | `true` / `false` |
+
+5. Click **"Save"** next to each value you change — changes take effect immediately on the next invoice processed
+
+> **💡 Runtime config overrides environment variables.** If both are set, the Super Admin UI value wins. If the UI value is empty, the system falls back to the environment variable.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    CONFIG PRIORITY (HIGHEST TO LOWEST)                           │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  1. Super Admin Runtime Config (database)     ◄── Highest priority
+  2. Environment Variable (docker / OS)        ◄── Fallback
+  3. Built-in Default (code)                   ◄── Last resort
+```
+
+---
+
+### 15A.6 Step 5 — Verify AI Extraction Is Working
+
+After configuring the API key, verify the pipeline:
+
+1. **Upload a test invoice** through the portal
+2. Check the invoice detail page — open the **"Extracted Data"** tab
+3. Toggle to **"Raw Extracted"** to see the full AI response
+4. If fields are extracted correctly with high confidence → AI is working
+
+**Troubleshooting:**
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Fields extracted but low accuracy | Regex fallback is being used (no AI) | Check API key is set and not empty |
+| "OPENAI_API_KEY not set" in logs | Key not configured | Set via env var or Super Admin UI |
+| 401 / Authentication error | Invalid or expired API key | Generate a new key at platform.openai.com |
+| 429 / Rate limit error | Too many requests or billing limit reached | Check spending limits, add credits |
+| "model not found" error | Incorrect model name | Use `gpt-4o` or `gpt-4o-mini` |
+| Vision extraction skipped | `ai.enable-vision` is `false` | Enable in runtime config |
+
+---
+
+### 15A.7 Model Selection Guide
+
+| Model | Speed | Cost | Best For |
+|-------|-------|------|----------|
+| **gpt-4o** | Medium | Higher | Best accuracy, complex invoices, handwritten notes |
+| **gpt-4o-mini** | Fast | Lower | Good accuracy, high volume, cost-sensitive |
+
+> **Recommendation:** Start with `gpt-4o` for both vision and text models. Switch to `gpt-4o-mini` if costs are a concern and accuracy is acceptable.
+
+You can set different models for vision vs text extraction — e.g., use `gpt-4o` for vision (where accuracy matters most) and `gpt-4o-mini` for text (where it's a secondary pass).
+
+---
+
+### 15A.8 Cost Optimization Tips
+
+1. **Disable vision if invoices are digital PDFs** — text+LLM is cheaper and nearly as accurate for machine-generated PDFs
+2. **Use `gpt-4o-mini`** for text model — saves ~60–80% on text extraction costs
+3. **Set spending limits** on your OpenAI account to prevent runaway costs
+4. **Monitor usage** at [https://platform.openai.com/usage](https://platform.openai.com/usage)
+5. **Disable cross-validation** if you trust a single extraction tier — saves one API call per invoice
+
+---
+
 ## 16. Glossary
 
 ### 15.1 Business Terms

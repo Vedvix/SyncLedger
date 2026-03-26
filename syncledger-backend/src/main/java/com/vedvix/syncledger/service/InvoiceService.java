@@ -9,10 +9,12 @@ import com.vedvix.syncledger.repository.InvoiceRepository;
 import com.vedvix.syncledger.repository.OrganizationRepository;
 import com.vedvix.syncledger.repository.UserRepository;
 import com.vedvix.syncledger.security.UserPrincipal;
+import com.vedvix.syncledger.specification.InvoiceSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -101,44 +103,26 @@ public class InvoiceService {
 
     /**
      * Get invoices for current user's organization (or all for Super Admin).
+     * Uses Specification-based query to properly combine all filters.
      */
     @Transactional(readOnly = true)
     public PagedResponse<InvoiceDTO> getInvoices(Pageable pageable, String search, 
-                                                  List<InvoiceStatus> statuses, UserPrincipal currentUser) {
-        Page<Invoice> invoices;
+                                                  List<InvoiceStatus> statuses, String vendorName,
+                                                  LocalDate dateFrom, LocalDate dateTo,
+                                                  UserPrincipal currentUser) {
+        Long orgId = currentUser.isSuperAdmin() ? null : currentUser.getOrganizationId();
 
-        if (currentUser.isSuperAdmin()) {
-            // Super Admin sees all invoices
-            if (statuses != null && !statuses.isEmpty()) {
-                if (statuses.size() == 1) {
-                    invoices = invoiceRepository.findByStatus(statuses.get(0), pageable);
-                } else {
-                    invoices = invoiceRepository.findByStatusIn(statuses, pageable);
-                }
-            } else if (search != null && !search.isEmpty()) {
-                invoices = invoiceRepository.searchInvoices(search, pageable);
-            } else {
-                invoices = invoiceRepository.findAll(pageable);
-            }
-        } else {
-            // Org users see only their organization's invoices
-            Long orgId = currentUser.getOrganizationId();
-            if (statuses != null && !statuses.isEmpty()) {
-                if (statuses.size() == 1) {
-                    invoices = invoiceRepository.findByOrganization_IdAndStatus(orgId, statuses.get(0), pageable);
-                } else {
-                    invoices = invoiceRepository.findByOrganization_IdAndStatusIn(orgId, statuses, pageable);
-                }
-            } else if (search != null && !search.isEmpty()) {
-                invoices = invoiceRepository.searchInvoicesInOrganization(orgId, search, pageable);
-            } else {
-                invoices = invoiceRepository.findByOrganization_Id(orgId, pageable);
-            }
-        }
+        log.debug("getInvoices called: user={}, role={}, orgId={}, statuses={}, search={}, vendorName={}, dateFrom={}, dateTo={}, page={}, size={}",
+                currentUser.getEmail(), currentUser.getRole(), orgId, statuses, search, vendorName, dateFrom, dateTo,
+                pageable.getPageNumber(), pageable.getPageSize());
 
-        List<InvoiceDTO> content = invoices.getContent().stream()
-                .map(this::mapToDTO)
-                .collect(Collectors.toList());
+        Specification<Invoice> spec = InvoiceSpecification.buildListingSpec(
+                orgId, statuses, search, vendorName, dateFrom, dateTo);
+
+        Page<Invoice> invoices = invoiceRepository.findAll(spec, pageable);
+
+        log.debug("getInvoices result: totalElements={}, pageContent={}", 
+                invoices.getTotalElements(), invoices.getNumberOfElements());
 
         Page<InvoiceDTO> invoiceDTOs = invoices.map(this::mapToDTO);
         return PagedResponse.from(invoiceDTOs);
