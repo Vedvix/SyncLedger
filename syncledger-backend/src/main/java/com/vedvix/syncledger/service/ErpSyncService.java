@@ -26,6 +26,7 @@ public class ErpSyncService {
     private final SageSyncRepository sageSyncRepository;
     private final UserRepository userRepository;
     private final InvoiceService invoiceService;
+    private final SageIntacctService sageIntacctService;
 
     @Transactional
     public InvoiceDTO syncInvoice(Long invoiceId, UserPrincipal currentUser) {
@@ -86,7 +87,7 @@ public class ErpSyncService {
 
         try {
             // 9. Perform the actual ERP sync based on type
-            performErpSync(invoice, org);
+            performErpSync(invoice, org, syncLog);
 
             // 10. Mark success
             long durationMs = System.currentTimeMillis() - startTime;
@@ -96,7 +97,6 @@ public class ErpSyncService {
 
             syncLog.setStatus(SyncStatus.SUCCESS);
             syncLog.setDurationMs((int) durationMs);
-            syncLog.setHttpStatusCode(200);
             sageSyncRepository.save(syncLog);
 
             log.info("Invoice {} synced successfully to {} in {}ms",
@@ -121,14 +121,12 @@ public class ErpSyncService {
         return invoiceService.getInvoiceById(invoiceId, currentUser);
     }
 
-    private void performErpSync(Invoice invoice, Organization org) {
+    private void performErpSync(Invoice invoice, Organization org, SageSync syncLog) {
         switch (org.getErpType()) {
             case SAGE:
-                syncToSage(invoice, org);
+                syncToSage(invoice, org, syncLog);
                 break;
             case QUICKBOOKS:
-                syncToQuickBooks(invoice, org);
-                break;
             case NETSUITE:
             case ORACLE:
             case SAP:
@@ -142,26 +140,26 @@ public class ErpSyncService {
         }
     }
 
-    private void syncToSage(Invoice invoice, Organization org) {
-        if (org.getErpApiEndpoint() == null || org.getErpApiEndpoint().isBlank()) {
-            throw new BadRequestException("Sage API endpoint is not configured");
-        }
-        if (org.getErpApiKeyEncrypted() == null || org.getErpApiKeyEncrypted().isBlank()) {
-            throw new BadRequestException("Sage API key is not configured");
-        }
-        // TODO: Implement actual Sage Intacct API call
-        // For now, log the intent — actual HTTP call to Sage API will be added
-        log.info("Sage sync requested for invoice {} (vendor: {}, amount: {}) to endpoint: {}",
-                invoice.getId(), invoice.getVendorName(), invoice.getTotalAmount(),
-                org.getErpApiEndpoint());
-        throw new BadRequestException("Sage Intacct API integration is configured but the sync connector is not yet active. "
-                + "Contact support to enable sync for your organization.");
-    }
+    private void syncToSage(Invoice invoice, Organization org, SageSync syncLog) {
+        SageIntacctService.SageResponse response = sageIntacctService.createBill(invoice, org);
 
-    private void syncToQuickBooks(Invoice invoice, Organization org) {
-        // TODO: Implement QuickBooks API call
-        log.info("QuickBooks sync requested for invoice {}", invoice.getId());
-        throw new BadRequestException("QuickBooks integration is configured but the sync connector is not yet active. "
-                + "Contact support to enable sync for your organization.");
+        // Populate sync log with request/response payloads
+        syncLog.setRequestPayload(response.requestPayload());
+        syncLog.setResponsePayload(response.responsePayload());
+        syncLog.setHttpStatusCode(response.httpStatusCode());
+
+        if (response.success()) {
+            // Store Sage record number on the invoice
+            if (response.recordNo() != null) {
+                invoice.setSageInvoiceId(response.recordNo());
+                syncLog.setSageInvoiceId(response.recordNo());
+            }
+        } else {
+            syncLog.setErrorCode(response.errorCode());
+            syncLog.setErrorMessage(response.errorMessage());
+            throw new BadRequestException(response.errorMessage() != null
+                    ? response.errorMessage()
+                    : "Sage Intacct sync failed");
+        }
     }
 }
