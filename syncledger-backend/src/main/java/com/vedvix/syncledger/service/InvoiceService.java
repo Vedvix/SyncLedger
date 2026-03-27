@@ -109,8 +109,11 @@ public class InvoiceService {
     public PagedResponse<InvoiceDTO> getInvoices(Pageable pageable, String search, 
                                                   List<InvoiceStatus> statuses, String vendorName,
                                                   LocalDate dateFrom, LocalDate dateTo,
+                                                  Long organizationId,
                                                   UserPrincipal currentUser) {
-        Long orgId = currentUser.isSuperAdmin() ? null : currentUser.getOrganizationId();
+        Long orgId = currentUser.isSuperAdmin()
+                ? organizationId  // Super Admin can filter by specific org (null = all)
+                : currentUser.getOrganizationId();
 
         log.debug("getInvoices called: user={}, role={}, orgId={}, statuses={}, search={}, vendorName={}, dateFrom={}, dateTo={}, page={}, size={}",
                 currentUser.getEmail(), currentUser.getRole(), orgId, statuses, search, vendorName, dateFrom, dateTo,

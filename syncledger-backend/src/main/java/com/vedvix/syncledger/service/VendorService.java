@@ -41,14 +41,23 @@ public class VendorService {
      * Get paginated list of vendors for the current user's organization.
      */
     @Transactional(readOnly = true)
-    public PagedResponse<VendorDTO> getVendors(Pageable pageable, String search, UserPrincipal currentUser) {
+    public PagedResponse<VendorDTO> getVendors(Pageable pageable, String search, Long organizationId, UserPrincipal currentUser) {
         Page<Vendor> vendors;
 
         if (currentUser.isSuperAdmin()) {
-            if (search != null && !search.isEmpty()) {
-                vendors = vendorRepository.searchAllVendors(search, pageable);
+            Long orgId = organizationId; // null = all orgs
+            if (orgId != null) {
+                if (search != null && !search.isEmpty()) {
+                    vendors = vendorRepository.searchVendorsInOrganization(orgId, search, pageable);
+                } else {
+                    vendors = vendorRepository.findByOrganization_Id(orgId, pageable);
+                }
             } else {
-                vendors = vendorRepository.findAll(pageable);
+                if (search != null && !search.isEmpty()) {
+                    vendors = vendorRepository.searchAllVendors(search, pageable);
+                } else {
+                    vendors = vendorRepository.findAll(pageable);
+                }
             }
         } else {
             Long orgId = currentUser.getOrganizationId();
@@ -279,12 +288,12 @@ public class VendorService {
      * Get organization-wide vendor summary (top vendors, totals).
      */
     @Transactional(readOnly = true)
-    public VendorSummaryDTO getVendorSummary(UserPrincipal currentUser) {
+    public VendorSummaryDTO getVendorSummary(Long organizationId, UserPrincipal currentUser) {
         Long orgId;
         if (currentUser.isSuperAdmin()) {
-            // For super admin, aggregate across all orgs (or first org)
-            orgId = organizationRepository.findAll().stream().findFirst()
-                    .map(Organization::getId).orElse(0L);
+            orgId = organizationId != null ? organizationId
+                    : organizationRepository.findAll().stream().findFirst()
+                            .map(Organization::getId).orElse(0L);
         } else {
             orgId = currentUser.getOrganizationId();
         }

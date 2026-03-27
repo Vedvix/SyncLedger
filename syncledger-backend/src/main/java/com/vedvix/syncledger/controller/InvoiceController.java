@@ -92,6 +92,8 @@ public class InvoiceController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @Parameter(description = "Filter invoices up to this date (yyyy-MM-dd)")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+            @Parameter(description = "Filter by organization ID (Super Admin only)")
+            @RequestParam(required = false) Long organizationId,
             @Parameter(hidden = true)
             @AuthenticationPrincipal UserPrincipal currentUser) {
         
@@ -104,7 +106,7 @@ public class InvoiceController {
                     .collect(Collectors.toList());
         }
         PagedResponse<InvoiceDTO> invoices = invoiceService.getInvoices(
-                pageable, search, statuses, vendorName, dateFrom, dateTo, currentUser);
+                pageable, search, statuses, vendorName, dateFrom, dateTo, organizationId, currentUser);
         return ResponseEntity.ok(ApiResponseDto.success(invoices));
     }
 

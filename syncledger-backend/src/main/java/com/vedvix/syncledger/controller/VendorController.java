@@ -42,10 +42,11 @@ public class VendorController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'APPROVER', 'VIEWER')")
     public ResponseEntity<ApiResponseDto<PagedResponse<VendorDTO>>> getVendors(
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) Long organizationId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
             @AuthenticationPrincipal UserPrincipal currentUser) {
 
-        PagedResponse<VendorDTO> vendors = vendorService.getVendors(pageable, search, currentUser);
+        PagedResponse<VendorDTO> vendors = vendorService.getVendors(pageable, search, organizationId, currentUser);
         return ResponseEntity.ok(ApiResponseDto.success("Vendors retrieved successfully", vendors));
     }
 
@@ -138,9 +139,10 @@ public class VendorController {
     })
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'APPROVER', 'VIEWER')")
     public ResponseEntity<ApiResponseDto<VendorSummaryDTO>> getVendorSummary(
+            @RequestParam(required = false) Long organizationId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
 
-        VendorSummaryDTO summary = vendorService.getVendorSummary(currentUser);
+        VendorSummaryDTO summary = vendorService.getVendorSummary(organizationId, currentUser);
         return ResponseEntity.ok(ApiResponseDto.success("Vendor summary retrieved successfully", summary));
     }
 }
