@@ -45,6 +45,7 @@ from services.mapping_engine import MappingEngine
 from services.database_service import DatabaseService, init_db_service
 from services.ai_extraction_service import AIExtractionService
 from services.ai_models import ExtractionTier
+from services.file_utils import is_supported_file, get_file_suffix
 
 # Configure structured logging
 structlog.configure(
@@ -301,13 +302,13 @@ async def _extract_with_ai_pipeline(
 
 @app.post("/extract", response_model=ExtractionResponse, tags=["Extraction"])
 async def extract_invoice_data(
-    file: UploadFile = File(..., description="PDF file to extract data from"),
+    file: UploadFile = File(..., description="PDF or image file to extract data from"),
     save_to_db: bool = Query(default=False, description="Whether to save extracted data to database")
 ):
     """
-    Extract invoice data from uploaded PDF file.
+    Extract invoice data from uploaded PDF or image file.
     
-    This endpoint accepts a PDF file and extracts:
+    This endpoint accepts a PDF or image file (JPG, PNG, TIFF, BMP) and extracts:
     - Invoice number
     - Vendor information (name, address, email, phone)
     - Invoice date and due date
@@ -320,13 +321,13 @@ async def extract_invoice_data(
     3. Regex FieldParser (last resort)
     Results are cross-validated for confidence scoring.
     """
-    if not file.filename.lower().endswith('.pdf'):
+    if not is_supported_file(file.filename):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only PDF files are accepted"
+            detail="Only PDF and image files (JPG, PNG, TIFF, BMP) are accepted"
         )
     
-    logger.info("Received PDF for extraction", filename=file.filename)
+    logger.info("Received file for extraction", filename=file.filename)
     
     try:
         # Read file content
@@ -345,7 +346,7 @@ async def extract_invoice_data(
             )
         
         # Save to temporary file for processing
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=get_file_suffix(file.filename)) as tmp_file:
             tmp_file.write(content)
             tmp_path = tmp_file.name
         
@@ -420,7 +421,7 @@ async def extract_invoice_data(
 @app.post("/extract/url", response_model=ExtractionResponse, tags=["Extraction"])
 async def extract_from_url(url: str):
     """
-    Extract invoice data from a PDF at the given URL (e.g., S3 presigned URL).
+    Extract invoice data from a PDF or image at the given URL (e.g., S3 presigned URL).
     Simple endpoint for quick extraction without organization context.
     """
     import httpx
@@ -433,8 +434,13 @@ async def extract_from_url(url: str):
             response.raise_for_status()
             content = response.content
         
+        # Determine file suffix from URL or default to .pdf
+        from urllib.parse import urlparse
+        url_path = urlparse(url).path
+        suffix = get_file_suffix(url_path)
+        
         # Save to temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
             tmp_file.write(content)
             tmp_path = tmp_file.name
         
@@ -501,14 +507,15 @@ async def extract_invoice_from_url(request: ExtractFromUrlRequest):
     start_time = time.time()
     
     try:
-        # Download PDF from URL
+        # Download file from URL
         async with httpx.AsyncClient() as client:
             response = await client.get(request.file_url, timeout=60.0)
             response.raise_for_status()
             content = response.content
         
-        # Save to temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+        # Save to temporary file with correct extension
+        suffix = get_file_suffix(request.file_name) if request.file_name else '.pdf'
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
             tmp_file.write(content)
             tmp_path = tmp_file.name
         
@@ -747,21 +754,21 @@ async def batch_extract(
     
     for file in files:
         try:
-            if not file.filename.lower().endswith('.pdf'):
+            if not is_supported_file(file.filename):
                 results.append(ExtractionResponse(
                     success=False,
                     data=None,
                     extraction_method="none",
                     page_count=0,
                     processing_time_ms=0,
-                    error=f"Not a PDF file: {file.filename}"
+                    error=f"Unsupported file type: {file.filename}"
                 ))
                 failed += 1
                 continue
             
             content = await file.read()
             
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=get_file_suffix(file.filename)) as tmp_file:
                 tmp_file.write(content)
                 tmp_path = tmp_file.name
             

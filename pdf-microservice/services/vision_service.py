@@ -25,6 +25,7 @@ from services.ai_models import (
     INVOICE_JSON_SCHEMA,
     VISION_SYSTEM_PROMPT,
 )
+from services.file_utils import is_image_file, load_image
 
 logger = structlog.get_logger(__name__)
 
@@ -90,8 +91,13 @@ class VisionExtractionService:
             raise RuntimeError("OpenAI client not initialized")
         
         try:
-            # Step 1: Convert PDF pages to images
-            images = self._convert_pdf_to_images(pdf_path)
+            # Step 1: Get images — load directly for image files, convert for PDFs
+            if is_image_file(pdf_path):
+                images = [load_image(pdf_path)]
+                logger.info("Image file loaded directly for vision extraction", path=pdf_path)
+            else:
+                images = self._convert_pdf_to_images(pdf_path)
+            
             pages_to_send = min(len(images), self.MAX_PAGES)
             metadata["pages_sent"] = pages_to_send
             

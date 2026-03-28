@@ -11,6 +11,7 @@ import pdfplumber
 import structlog
 
 from models.invoice_data import ExtractionResult
+from services.file_utils import is_image_file
 
 logger = structlog.get_logger(__name__)
 
@@ -31,14 +32,28 @@ class PDFExtractor:
     
     async def extract(self, pdf_path: str) -> ExtractionResult:
         """
-        Extract text from a PDF file.
+        Extract text from a PDF or image file.
+        
+        For images, returns an empty result with needs_ocr=True so the
+        pipeline routes to OCR/Vision extraction.
         
         Args:
-            pdf_path: Path to the PDF file
+            pdf_path: Path to the PDF or image file
             
         Returns:
             ExtractionResult with extracted text and metadata
         """
+        # Image files can't be opened by pdfplumber — signal OCR needed
+        if is_image_file(pdf_path):
+            logger.info("Image file detected, deferring to OCR/Vision", path=pdf_path)
+            return ExtractionResult(
+                text="",
+                method="image_passthrough",
+                page_count=1,
+                needs_ocr=True,
+                processing_time_ms=0,
+            )
+        
         start_time = time.time()
         
         try:

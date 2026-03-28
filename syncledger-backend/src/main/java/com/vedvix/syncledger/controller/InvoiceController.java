@@ -367,11 +367,15 @@ public class InvoiceController {
     }
 
     // ── Upload Invoice PDF ───────────────────────────────────────────────
+    private static final java.util.Set<String> SUPPORTED_CONTENT_TYPES = java.util.Set.of(
+            "application/pdf", "image/jpeg", "image/png", "image/tiff", "image/bmp"
+    );
+
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
     @Operation(
-        summary = "Upload invoice PDF",
-        description = "Upload a PDF file, store it (S3 or local), create an invoice record, and trigger extraction through the PDF microservice"
+        summary = "Upload invoice PDF or image",
+        description = "Upload a PDF or image file (JPG, PNG, TIFF, BMP), store it (S3 or local), create an invoice record, and trigger extraction through the PDF microservice"
     )
     @SecurityRequirement(name = "Bearer Authentication")
     @ApiResponses(value = {
@@ -381,9 +385,9 @@ public class InvoiceController {
     public ResponseEntity<ApiResponseDto<InvoiceDTO>> uploadInvoice(
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        if (file.isEmpty() || !"application/pdf".equals(file.getContentType())) {
+        if (file.isEmpty() || file.getContentType() == null || !SUPPORTED_CONTENT_TYPES.contains(file.getContentType())) {
             return ResponseEntity.badRequest()
-                    .body(ApiResponseDto.error("Only non-empty PDF files are accepted"));
+                    .body(ApiResponseDto.error("Only non-empty PDF or image files (JPG, PNG, TIFF, BMP) are accepted"));
         }
         InvoiceDTO invoice = invoiceService.uploadInvoice(file, currentUser);
         return ResponseEntity.ok(ApiResponseDto.success("Invoice uploaded and processing started", invoice));

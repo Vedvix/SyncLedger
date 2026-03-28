@@ -15,6 +15,7 @@ from PIL import Image
 import pytesseract
 
 from models.invoice_data import ExtractionResult
+from services.file_utils import is_image_file, load_image
 
 logger = structlog.get_logger(__name__)
 
@@ -43,10 +44,10 @@ class OCRService:
     
     async def extract(self, pdf_path: str) -> ExtractionResult:
         """
-        Extract text from a scanned PDF using OCR.
+        Extract text from a scanned PDF or image file using OCR.
         
         Args:
-            pdf_path: Path to the PDF file
+            pdf_path: Path to the PDF or image file
             
         Returns:
             ExtractionResult with extracted text and metadata
@@ -56,8 +57,13 @@ class OCRService:
         try:
             logger.info("Starting OCR extraction", pdf_path=pdf_path)
             
-            # Convert PDF to images
-            images = self._convert_pdf_to_images(pdf_path)
+            # Load images: directly for image files, via pdf2image for PDFs
+            if is_image_file(pdf_path):
+                images = [load_image(pdf_path)]
+                logger.info("Image file loaded directly for OCR", path=pdf_path)
+            else:
+                images = self._convert_pdf_to_images(pdf_path)
+            
             page_count = len(images)
             
             logger.info("PDF converted to images", pages=page_count)
