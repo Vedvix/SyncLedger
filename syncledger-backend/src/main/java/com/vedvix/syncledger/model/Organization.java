@@ -83,6 +83,12 @@ public class Organization {
     @Column(name = "erp_company_id", length = 255)
     private String erpCompanyId;
 
+    @Column(name = "erp_sender_id", length = 255)
+    private String erpSenderId;
+
+    @Column(name = "erp_sender_password_encrypted", length = 1000)
+    private String erpSenderPasswordEncrypted;
+
     @Column(name = "erp_auto_sync")
     @Builder.Default
     private Boolean erpAutoSync = true;

@@ -9,12 +9,17 @@ import com.vedvix.syncledger.repository.OrganizationRepository;
 import com.vedvix.syncledger.repository.SageSyncRepository;
 import com.vedvix.syncledger.repository.UserRepository;
 import com.vedvix.syncledger.security.UserPrincipal;
+import com.vedvix.syncledger.service.erp.ErpConnector;
+import com.vedvix.syncledger.service.erp.ErpConnectorFactory;
+import com.vedvix.syncledger.service.erp.ErpPropertyService;
+import com.vedvix.syncledger.service.erp.ErpSyncResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -26,7 +31,8 @@ public class ErpSyncService {
     private final SageSyncRepository sageSyncRepository;
     private final UserRepository userRepository;
     private final InvoiceService invoiceService;
-    private final SageIntacctService sageIntacctService;
+    private final ErpConnectorFactory erpConnectorFactory;
+    private final ErpPropertyService erpPropertyService;
 
     @Transactional
     public InvoiceDTO syncInvoice(Long invoiceId, UserPrincipal currentUser) {
@@ -86,22 +92,57 @@ public class ErpSyncService {
                 .build();
 
         try {
-            // 9. Perform the actual ERP sync based on type
-            performErpSync(invoice, org, syncLog);
+            // 9. Resolve connector + properties and perform sync
+            ErpConnector connector = erpConnectorFactory.getConnector(org.getErpType());
+            Map<String, String> properties = erpPropertyService
+                    .getDecryptedProperties(org.getId(), org.getErpType());
 
-            // 10. Mark success
+            ErpSyncResult result = connector.createBill(invoice, properties);
+
+            // 10. Populate sync log
+            syncLog.setRequestPayload(result.requestPayload());
+            syncLog.setResponsePayload(result.responsePayload());
+            syncLog.setHttpStatusCode(result.httpStatusCode());
+
+            if (result.success()) {
+                if (result.remoteRecordId() != null) {
+                    invoice.setSageInvoiceId(result.remoteRecordId());
+                    syncLog.setSageInvoiceId(result.remoteRecordId());
+                }
+
+                long durationMs = System.currentTimeMillis() - startTime;
+                invoice.setSyncStatus(SyncStatus.SUCCESS);
+                invoice.setSyncErrorMessage(null);
+                invoiceRepository.save(invoice);
+
+                syncLog.setStatus(SyncStatus.SUCCESS);
+                syncLog.setDurationMs((int) durationMs);
+                sageSyncRepository.save(syncLog);
+
+                log.info("Invoice {} synced successfully to {} in {}ms",
+                        invoiceId, org.getErpType(), durationMs);
+            } else {
+                syncLog.setErrorCode(result.errorCode());
+                syncLog.setErrorMessage(result.errorMessage());
+                throw new BadRequestException(result.errorMessage() != null
+                        ? result.errorMessage()
+                        : "ERP sync failed");
+            }
+
+        } catch (BadRequestException e) {
             long durationMs = System.currentTimeMillis() - startTime;
-            invoice.setSyncStatus(SyncStatus.SUCCESS);
-            invoice.setSyncErrorMessage(null);
+            log.error("Failed to sync invoice {} to {}: {}", invoiceId, org.getErpType(), e.getMessage());
+
+            invoice.setSyncStatus(SyncStatus.FAILED);
+            invoice.setSyncErrorMessage(e.getMessage());
             invoiceRepository.save(invoice);
 
-            syncLog.setStatus(SyncStatus.SUCCESS);
+            syncLog.setStatus(SyncStatus.FAILED);
+            if (syncLog.getErrorMessage() == null) syncLog.setErrorMessage(e.getMessage());
             syncLog.setDurationMs((int) durationMs);
             sageSyncRepository.save(syncLog);
 
-            log.info("Invoice {} synced successfully to {} in {}ms",
-                    invoiceId, org.getErpType(), durationMs);
-
+            throw e;
         } catch (Exception e) {
             long durationMs = System.currentTimeMillis() - startTime;
             log.error("Failed to sync invoice {} to {}: {}", invoiceId, org.getErpType(), e.getMessage());
@@ -119,47 +160,5 @@ public class ErpSyncService {
         }
 
         return invoiceService.getInvoiceById(invoiceId, currentUser);
-    }
-
-    private void performErpSync(Invoice invoice, Organization org, SageSync syncLog) {
-        switch (org.getErpType()) {
-            case SAGE:
-                syncToSage(invoice, org, syncLog);
-                break;
-            case QUICKBOOKS:
-            case NETSUITE:
-            case ORACLE:
-            case SAP:
-            case XERO:
-            case CUSTOM:
-                throw new BadRequestException(org.getErpType().getDisplayName()
-                        + " integration is not yet implemented. Coming soon!");
-            case NONE:
-            default:
-                throw new BadRequestException("No ERP integration configured");
-        }
-    }
-
-    private void syncToSage(Invoice invoice, Organization org, SageSync syncLog) {
-        SageIntacctService.SageResponse response = sageIntacctService.createBill(invoice, org);
-
-        // Populate sync log with request/response payloads
-        syncLog.setRequestPayload(response.requestPayload());
-        syncLog.setResponsePayload(response.responsePayload());
-        syncLog.setHttpStatusCode(response.httpStatusCode());
-
-        if (response.success()) {
-            // Store Sage record number on the invoice
-            if (response.recordNo() != null) {
-                invoice.setSageInvoiceId(response.recordNo());
-                syncLog.setSageInvoiceId(response.recordNo());
-            }
-        } else {
-            syncLog.setErrorCode(response.errorCode());
-            syncLog.setErrorMessage(response.errorMessage());
-            throw new BadRequestException(response.errorMessage() != null
-                    ? response.errorMessage()
-                    : "Sage Intacct sync failed");
-        }
     }
 }

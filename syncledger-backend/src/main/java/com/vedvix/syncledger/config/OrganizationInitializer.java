@@ -6,6 +6,7 @@ import com.vedvix.syncledger.repository.SubscriptionRepository;
 import com.vedvix.syncledger.repository.UserRepository;
 import com.vedvix.syncledger.service.EncryptionService;
 import com.vedvix.syncledger.service.SubscriptionService;
+import com.vedvix.syncledger.service.erp.ErpPropertyService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
@@ -16,6 +17,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Startup initializer that seeds predefined organizations on application start.
@@ -48,6 +51,7 @@ public class OrganizationInitializer implements ApplicationRunner {
     private final SubscriptionService subscriptionService;
     private final EncryptionService encryptionService;
     private final PasswordEncoder passwordEncoder;
+    private final ErpPropertyService erpPropertyService;
 
     // ── LongHome seed configuration (from env / properties) ────────
     @Value("${seed.longhome.enabled:true}")
@@ -74,6 +78,12 @@ public class OrganizationInitializer implements ApplicationRunner {
     @Value("${seed.longhome.erp-password:#{null}}")
     private String erpPassword;
 
+    @Value("${seed.longhome.erp-sender-id:#{null}}")
+    private String erpSenderId;
+
+    @Value("${seed.longhome.erp-sender-password:#{null}}")
+    private String erpSenderPassword;
+
     @Value("${seed.longhome.object-id:#{null}}")
     private String objectId;
 
@@ -89,13 +99,15 @@ public class OrganizationInitializer implements ApplicationRunner {
             SubscriptionRepository subscriptionRepository,
             SubscriptionService subscriptionService,
             EncryptionService encryptionService,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            ErpPropertyService erpPropertyService) {
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.subscriptionRepository = subscriptionRepository;
         this.subscriptionService = subscriptionService;
         this.encryptionService = encryptionService;
         this.passwordEncoder = passwordEncoder;
+        this.erpPropertyService = erpPropertyService;
     }
 
     @Override
@@ -136,17 +148,6 @@ public class OrganizationInitializer implements ApplicationRunner {
 
         log.info("🔧 Seeding organization: {} ...", orgName);
 
-        // Sage Intacct Web Services API endpoint
-        String erpApiEndpoint = "https://api.intacct.com/ia/xml/xmlgw.phtm";
-
-        // Store Sage user credentials in erp_config_json for extended config
-        String erpConfigJson = String.format(
-            "{\"userId\":\"%s\",\"password\":\"%s\",\"objectId\":\"%s\",\"certificateSecretId\":\"%s\"}",
-            erpUserId, erpPassword,
-            objectId != null ? objectId : "",
-            certSecretId != null ? certSecretId : ""
-        );
-
         // ── 1. Create Organization ─────────────────────────────────────
         Organization org = Organization.builder()
                 .name(orgName)
@@ -162,14 +163,9 @@ public class OrganizationInitializer implements ApplicationRunner {
                 .msMailboxEmail(msMailboxEmail)
                 .msCredentialsVerified(true)
                 .msCredentialsVerifiedAt(LocalDateTime.now())
-                // Sage Intacct ERP config
+                // ERP type (properties stored in erp_properties table)
                 .erpType(ErpType.SAGE)
-                .erpApiEndpoint(erpApiEndpoint)
-                .erpApiKeyEncrypted(encryptionService.encrypt(erpPassword))
-                .erpCompanyId(erpCompanyId)
-                .erpTenantId(erpUserId)   // store userId in tenantId field
                 .erpAutoSync(true)
-                .erpConfigJson(erpConfigJson)
                 // AWS paths
                 .s3FolderPath("organizations/" + slug + "/invoices")
                 .sqsQueueName("syncledger-" + slug + "-queue")
@@ -177,6 +173,18 @@ public class OrganizationInitializer implements ApplicationRunner {
 
         org = organizationRepository.save(org);
         log.info("   ✅ Organization created: {} (id={})", org.getName(), org.getId());
+
+        // ── 1b. Seed Sage Intacct ERP properties into generic table ────
+        Map<String, String> sageProps = new LinkedHashMap<>();
+        sageProps.put("company_id", erpCompanyId);
+        sageProps.put("user_id", erpUserId);
+        sageProps.put("user_password", erpPassword);
+        if (erpSenderId != null) sageProps.put("sender_id", erpSenderId);
+        if (erpSenderPassword != null) sageProps.put("sender_password", erpSenderPassword);
+        sageProps.put("gateway_url", "https://api.intacct.com/ia/xml/xmlgw.phtml");
+        sageProps.put("auto_sync", "true");
+        erpPropertyService.saveProperties(org.getId(), ErpType.SAGE, sageProps);
+        log.info("   ✅ Sage Intacct ERP properties seeded ({} keys)", sageProps.size());
 
         // ── 2. Create Admin User (if not exists) ───────────────────────
         if (!userRepository.existsByEmailIgnoreCase(msMailboxEmail)) {

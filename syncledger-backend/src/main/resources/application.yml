@@ -82,11 +82,13 @@ encryption:
   master-key: ${ENCRYPTION_MASTER_KEY:change-me-in-production}
 
 # =============================================================================
-# SAGE CONFIGURATION
+# SAGE INTACCT CONFIGURATION (XML Web Services API)
 # =============================================================================
-# Intacct: optional app-level sender credentials.
-# If set, these override the per-org erpTenantId/erpApiKey as sender credentials.
-# Leave blank to use the per-org User ID / Password as both sender and login.
+# Sage Intacct uses TWO-LAYER auth:
+#   Layer 1: Sender credentials (application-level) — identifies SyncLedger app
+#   Layer 2: Login credentials (per-org) — stored in Organization ERP settings
+#
+# Global sender credentials (used when org doesn't have its own sender ID):
 sage:
   intacct:
     sender-id: ${SAGE_SENDER_ID:}
@@ -263,6 +265,8 @@ seed:
     erp-company-id: ${SEED_LONGHOME_ERP_COMPANY_ID:#{null}}
     erp-user-id: ${SEED_LONGHOME_ERP_USER_ID:#{null}}
     erp-password: ${SEED_LONGHOME_ERP_PASSWORD:#{null}}
+    erp-sender-id: ${SEED_LONGHOME_ERP_SENDER_ID:#{null}}
+    erp-sender-password: ${SEED_LONGHOME_ERP_SENDER_PASSWORD:#{null}}
     object-id: ${SEED_LONGHOME_OBJECT_ID:#{null}}
     cert-secret-id: ${SEED_LONGHOME_CERT_SECRET_ID:#{null}}
     admin-password: ${SEED_LONGHOME_ADMIN_PASSWORD:LongHome@2026!}

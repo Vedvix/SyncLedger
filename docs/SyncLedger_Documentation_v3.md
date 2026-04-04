@@ -33,7 +33,7 @@
 ### PART C: THIRD-PARTY SETUP GUIDES
 9. [AWS Account Setup](#9-aws-account-setup)
 10. [Microsoft 365 & Graph API Setup](#10-microsoft-365--graph-api-setup)
-11. [Sage Integration Setup](#11-sage-integration-setup)
+11. [Sage Intacct Integration Setup](#11-sage-intacct-integration-setup)
 
 ### PART D: DEVELOPMENT GUIDE
 12. [Development Environment Setup](#12-development-environment-setup)
@@ -1409,77 +1409,251 @@ Save these in your configuration:
 
 ---
 
-## 11. Sage Integration Setup
+## 11. Generic ERP Integration System
 
-### 11.1 Get Sage API Credentials
+SyncLedger supports **any ERP system** through a generic, plugin-based connector architecture.
+Each ERP type defines its own required properties (credentials and settings), and the frontend
+renders a dynamic configuration form based on the property schema returned by the API.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                    SAGE API SETUP                                                │
-└─────────────────────────────────────────────────────────────────────────────────┘
+### 11.1 Supported ERP Types
 
-1. Go to: Sage Developer Portal
-   https://developer.sage.com/
+| Type        | Display Name       | Status        | Auth Model                     |
+|-------------|--------------------|---------------|--------------------------------|
+| SAGE        | Sage Intacct       | Implemented   | XML Web Services (Sender+Login)|
+| QUICKBOOKS  | QuickBooks         | Schema ready  | OAuth2 REST                    |
+| NETSUITE    | Oracle NetSuite    | Schema ready  | Token-Based Auth REST          |
+| ORACLE      | Oracle Fusion Cloud| Schema ready  | Basic Auth REST                |
+| SAP         | SAP S/4HANA / B1   | Schema ready  | OAuth2 / Service Layer         |
+| XERO        | Xero               | Schema ready  | OAuth2 REST                    |
+| CUSTOM      | Custom API         | Schema ready  | Configurable                   |
 
-2. Create Developer Account / Sign In
-
-3. Create New App:
-   ┌────────────────────────────────────────────────────────────────────────────┐
-   │ App Name: SyncLedger Integration                                           │
-   │ Description: Automated invoice sync from SyncLedger                        │
-   │ Redirect URI: https://syncledger.com/callback/sage                        │
-   │ Product: Sage Business Cloud Accounting                                   │
-   └────────────────────────────────────────────────────────────────────────────┘
-
-4. Get Credentials:
-   ┌────────────────────────────────────────────────────────────────────────────┐
-   │ Client ID: sage_client_xxx                                                │
-   │ Client Secret: sage_secret_xxx                                            │
-   │ API Endpoint: https://api.sage.com/                                       │
-   └────────────────────────────────────────────────────────────────────────────┘
-
-5. Each organization needs to authorize SyncLedger to access their Sage account
-   (OAuth2 flow - handled in the application)
-```
-
-### 11.2 Sage API Endpoints Used
+### 11.2 Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                    SAGE API ENDPOINTS                                            │
+│                    GENERIC ERP CONNECTOR ARCHITECTURE                             │
 └─────────────────────────────────────────────────────────────────────────────────┘
 
-Creating Invoice in Sage:
+  Frontend                          Backend
+  ─────────                         ─────────
+  1. GET /erp-types            →  Returns all ERP types + implemented flag
+  2. GET /erp-types/SAGE/      →  Returns property schema (labels, types,
+     properties                   required flags, help text)
+  3. UI renders dynamic form
+  4. PUT /erp-config           →  { erpType: "SAGE", properties: { ... } }
+     (user fills in fields)       Saves to erp_properties table (secrets encrypted)
+  5. POST /erp-config/verify   →  ErpConnectorFactory resolves SageIntacctService
+                                  → testConnection(decryptedProps) → result
 
-POST https://api.sage.com/accounts/v3/purchase_invoices
+  ┌──────────────┐    ┌────────────────────┐    ┌──────────────────┐
+  │ ErpConnector  │◄───│ ErpConnectorFactory │───►│ ErpPropertyService│
+  │  (interface)  │    │ (auto-discovers     │    │ (CRUD + encrypt/ │
+  │               │    │  all @Service beans) │    │  decrypt + mask)  │
+  └──────┬────────┘    └────────────────────┘    └──────────────────┘
+         │
+    ┌────┴────────────────────────────────┐
+    │     │           │          │         │
+  Sage  QuickBooks  NetSuite  Oracle  Custom
+  (impl) (stub)     (stub)   (stub)  (stub)
+```
 
-Request Body:
-{
-  "purchase_invoice": {
-    "contact_id": "CONTACT_ID",
-    "date": "2026-02-07",
-    "due_date": "2026-03-07",
-    "reference": "INV-2026-001",
-    "vendor_reference": "VENDOR-REF",
-    "notes": "Auto-synced from SyncLedger",
-    "invoice_lines": [
-      {
-        "description": "Invoice line item",
-        "quantity": 1,
-        "unit_price": 1000.00,
-        "tax_rate_id": "TAX_RATE_ID",
-        "ledger_account_id": "LEDGER_ACCOUNT_ID"
-      }
-    ]
-  }
-}
+**Key classes:**
+- `ErpConnector` — Interface: `getErpType()`, `testConnection(Map)`, `createBill(Invoice, Map)`
+- `ErpConnectorFactory` — Spring DI auto-discovers all `ErpConnector` beans
+- `ErpPropertyDefinitions` — Static schema: what properties each ERP type requires
+- `ErpPropertyService` — CRUD for `erp_properties` table with AES-256-GCM encryption
+- `ErpSyncResult` — Generic result record (replaces old SageResponse)
+
+### 11.3 Property Storage
+
+ERP properties are stored in the `erp_properties` table as generic key-value pairs:
+
+```sql
+CREATE TABLE erp_properties (
+    id                 BIGSERIAL PRIMARY KEY,
+    organization_id    BIGINT NOT NULL REFERENCES organizations(id),
+    erp_type           VARCHAR(50) NOT NULL,
+    property_key       VARCHAR(100) NOT NULL,
+    property_value     TEXT,
+    is_encrypted       BOOLEAN DEFAULT FALSE,
+    created_at         TIMESTAMP DEFAULT NOW(),
+    updated_at         TIMESTAMP DEFAULT NOW(),
+    UNIQUE (organization_id, erp_type, property_key)
+);
+```
+
+Secret properties (passwords, tokens) are encrypted with AES-256-GCM at rest and masked in API responses.
+
+### 11.4 API Endpoints
+
+#### Discover available ERP types
+```
+GET /api/v1/organization-settings/erp-types
+
+Response:
+[
+  {
+    "type": "SAGE",
+    "displayName": "Sage Intacct",
+    "description": "Sage Intacct cloud ERP",
+    "implemented": true,
+    "propertyCount": 8
+  },
+  {
+    "type": "QUICKBOOKS",
+    "displayName": "QuickBooks",
+    "description": "Intuit QuickBooks",
+    "implemented": false,
+    "propertyCount": 6
+  },
+  ...
+]
+```
+
+#### Get property schema for a type (for dynamic form rendering)
+```
+GET /api/v1/organization-settings/erp-types/SAGE/properties
+
+Response:
+[
+  {
+    "key": "sender_id",
+    "label": "Sender ID",
+    "helpText": "Web Services developer Sender ID...",
+    "type": "text",
+    "required": true,
+    "secret": false,
+    "defaultValue": null,
+    "displayOrder": 1
+  },
+  {
+    "key": "sender_password",
+    "label": "Sender Password",
+    "type": "password",
+    "required": true,
+    "secret": true,
+    ...
+  },
+  ...
+]
+```
+
+#### Get current ERP config (secrets masked)
+```
+GET /api/v1/organization-settings/erp-config
 
 Response:
 {
-  "id": "sage-invoice-id-123",
-  "displayed_as": "INV-2026-001",
-  ...
+  "erpType": "SAGE",
+  "erpTypeDisplayName": "Sage Intacct",
+  "erpConfigured": true,
+  "properties": {
+    "sender_id": "MyApp",
+    "sender_password": "My***",
+    "company_id": "ACME_CORP",
+    "user_id": "ws_user",
+    "user_password": "pa***",
+    "gateway_url": "https://api.intacct.com/ia/xml/xmlgw.phtml",
+    "auto_sync": "true"
+  },
+  "propertyDefinitions": [ ... ]
 }
+```
+
+#### Update ERP config (generic properties)
+```
+PUT /api/v1/organization-settings/erp-config
+{
+  "erpType": "SAGE",
+  "properties": {
+    "sender_id": "MyApp",
+    "sender_password": "MySecretPass",
+    "company_id": "ACME_CORP",
+    "user_id": "ws_user",
+    "user_password": "User1234!",
+    "gateway_url": "https://api.intacct.com/ia/xml/xmlgw.phtml",
+    "auto_sync": "true"
+  }
+}
+```
+
+#### Verify ERP connection
+```
+POST /api/v1/organization-settings/erp-config/verify
+```
+
+### 11.5 Sage Intacct — Detailed Setup
+
+Sage Intacct uses XML Web Services with two-layer authentication:
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  LAYER 1 — SENDER (Application Level)                                        │
+│  ─────────────────────────────────────                                        │
+│  sender_id / sender_password — Identifies your application to the gateway.   │
+│  Register at https://developer.intacct.com                                   │
+│  Can be set globally via SAGE_SENDER_ID / SAGE_SENDER_PASSWORD env vars,     │
+│  or per-org in properties.                                                    │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  LAYER 2 — LOGIN (Per-Organization)                                           │
+│  ──────────────────────────────────                                           │
+│  user_id / company_id / user_password — Identifies the specific user +       │
+│  company. Customer creates WS user in Sage Intacct and authorizes your       │
+│  Sender ID in Company → Admin → Web Services Authorizations.                 │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 11.6 Adding a New ERP Connector
+
+To add support for a new ERP system:
+
+1. **Define properties** in `ErpPropertyDefinitions.java`:
+   ```java
+   DEFINITIONS.put(ErpType.MY_ERP, List.of(
+       new PropertyDef("api_key", "API Key", "Your API key", "password", true, true, null, 1),
+       new PropertyDef("base_url", "Base URL", "API base URL", "url", true, false, null, 2),
+       new PropertyDef("auto_sync", "Auto-Sync", "...", "select", false, false, "true", 3)
+   ));
+   ```
+
+2. **Add enum value** to `ErpType.java`:
+   ```java
+   MY_ERP("My ERP", "My ERP cloud platform")
+   ```
+
+3. **Implement the connector**:
+   ```java
+   @Service
+   public class MyErpService implements ErpConnector {
+       @Override public ErpType getErpType() { return ErpType.MY_ERP; }
+       @Override public ErpSyncResult testConnection(Map<String, String> props) { ... }
+       @Override public ErpSyncResult createBill(Invoice invoice, Map<String, String> props) { ... }
+   }
+   ```
+
+4. That's it — `ErpConnectorFactory` auto-discovers the new `@Service` bean via Spring DI.
+
+### 11.7 Environment Variables Reference
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│              ERP — ENVIRONMENT VARIABLES                                         │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  Global (Sage Intacct application-level):                                        │
+│  ──────────────────────────────────────                                           │
+│  SAGE_SENDER_ID              App sender ID (shared across all orgs)             │
+│  SAGE_SENDER_PASSWORD        App sender password                                 │
+│                                                                                  │
+│  Per-org seed (LongHome example):                                                │
+│  ────────────────────────────────                                                │
+│  SEED_LONGHOME_ERP_COMPANY_ID       Sage Intacct company ID                     │
+│  SEED_LONGHOME_ERP_USER_ID          Web Services user ID                         │
+│  SEED_LONGHOME_ERP_PASSWORD          Web Services user password                  │
+│  SEED_LONGHOME_ERP_SENDER_ID         Sender ID (overrides global for this org)  │
+│  SEED_LONGHOME_ERP_SENDER_PASSWORD   Sender password (overrides global)         │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---

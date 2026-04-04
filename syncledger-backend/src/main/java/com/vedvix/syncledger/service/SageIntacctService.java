@@ -1,9 +1,12 @@
 package com.vedvix.syncledger.service;
 
 import com.vedvix.syncledger.exception.BadRequestException;
+import com.vedvix.syncledger.model.ErpType;
 import com.vedvix.syncledger.model.Invoice;
 import com.vedvix.syncledger.model.InvoiceLineItem;
 import com.vedvix.syncledger.model.Organization;
+import com.vedvix.syncledger.service.erp.ErpConnector;
+import com.vedvix.syncledger.service.erp.ErpSyncResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
@@ -21,11 +24,12 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.StringReader;
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
 @Slf4j
-public class SageIntacctService {
+public class SageIntacctService implements ErpConnector {
 
     private static final String DEFAULT_GATEWAY = "https://api.intacct.com/ia/xml/xmlgw.phtml";
 
@@ -35,49 +39,31 @@ public class SageIntacctService {
     @Value("${sage.intacct.sender-password:}")
     private String appSenderPassword;
 
-    private final EncryptionService encryptionService;
     private final RestTemplate restTemplate;
 
-    public SageIntacctService(EncryptionService encryptionService, RestTemplateBuilder restTemplateBuilder) {
-        this.encryptionService = encryptionService;
+    public SageIntacctService(RestTemplateBuilder restTemplateBuilder) {
         this.restTemplate = restTemplateBuilder
                 .connectTimeout(java.time.Duration.ofSeconds(30))
                 .readTimeout(java.time.Duration.ofSeconds(60))
                 .build();
     }
 
-    /**
-     * Result of a Sage Intacct API call.
-     */
-    public record SageResponse(
-            boolean success,
-            String recordNo,
-            int httpStatusCode,
-            String errorCode,
-            String errorMessage,
-            String requestPayload,
-            String responsePayload
-    ) {
-        static SageResponse ok(String recordNo, int httpStatus, String request, String response) {
-            return new SageResponse(true, recordNo, httpStatus, null, null, request, response);
-        }
-
-        static SageResponse fail(String recordNo, int httpStatus, String code, String msg, String request, String response) {
-            return new SageResponse(false, recordNo, httpStatus, code, msg, request, response);
-        }
+    @Override
+    public ErpType getErpType() {
+        return ErpType.SAGE;
     }
 
     /**
      * Test connectivity to Sage Intacct using the org's ERP credentials.
-     * Performs a simple getAPISession call to validate sender + login auth.
      */
-    public SageResponse testConnection(Organization org) {
-        SageCredentials creds = resolveCredentials(org);
+    @Override
+    public ErpSyncResult testConnection(Map<String, String> properties) {
+        SageCredentials creds = resolveCredentials(properties);
 
         String controlId = UUID.randomUUID().toString();
         String requestXml = buildTestConnectionXml(creds, controlId);
         String maskedXml = requestXml.replaceAll("<password>[^<]*</password>", "<password>***</password>");
-        String gatewayUrl = resolveGatewayUrl(org.getErpApiEndpoint());
+        String gatewayUrl = resolveGatewayUrl(properties.get("gateway_url"));
 
         log.info("Sage Intacct: Testing connection [gateway={}, senderId={}, company={}]",
                 gatewayUrl, creds.senderId, creds.companyId);
@@ -88,29 +74,23 @@ public class SageIntacctService {
     /**
      * Create an AP Bill in Sage Intacct for the given invoice.
      */
-    public SageResponse createBill(Invoice invoice, Organization org) {
-        SageCredentials creds = resolveCredentials(org);
+    @Override
+    public ErpSyncResult createBill(Invoice invoice, Map<String, String> properties) {
+        SageCredentials creds = resolveCredentials(properties);
 
-        // --- Build XML ---
         String controlId = UUID.randomUUID().toString();
         String requestXml = buildCreateBillXml(invoice, creds, controlId);
-
-        // Mask credentials for logging / sync log
-        String maskedXml = requestXml
-                .replaceAll("<password>[^<]*</password>", "<password>***</password>");
-
-        // --- Resolve gateway URL ---
-        String gatewayUrl = resolveGatewayUrl(org.getErpApiEndpoint());
+        String maskedXml = requestXml.replaceAll("<password>[^<]*</password>", "<password>***</password>");
+        String gatewayUrl = resolveGatewayUrl(properties.get("gateway_url"));
 
         log.info("Sage Intacct: Creating AP Bill [gateway={}, senderId={}, company={}, invoiceNo={}]",
                 gatewayUrl, creds.senderId, creds.companyId, invoice.getInvoiceNumber());
 
-        // --- Send HTTP and parse ---
-        SageResponse result = executeRequest(requestXml, maskedXml, gatewayUrl);
+        ErpSyncResult result = executeRequest(requestXml, maskedXml, gatewayUrl);
 
         if (result.success()) {
             log.info("Sage Intacct: AP Bill created [RECORDNO={}, invoiceNo={}]",
-                    result.recordNo(), invoice.getInvoiceNumber());
+                    result.remoteRecordId(), invoice.getInvoiceNumber());
         } else {
             log.warn("Sage Intacct error [invoiceNo={}, code={}, msg={}]",
                     invoice.getInvoiceNumber(), result.errorCode(), result.errorMessage());
@@ -123,28 +103,37 @@ public class SageIntacctService {
     private record SageCredentials(String senderId, String senderPassword,
                                     String userId, String companyId, String userPassword) {}
 
-    private SageCredentials resolveCredentials(Organization org) {
-        // Sender credentials: app-level override → org-level (same user ID & password)
-        String senderId = nonBlank(appSenderId) != null ? appSenderId : org.getErpTenantId();
-        String senderPassword = nonBlank(appSenderPassword) != null
-                ? appSenderPassword : decryptSafe(org.getErpApiKeyEncrypted());
+    private SageCredentials resolveCredentials(Map<String, String> props) {
+        // Sender credentials: property → app-level env var → FAIL
+        String senderId = nonBlank(props.get("sender_id")) != null
+                ? props.get("sender_id") : nonBlank(appSenderId);
+        String senderPassword = nonBlank(props.get("sender_password")) != null
+                ? props.get("sender_password") : nonBlank(appSenderPassword);
 
-        // Login credentials always from org
-        String userId = org.getErpTenantId();
-        String companyId = org.getErpCompanyId();
-        String userPassword = decryptSafe(org.getErpApiKeyEncrypted());
+        String userId = props.get("user_id");
+        String companyId = props.get("company_id");
+        String userPassword = props.get("user_password");
 
         if (nonBlank(senderId) == null)
-            throw new BadRequestException("Sage User ID is not configured. Set it in ERP settings.");
+            throw new BadRequestException(
+                    "Sage Sender ID is not configured. "
+                    + "Set it in ERP properties or as the SAGE_SENDER_ID environment variable. "
+                    + "Register at https://developer.intacct.com to obtain one.");
+        if (nonBlank(senderPassword) == null)
+            throw new BadRequestException(
+                    "Sage Sender Password is not configured. "
+                    + "Set it in ERP properties or as the SAGE_SENDER_PASSWORD environment variable.");
+        if (nonBlank(userId) == null)
+            throw new BadRequestException("Sage User ID is not configured in ERP properties.");
         if (nonBlank(companyId) == null)
-            throw new BadRequestException("Sage Company ID is not configured for this organization.");
+            throw new BadRequestException("Sage Company ID is not configured in ERP properties.");
         if (nonBlank(userPassword) == null)
-            throw new BadRequestException("Sage password is not configured for this organization.");
+            throw new BadRequestException("Sage User Password is not configured in ERP properties.");
 
         return new SageCredentials(senderId, senderPassword, userId, companyId, userPassword);
     }
 
-    private SageResponse executeRequest(String requestXml, String maskedXml, String gatewayUrl) {
+    private ErpSyncResult executeRequest(String requestXml, String maskedXml, String gatewayUrl) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_XML);
         HttpEntity<String> entity = new HttpEntity<>(requestXml, headers);
@@ -162,7 +151,7 @@ public class SageIntacctService {
             log.warn("Sage Intacct HTTP {}: {}", httpStatus, responseBody);
         } catch (Exception e) {
             log.error("Sage Intacct connection error: {}", e.getMessage());
-            return SageResponse.fail(null, 0, "CONNECTION_ERROR",
+            return ErpSyncResult.fail(null, 0, "CONNECTION_ERROR",
                     "Failed to connect to Sage Intacct: " + e.getMessage(), maskedXml, null);
         }
 
@@ -261,9 +250,9 @@ public class SageIntacctService {
 
     // ─── Response Parser ─────────────────────────────────────────────────────────
 
-    private SageResponse parseResponse(String body, int httpStatus, String maskedReq) {
+    private ErpSyncResult parseResponse(String body, int httpStatus, String maskedReq) {
         if (body == null || body.isBlank()) {
-            return SageResponse.fail(null, httpStatus, "EMPTY_RESPONSE",
+            return ErpSyncResult.fail(null, httpStatus, "EMPTY_RESPONSE",
                     "Empty response from Sage Intacct", maskedReq, null);
         }
 
@@ -300,41 +289,41 @@ public class SageIntacctService {
                     NodeList keys = doc.getElementsByTagName("key");
                     if (keys.getLength() > 0) recordNo = keys.item(0).getTextContent();
                 }
-                return SageResponse.ok(recordNo, httpStatus, maskedReq, body);
+                return ErpSyncResult.ok(recordNo, httpStatus, maskedReq, body);
             }
 
-            return SageResponse.ok(null, httpStatus, maskedReq, body);
+            return ErpSyncResult.ok(null, httpStatus, maskedReq, body);
 
         } catch (Exception e) {
             log.error("Failed to parse Sage response: {}", e.getMessage());
-            return SageResponse.fail(null, httpStatus, "PARSE_ERROR",
+            return ErpSyncResult.fail(null, httpStatus, "PARSE_ERROR",
                     "Failed to parse Sage response: " + e.getMessage(), maskedReq, body);
         }
     }
 
-    private SageResponse extractError(Element root, int http, String req, String resp) {
+    private ErpSyncResult extractError(Element root, int http, String req, String resp) {
         NodeList errors = root.getElementsByTagName("error");
         if (errors.getLength() > 0) {
             Element err = (Element) errors.item(0);
-            return SageResponse.fail(null, http,
+            return ErpSyncResult.fail(null, http,
                     directChild(err, "errorno"),
                     errorMsg(err), req, resp);
         }
-        return SageResponse.fail(null, http, "CONTROL_FAILURE", "Sage Intacct control failure", req, resp);
+        return ErpSyncResult.fail(null, http, "CONTROL_FAILURE", "Sage Intacct control failure", req, resp);
     }
 
-    private SageResponse extractResultError(Element result, int http, String req, String resp) {
+    private ErpSyncResult extractResultError(Element result, int http, String req, String resp) {
         NodeList errMsgs = result.getElementsByTagName("errormessage");
         if (errMsgs.getLength() > 0) {
             NodeList errors = ((Element) errMsgs.item(0)).getElementsByTagName("error");
             if (errors.getLength() > 0) {
                 Element err = (Element) errors.item(0);
-                return SageResponse.fail(null, http,
+                return ErpSyncResult.fail(null, http,
                         directChild(err, "errorno"),
                         errorMsg(err), req, resp);
             }
         }
-        return SageResponse.fail(null, http, "RESULT_FAILURE", "Sage Intacct operation failed", req, resp);
+        return ErpSyncResult.fail(null, http, "RESULT_FAILURE", "Sage Intacct operation failed", req, resp);
     }
 
     private String errorMsg(Element err) {
@@ -350,19 +339,9 @@ public class SageIntacctService {
 
     // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-    private String resolveGatewayUrl(String orgEndpoint) {
-        if (orgEndpoint != null && orgEndpoint.contains("/ia/xml/")) return orgEndpoint;
+    private String resolveGatewayUrl(String endpoint) {
+        if (endpoint != null && endpoint.contains("/ia/xml/")) return endpoint;
         return DEFAULT_GATEWAY;
-    }
-
-    private String decryptSafe(String encrypted) {
-        if (encrypted == null || encrypted.isBlank()) return null;
-        try {
-            return encryptionService.decrypt(encrypted);
-        } catch (Exception e) {
-            log.warn("ERP API key decryption failed — key may have been stored unencrypted. Re-save ERP config to fix.");
-            return encrypted;
-        }
     }
 
     private static String nonBlank(String s) {

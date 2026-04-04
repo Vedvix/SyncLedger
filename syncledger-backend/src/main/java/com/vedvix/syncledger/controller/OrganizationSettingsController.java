@@ -4,12 +4,15 @@ import com.vedvix.syncledger.dto.*;
 import com.vedvix.syncledger.exception.BadRequestException;
 import com.vedvix.syncledger.exception.ForbiddenException;
 import com.vedvix.syncledger.exception.ResourceNotFoundException;
-import com.vedvix.syncledger.exception.UnauthorizedException;
 import com.vedvix.syncledger.model.Organization;
 import com.vedvix.syncledger.repository.OrganizationRepository;
 import com.vedvix.syncledger.security.UserPrincipal;
 import com.vedvix.syncledger.service.EncryptionService;
-import com.vedvix.syncledger.service.SageIntacctService;
+import com.vedvix.syncledger.service.erp.ErpConnector;
+import com.vedvix.syncledger.service.erp.ErpConnectorFactory;
+import com.vedvix.syncledger.service.erp.ErpPropertyDefinitions;
+import com.vedvix.syncledger.service.erp.ErpPropertyService;
+import com.vedvix.syncledger.service.erp.ErpSyncResult;
 import com.vedvix.syncledger.model.ErpType;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -32,8 +35,7 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Organization settings controller for managing Microsoft credentials
@@ -52,7 +54,8 @@ public class OrganizationSettingsController {
 
     private final OrganizationRepository organizationRepository;
     private final EncryptionService encryptionService;
-    private final SageIntacctService sageIntacctService;
+    private final ErpConnectorFactory erpConnectorFactory;
+    private final ErpPropertyService erpPropertyService;
 
     @GetMapping("/microsoft-config")
     @Operation(
@@ -235,10 +238,46 @@ public class OrganizationSettingsController {
 
     // ==================== ERP Configuration ====================
 
+    @GetMapping("/erp-types")
+    @Operation(
+        summary = "List available ERP types",
+        description = "Returns all supported ERP types with display names, descriptions, and whether a connector is implemented"
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponseDto<List<Map<String, Object>>>> getErpTypes() {
+        List<Map<String, Object>> types = new ArrayList<>();
+        for (ErpType et : ErpType.values()) {
+            if (et == ErpType.NONE) continue;
+            Map<String, Object> info = new LinkedHashMap<>();
+            info.put("type", et.name());
+            info.put("displayName", et.getDisplayName());
+            info.put("description", et.getDescription());
+            info.put("implemented", erpConnectorFactory.hasConnector(et));
+            info.put("propertyCount", ErpPropertyDefinitions.getDefinitions(et).size());
+            types.add(info);
+        }
+        return ResponseEntity.ok(ApiResponseDto.success(types));
+    }
+
+    @GetMapping("/erp-types/{type}/properties")
+    @Operation(
+        summary = "Get property definitions for an ERP type",
+        description = "Returns the property schema (fields, labels, types, required markers) so the frontend can render a dynamic config form"
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponseDto<List<ErpPropertyDefinitions.PropertyDef>>> getErpTypeProperties(
+            @PathVariable String type) {
+        ErpType erpType = parseErpType(type);
+        return ResponseEntity.ok(
+                ApiResponseDto.success(ErpPropertyDefinitions.getDefinitions(erpType)));
+    }
+
     @GetMapping("/erp-config")
     @Operation(
         summary = "Get ERP integration configuration",
-        description = "Returns the current ERP integration settings for the organization (API key masked)"
+        description = "Returns the current ERP integration settings for the organization (secrets masked)"
     )
     @SecurityRequirement(name = "Bearer Authentication")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
@@ -247,15 +286,13 @@ public class OrganizationSettingsController {
             @AuthenticationPrincipal UserPrincipal currentUser) {
 
         Organization org = resolveOrganization(currentUser);
-
-        ErpConfigDTO dto = buildErpConfigDTO(org);
-        return ResponseEntity.ok(ApiResponseDto.success(dto));
+        return ResponseEntity.ok(ApiResponseDto.success(buildErpConfigDTO(org)));
     }
 
     @PutMapping("/erp-config")
     @Operation(
         summary = "Update ERP integration configuration",
-        description = "Updates ERP integration settings for the organization. API key is encrypted at rest."
+        description = "Updates ERP integration settings. Properties are generic key-value pairs; secrets are encrypted at rest."
     )
     @SecurityRequirement(name = "Bearer Authentication")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
@@ -265,36 +302,9 @@ public class OrganizationSettingsController {
             @AuthenticationPrincipal UserPrincipal currentUser) {
 
         Organization org = resolveOrganization(currentUser);
-
-        if (request.getErpType() != null) {
-            try {
-                org.setErpType(ErpType.valueOf(request.getErpType().toUpperCase()));
-            } catch (IllegalArgumentException e) {
-                throw new BadRequestException("Invalid ERP type: " + request.getErpType());
-            }
-        }
-        if (request.getErpApiEndpoint() != null) {
-            org.setErpApiEndpoint(request.getErpApiEndpoint());
-        }
-        if (request.getErpApiKey() != null && !request.getErpApiKey().isBlank()) {
-            org.setErpApiKeyEncrypted(encryptionService.encrypt(request.getErpApiKey()));
-        }
-        if (request.getErpTenantId() != null) {
-            org.setErpTenantId(request.getErpTenantId());
-        }
-        if (request.getErpCompanyId() != null) {
-            org.setErpCompanyId(request.getErpCompanyId());
-        }
-        if (request.getErpAutoSync() != null) {
-            org.setErpAutoSync(request.getErpAutoSync());
-        }
-
-        organizationRepository.save(org);
-
-        log.info("ERP config updated for org: {} by user: {}", org.getName(), currentUser.getEmail());
-
-        ErpConfigDTO dto = buildErpConfigDTO(org);
-        return ResponseEntity.ok(ApiResponseDto.success("ERP configuration updated successfully", dto));
+        applyErpConfigUpdate(org, request, currentUser.getEmail());
+        return ResponseEntity.ok(ApiResponseDto.success("ERP configuration updated successfully",
+                buildErpConfigDTO(org)));
     }
 
     // ==================== Onboarding Completion ====================
@@ -411,34 +421,7 @@ public class OrganizationSettingsController {
         Organization org = organizationRepository.findById(organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", organizationId));
 
-        if (request.getErpType() != null) {
-            try {
-                org.setErpType(ErpType.valueOf(request.getErpType().toUpperCase()));
-            } catch (IllegalArgumentException e) {
-                throw new BadRequestException("Invalid ERP type: " + request.getErpType());
-            }
-        }
-        if (request.getErpApiEndpoint() != null) {
-            org.setErpApiEndpoint(request.getErpApiEndpoint());
-        }
-        if (request.getErpApiKey() != null && !request.getErpApiKey().isBlank()) {
-            org.setErpApiKeyEncrypted(encryptionService.encrypt(request.getErpApiKey()));
-        }
-        if (request.getErpTenantId() != null) {
-            org.setErpTenantId(request.getErpTenantId());
-        }
-        if (request.getErpCompanyId() != null) {
-            org.setErpCompanyId(request.getErpCompanyId());
-        }
-        if (request.getErpAutoSync() != null) {
-            org.setErpAutoSync(request.getErpAutoSync());
-        }
-
-        organizationRepository.save(org);
-
-        log.info("Super Admin updated ERP config for org: {} by: {}",
-                org.getName(), currentUser.getEmail());
-
+        applyErpConfigUpdate(org, request, currentUser.getEmail());
         return ResponseEntity.ok(ApiResponseDto.success("ERP configuration updated", buildErpConfigDTO(org)));
     }
 
@@ -481,52 +464,98 @@ public class OrganizationSettingsController {
             throw new BadRequestException("No ERP integration configured. Please set up ERP settings first.");
         }
 
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("erpType", org.getErpType().name());
-        result.put("companyId", org.getErpCompanyId());
-        result.put("userId", org.getErpTenantId());
+        ErpType erpType = org.getErpType();
+        ErpConnector connector = erpConnectorFactory.getConnector(erpType);
+        Map<String, String> properties = erpPropertyService
+                .getDecryptedProperties(org.getId(), erpType);
 
-        if (org.getErpType() == ErpType.SAGE) {
-            SageIntacctService.SageResponse response = sageIntacctService.testConnection(org);
-            result.put("connected", response.success());
-            result.put("httpStatus", response.httpStatusCode());
-            if (response.success()) {
-                result.put("message", "Successfully connected to Sage Intacct");
-            } else {
-                result.put("errorCode", response.errorCode());
-                result.put("errorMessage", response.errorMessage());
-                String guidance = getSageErrorGuidance(response.errorCode());
-                if (guidance != null) result.put("guidance", guidance);
-            }
+        ErpSyncResult result = connector.testConnection(properties);
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("erpType", erpType.name());
+        data.put("erpTypeDisplayName", erpType.getDisplayName());
+        data.put("connected", result.success());
+        data.put("httpStatus", result.httpStatusCode());
+
+        if (result.success()) {
+            data.put("message", "Successfully connected to " + erpType.getDisplayName());
         } else {
-            throw new BadRequestException(org.getErpType().name() + " verification is not yet implemented.");
+            data.put("errorCode", result.errorCode());
+            data.put("errorMessage", result.errorMessage());
+            String guidance = getErpErrorGuidance(erpType, result.errorCode());
+            if (guidance != null) data.put("guidance", guidance);
         }
 
-        boolean connected = Boolean.TRUE.equals(result.get("connected"));
-        log.info("ERP verify for org {}: connected={}, user={}", org.getName(), connected, userEmail);
+        log.info("ERP verify for org {}: type={}, connected={}, user={}",
+                org.getName(), erpType, result.success(), userEmail);
 
-        if (connected) {
-            return ApiResponseDto.success("ERP connection verified successfully", result);
+        if (result.success()) {
+            return ApiResponseDto.success("ERP connection verified successfully", data);
         } else {
             return ApiResponseDto.<Map<String, Object>>builder()
                     .success(false)
                     .message("ERP connection failed")
-                    .data(result)
+                    .data(data)
                     .timestamp(java.time.LocalDateTime.now())
                     .build();
         }
     }
 
-    private String getSageErrorGuidance(String errorCode) {
+    private String getErpErrorGuidance(ErpType erpType, String errorCode) {
         if (errorCode == null) return null;
-        return switch (errorCode) {
-            case "GW-0011" -> "The Sage Intacct gateway rejected the request. "
-                    + "The User ID in ERP settings must be authorized as a Web Services sender "
-                    + "in your Sage Intacct company (Company > Setup > Company > Security > Web Services authorizations).";
-            case "XL03000006" -> "Invalid login credentials. Verify your User ID, Company ID, and Password in ERP settings.";
-            case "XL03000009" -> "User account is locked or inactive in Sage Intacct.";
-            default -> null;
-        };
+        if (erpType == ErpType.SAGE) {
+            return switch (errorCode) {
+                case "GW-0011" -> "The Sage Intacct gateway rejected the Sender ID. "
+                        + "Ensure the Sender ID is correct and authorized in the target company's Sage Intacct instance: "
+                        + "Company → Admin → Web Services Authorizations → add your Sender ID. "
+                        + "If you don't have a Sender ID, register at https://developer.intacct.com";
+                case "XL03000006" -> "Invalid login credentials. Verify your User ID, Company ID, and Password in ERP settings. "
+                        + "Note: Sender ID/Password and User ID/Password are separate — check both.";
+                case "XL03000009" -> "User account is locked or inactive in Sage Intacct.";
+                case "CONNECTION_ERROR" -> "Could not reach the Sage Intacct gateway. Check the API endpoint URL and network connectivity.";
+                default -> null;
+            };
+        }
+        return null;
+    }
+
+    // ==================== Private Helpers ====================
+
+    /**
+     * Apply an ERP config update: set the erpType on the Organization and save properties.
+     */
+    private void applyErpConfigUpdate(Organization org, UpdateErpConfigRequest request, String userEmail) {
+        if (request.getErpType() != null) {
+            ErpType newType = parseErpType(request.getErpType());
+            ErpType oldType = org.getErpType();
+
+            // If switching ERP type, clear old properties
+            if (oldType != null && oldType != newType && oldType != ErpType.NONE) {
+                erpPropertyService.deleteProperties(org.getId(), oldType);
+                log.info("Cleared {} properties for org {} (switching to {})",
+                        oldType, org.getName(), newType);
+            }
+
+            org.setErpType(newType);
+            organizationRepository.save(org);
+        }
+
+        // Save generic properties
+        if (request.getProperties() != null && !request.getProperties().isEmpty()
+                && org.getErpType() != null && org.getErpType() != ErpType.NONE) {
+            erpPropertyService.saveProperties(org.getId(), org.getErpType(), request.getProperties());
+        }
+
+        log.info("ERP config updated for org: {} by user: {}", org.getName(), userEmail);
+    }
+
+    private ErpType parseErpType(String type) {
+        try {
+            return ErpType.valueOf(type.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Invalid ERP type: " + type
+                    + ". Valid types: " + Arrays.toString(ErpType.values()));
+        }
     }
 
     /**
@@ -585,21 +614,23 @@ public class OrganizationSettingsController {
     }
 
     private ErpConfigDTO buildErpConfigDTO(Organization org) {
-        String maskedKey = null;
-        if (org.getErpApiKeyEncrypted() != null) {
-            maskedKey = EncryptionService.maskSecret(encryptionService.decrypt(org.getErpApiKeyEncrypted()));
+        ErpType erpType = org.getErpType() != null ? org.getErpType() : ErpType.NONE;
+        boolean configured = erpType != ErpType.NONE;
+
+        Map<String, String> maskedProps = Collections.emptyMap();
+        if (configured) {
+            maskedProps = erpPropertyService.getMaskedProperties(org.getId(), erpType);
+            // If we have properties AND required ones are populated, mark configured
+            List<String> missing = erpPropertyService.validateRequired(org.getId(), erpType);
+            configured = missing.isEmpty();
         }
-        boolean configured = org.getErpType() != null && org.getErpType() != ErpType.NONE
-                && org.getErpApiEndpoint() != null && !org.getErpApiEndpoint().isBlank();
 
         return ErpConfigDTO.builder()
-                .erpType(org.getErpType() != null ? org.getErpType().name() : "NONE")
-                .erpApiEndpoint(org.getErpApiEndpoint())
-                .erpApiKeyMasked(maskedKey)
-                .erpTenantId(org.getErpTenantId())
-                .erpCompanyId(org.getErpCompanyId())
-                .erpAutoSync(org.getErpAutoSync())
+                .erpType(erpType.name())
+                .erpTypeDisplayName(erpType.getDisplayName())
                 .erpConfigured(configured)
+                .properties(maskedProps)
+                .propertyDefinitions(ErpPropertyDefinitions.getDefinitions(erpType))
                 .build();
     }
 }
