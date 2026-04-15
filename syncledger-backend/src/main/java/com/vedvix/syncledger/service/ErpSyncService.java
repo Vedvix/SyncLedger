@@ -108,6 +108,8 @@ public class ErpSyncService {
                 if (result.remoteRecordId() != null) {
                     invoice.setSageInvoiceId(result.remoteRecordId());
                     syncLog.setSageInvoiceId(result.remoteRecordId());
+                } else {
+                    log.warn("ERP sync returned success but no record ID for invoice {}", invoiceId);
                 }
 
                 long durationMs = System.currentTimeMillis() - startTime;
@@ -119,8 +121,8 @@ public class ErpSyncService {
                 syncLog.setDurationMs((int) durationMs);
                 sageSyncRepository.save(syncLog);
 
-                log.info("Invoice {} synced successfully to {} in {}ms",
-                        invoiceId, org.getErpType(), durationMs);
+                log.info("Invoice {} synced successfully to {} in {}ms (remoteId={})",
+                        invoiceId, org.getErpType(), durationMs, result.remoteRecordId());
             } else {
                 syncLog.setErrorCode(result.errorCode());
                 syncLog.setErrorMessage(result.errorMessage());
@@ -145,10 +147,10 @@ public class ErpSyncService {
             throw e;
         } catch (Exception e) {
             long durationMs = System.currentTimeMillis() - startTime;
-            log.error("Failed to sync invoice {} to {}: {}", invoiceId, org.getErpType(), e.getMessage());
+            log.error("Failed to sync invoice {} to {}", invoiceId, org.getErpType(), e);
 
             invoice.setSyncStatus(SyncStatus.FAILED);
-            invoice.setSyncErrorMessage(e.getMessage());
+            invoice.setSyncErrorMessage("ERP sync failed. Please try again or contact support.");
             invoiceRepository.save(invoice);
 
             syncLog.setStatus(SyncStatus.FAILED);
@@ -156,7 +158,7 @@ public class ErpSyncService {
             syncLog.setDurationMs((int) durationMs);
             sageSyncRepository.save(syncLog);
 
-            throw new BadRequestException("ERP sync failed: " + e.getMessage());
+            throw new BadRequestException("ERP sync failed. Please try again or contact support.");
         }
 
         return invoiceService.getInvoiceById(invoiceId, currentUser);

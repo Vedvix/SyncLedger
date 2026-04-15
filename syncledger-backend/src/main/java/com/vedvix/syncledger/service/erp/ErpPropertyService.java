@@ -143,8 +143,9 @@ public class ErpPropertyService {
         try {
             return encryptionService.decrypt(encrypted);
         } catch (Exception e) {
-            log.warn("ERP property decryption failed — value may have been stored unencrypted");
-            return encrypted;
+            log.error("ERP property decryption failed - encryption key may have changed", e);
+            throw new BadRequestException(
+                    "ERP configuration is corrupted. Please reconfigure your ERP integration.");
         }
     }
 }

@@ -8,43 +8,43 @@ from datetime import date
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class LineItem(BaseModel):
     """Invoice line item data."""
     
-    line_number: int = Field(..., description="Line item number")
-    description: Optional[str] = Field(None, description="Item description")
-    item_code: Optional[str] = Field(None, description="Product/service code")
-    quantity: Optional[Decimal] = Field(None, description="Quantity")
-    unit: Optional[str] = Field(None, description="Unit of measure")
-    unit_price: Optional[Decimal] = Field(None, description="Price per unit")
-    tax_rate: Optional[Decimal] = Field(None, description="Tax rate percentage")
-    tax_amount: Optional[Decimal] = Field(None, description="Tax amount")
-    discount_amount: Optional[Decimal] = Field(None, description="Discount amount")
-    line_total: Optional[Decimal] = Field(None, description="Total for this line")
-    gl_account_code: Optional[str] = Field(None, description="GL account code")
-    cost_center: Optional[str] = Field(None, description="Cost center code")
+    line_number: int = Field(..., description="Line item number", ge=1)
+    description: Optional[str] = Field(None, description="Item description", max_length=1000)
+    item_code: Optional[str] = Field(None, description="Product/service code", max_length=100)
+    quantity: Optional[Decimal] = Field(None, description="Quantity", ge=0, le=Decimal("999999999.9999"))
+    unit: Optional[str] = Field(None, description="Unit of measure", max_length=50)
+    unit_price: Optional[Decimal] = Field(None, description="Price per unit", ge=0, le=Decimal("999999999.9999"))
+    tax_rate: Optional[Decimal] = Field(None, description="Tax rate percentage", ge=0, le=Decimal("100"))
+    tax_amount: Optional[Decimal] = Field(None, description="Tax amount", ge=0, le=Decimal("999999999.99"))
+    discount_amount: Optional[Decimal] = Field(None, description="Discount amount", ge=0, le=Decimal("999999999.99"))
+    line_total: Optional[Decimal] = Field(None, description="Total for this line", ge=0, le=Decimal("999999999.99"))
+    gl_account_code: Optional[str] = Field(None, description="GL account code", max_length=50)
+    cost_center: Optional[str] = Field(None, description="Cost center code", max_length=100)
 
 
 class VendorInfo(BaseModel):
     """Vendor information extracted from invoice."""
     
-    name: Optional[str] = Field(None, description="Vendor/supplier name")
-    address: Optional[str] = Field(None, description="Vendor address")
-    email: Optional[str] = Field(None, description="Vendor email")
-    phone: Optional[str] = Field(None, description="Vendor phone number")
-    tax_id: Optional[str] = Field(None, description="Vendor tax ID / VAT number")
-    website: Optional[str] = Field(None, description="Vendor website")
+    name: Optional[str] = Field(None, description="Vendor/supplier name", max_length=500)
+    address: Optional[str] = Field(None, description="Vendor address", max_length=1000)
+    email: Optional[str] = Field(None, description="Vendor email", max_length=254)
+    phone: Optional[str] = Field(None, description="Vendor phone number", max_length=50)
+    tax_id: Optional[str] = Field(None, description="Vendor tax ID / VAT number", max_length=50)
+    website: Optional[str] = Field(None, description="Vendor website", max_length=500)
 
 
 class InvoiceData(BaseModel):
     """Extracted invoice data."""
     
     # Invoice identification
-    invoice_number: Optional[str] = Field(None, description="Invoice number")
-    po_number: Optional[str] = Field(None, description="Purchase order number")
+    invoice_number: Optional[str] = Field(None, description="Invoice number", max_length=100)
+    po_number: Optional[str] = Field(None, description="Purchase order number", max_length=100)
     
     # Vendor information
     vendor: VendorInfo = Field(default_factory=VendorInfo, description="Vendor details")
@@ -54,32 +54,40 @@ class InvoiceData(BaseModel):
     due_date: Optional[date] = Field(None, description="Payment due date")
     
     # Financial details
-    subtotal: Optional[Decimal] = Field(None, description="Subtotal before tax")
-    tax_amount: Optional[Decimal] = Field(None, description="Total tax amount")
-    discount_amount: Optional[Decimal] = Field(None, description="Total discount")
-    shipping_amount: Optional[Decimal] = Field(None, description="Shipping/freight charges")
-    total_amount: Optional[Decimal] = Field(None, description="Total invoice amount")
-    currency: str = Field(default="USD", description="Currency code")
+    subtotal: Optional[Decimal] = Field(None, description="Subtotal before tax", ge=0, le=Decimal("999999999.99"))
+    tax_amount: Optional[Decimal] = Field(None, description="Total tax amount", ge=0, le=Decimal("999999999.99"))
+    discount_amount: Optional[Decimal] = Field(None, description="Total discount", ge=0, le=Decimal("999999999.99"))
+    shipping_amount: Optional[Decimal] = Field(None, description="Shipping/freight charges", ge=0, le=Decimal("999999999.99"))
+    total_amount: Optional[Decimal] = Field(None, description="Total invoice amount", ge=0, le=Decimal("999999999.99"))
+    currency: str = Field(default="USD", description="Currency code", min_length=3, max_length=3)
     
     # Line items
     line_items: List[LineItem] = Field(default_factory=list, description="Invoice line items")
     
     # Payment information
-    payment_terms: Optional[str] = Field(None, description="Payment terms")
-    bank_details: Optional[str] = Field(None, description="Bank account details")
+    payment_terms: Optional[str] = Field(None, description="Payment terms", max_length=200)
+    bank_details: Optional[str] = Field(None, description="Bank account details", max_length=500)
     
     # Mapped fields (populated by mapping engine)
-    gl_account: Optional[str] = Field(None, description="GL account code from mapping")
-    project: Optional[str] = Field(None, description="Project/opportunity number from mapping")
-    item_category: Optional[str] = Field(None, description="Item/product category from mapping")
-    location: Optional[str] = Field(None, description="Location/address from mapping")
-    cost_center: Optional[str] = Field(None, description="Cost center from mapping")
-    mapping_profile_id: Optional[str] = Field(None, description="ID of mapping profile used")
+    gl_account: Optional[str] = Field(None, description="GL account code from mapping", max_length=50)
+    project: Optional[str] = Field(None, description="Project/opportunity number from mapping", max_length=100)
+    item_category: Optional[str] = Field(None, description="Item/product category from mapping", max_length=100)
+    location: Optional[str] = Field(None, description="Location/address from mapping", max_length=500)
+    cost_center: Optional[str] = Field(None, description="Cost center from mapping", max_length=100)
+    mapping_profile_id: Optional[str] = Field(None, description="ID of mapping profile used", max_length=100)
     
     # Extraction metadata
     confidence_score: float = Field(default=0.0, ge=0.0, le=1.0, description="Extraction confidence 0-1")
     requires_manual_review: bool = Field(default=False, description="Needs human review")
     raw_text: Optional[str] = Field(None, description="Raw extracted text")
+    
+    @field_validator("due_date")
+    @classmethod
+    def validate_due_date(cls, v, info):
+        if v and info.data.get("invoice_date") and v < info.data["invoice_date"]:
+            # Allow but flag — some invoices genuinely have past-due dates
+            pass
+        return v
     
     class Config:
         json_encoders = {
@@ -190,3 +198,4 @@ class HealthResponse(BaseModel):
     service: str = Field(..., description="Service name")
     version: str = Field(..., description="Service version")
     database: str = Field(default="unknown", description="Database connection status")
+    ai_status: str = Field(default="unknown", description="AI extraction service status")

@@ -8,17 +8,23 @@ Author: vedvix
 import os
 import tempfile
 import time
+import ipaddress
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import List, Optional
+from urllib.parse import urlparse
 
 # Load .env file for local development (no-op when env vars are already set via Docker)
 from dotenv import load_dotenv
 load_dotenv()
 
 import structlog
-from fastapi import FastAPI, File, HTTPException, UploadFile, status, Query, Body
+from fastapi import FastAPI, File, HTTPException, UploadFile, status, Query, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from models.invoice_data import (
     ExtractionResponse, HealthResponse, InvoiceData,
@@ -67,6 +73,70 @@ structlog.configure(
 )
 
 logger = structlog.get_logger(__name__)
+
+
+# ─── Security Helpers ───────────────────────────────────────────────────────
+
+# Allowed root for folder-based extraction (prevents path traversal)
+ALLOWED_FOLDER_ROOT = Path(os.getenv("ALLOWED_FOLDER_ROOT", "/data/invoices")).resolve()
+
+# Max file size for uploads (bytes)
+MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE_MB", "50")) * 1024 * 1024
+
+
+def _validate_url(url: str) -> None:
+    """Validate URL to prevent SSRF attacks."""
+    parsed = urlparse(url)
+    
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only http and https URLs are allowed"
+        )
+    
+    hostname = parsed.hostname
+    if not hostname:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid URL: missing hostname"
+        )
+    
+    # Block private/internal IPs to prevent SSRF
+    try:
+        import socket
+        resolved = socket.getaddrinfo(hostname, None)
+        for _, _, _, _, sockaddr in resolved:
+            ip = ipaddress.ip_address(sockaddr[0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="URLs pointing to internal/private networks are not allowed"
+                )
+    except socket.gaierror:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not resolve hostname"
+        )
+
+
+def _validate_folder_path(folder_path: str) -> Path:
+    """Validate folder path to prevent path traversal attacks."""
+    resolved = Path(folder_path).resolve()
+    
+    if not resolved.is_relative_to(ALLOWED_FOLDER_ROOT):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Access denied: folder must be under {ALLOWED_FOLDER_ROOT}"
+        )
+    
+    if not resolved.is_dir():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Folder not found: {folder_path}"
+        )
+    
+    return resolved
+
 
 # Service instances
 pdf_extractor: Optional[PDFExtractor] = None
@@ -120,6 +190,9 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down PDF Extraction Service")
 
 
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
 # Create FastAPI application
 app = FastAPI(
     title="SyncLedger PDF Extraction Service",
@@ -131,10 +204,20 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # Configure CORS
+_cors_raw = os.getenv("CORS_ORIGINS", "")
+_cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()]
+if not _cors_origins:
+    if os.getenv("ENVIRONMENT", "development") == "production":
+        raise RuntimeError("CORS_ORIGINS must be set in production")
+    _cors_origins = ["http://localhost:3000", "http://localhost:8080"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8080").split(","),
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -143,21 +226,29 @@ app.add_middleware(
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint with component status."""
     db_status = "disconnected"
     if db_service:
         try:
-            # Quick check - just verify we can get a session
             async with db_service.get_session():
                 db_status = "connected"
         except Exception:
             db_status = "error"
     
+    ai_status = "disabled"
+    if ai_service and ai_service.is_ai_enabled:
+        ai_status = "enabled"
+    elif ai_service:
+        ai_status = "initialized_no_key"
+    
+    overall = "healthy" if db_status == "connected" else "degraded"
+    
     return HealthResponse(
-        status="healthy",
+        status=overall,
         service="pdf-extraction-service",
         version="1.0.0",
-        database=db_status
+        database=db_status,
+        ai_status=ai_status,
     )
 
 
@@ -301,7 +392,9 @@ async def _extract_with_ai_pipeline(
 
 
 @app.post("/extract", response_model=ExtractionResponse, tags=["Extraction"])
+@limiter.limit("30/minute")
 async def extract_invoice_data(
+    request: Request,
     file: UploadFile = File(..., description="PDF or image file to extract data from"),
     save_to_db: bool = Query(default=False, description="Whether to save extracted data to database")
 ):
@@ -330,8 +423,22 @@ async def extract_invoice_data(
     logger.info("Received file for extraction", filename=file.filename)
     
     try:
-        # Read file content
-        content = await file.read()
+        # Stream-read with size limit to avoid memory exhaustion
+        chunks = []
+        total_size = 0
+        while True:
+            chunk = await file.read(1024 * 1024)  # 1MB chunks
+            if not chunk:
+                break
+            total_size += len(chunk)
+            if total_size > MAX_FILE_SIZE:
+                raise HTTPException(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    detail=f"File size exceeds {MAX_FILE_SIZE // (1024*1024)}MB limit"
+                )
+            chunks.append(chunk)
+        
+        content = b"".join(chunks)
         
         if len(content) == 0:
             raise HTTPException(
@@ -339,18 +446,13 @@ async def extract_invoice_data(
                 detail="Empty file uploaded"
             )
         
-        if len(content) > 50 * 1024 * 1024:  # 50MB limit
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail="File size exceeds 50MB limit"
-            )
-        
         # Save to temporary file for processing
-        with tempfile.NamedTemporaryFile(delete=False, suffix=get_file_suffix(file.filename)) as tmp_file:
-            tmp_file.write(content)
-            tmp_path = tmp_file.name
-        
+        tmp_path = None
         try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=get_file_suffix(file.filename)) as tmp_file:
+                tmp_file.write(content)
+                tmp_path = tmp_file.name
+            os.chmod(tmp_path, 0o600)
             # Extract text from PDF
             extraction_result = await pdf_extractor.extract(tmp_path)
             
@@ -405,7 +507,7 @@ async def extract_invoice_data(
             
         finally:
             # Cleanup temporary file
-            if os.path.exists(tmp_path):
+            if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
                 
     except HTTPException:
@@ -419,12 +521,15 @@ async def extract_invoice_data(
 
 
 @app.post("/extract/url", response_model=ExtractionResponse, tags=["Extraction"])
-async def extract_from_url(url: str):
+@limiter.limit("20/minute")
+async def extract_from_url(request: Request, url: str):
     """
     Extract invoice data from a PDF or image at the given URL (e.g., S3 presigned URL).
     Simple endpoint for quick extraction without organization context.
     """
     import httpx
+    
+    _validate_url(url)
     
     logger.info("Extracting from URL", url=url[:100])
     
@@ -484,7 +589,8 @@ async def extract_from_url(url: str):
 
 
 @app.post("/api/v1/extract", response_model=ExtractionResponse, tags=["Extraction"])
-async def extract_invoice_from_url(request: ExtractFromUrlRequest):
+@limiter.limit("60/minute")
+async def extract_invoice_from_url(request: Request, body: ExtractFromUrlRequest):
     """
     Extract invoice data from URL with organization context.
     This is the primary endpoint called by the Java backend.
@@ -497,11 +603,13 @@ async def extract_invoice_from_url(request: ExtractFromUrlRequest):
     """
     import httpx
     
+    _validate_url(body.file_url)
+    
     logger.info(
         "Extracting invoice for organization",
-        organization_id=request.organization_id,
-        invoice_id=request.invoice_id,
-        filename=request.file_name
+        organization_id=body.organization_id,
+        invoice_id=body.invoice_id,
+        filename=body.file_name
     )
     
     start_time = time.time()
@@ -509,12 +617,12 @@ async def extract_invoice_from_url(request: ExtractFromUrlRequest):
     try:
         # Download file from URL
         async with httpx.AsyncClient() as client:
-            response = await client.get(request.file_url, timeout=60.0)
+            response = await client.get(body.file_url, timeout=60.0)
             response.raise_for_status()
             content = response.content
         
         # Save to temporary file with correct extension
-        suffix = get_file_suffix(request.file_name) if request.file_name else '.pdf'
+        suffix = get_file_suffix(body.file_name) if body.file_name else '.pdf'
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
             tmp_file.write(content)
             tmp_path = tmp_file.name
@@ -525,23 +633,23 @@ async def extract_invoice_from_url(request: ExtractFromUrlRequest):
             
             # Use OCR if needed
             if extraction_result.needs_ocr:
-                logger.info("Using OCR for scanned document", filename=request.file_name)
+                logger.info("Using OCR for scanned document", filename=body.file_name)
                 extraction_result = await ocr_service.extract(tmp_path)
             
             # Run AI extraction pipeline with organization context
             invoice_data, extraction_method, mapping_result, ai_meta = await _extract_with_ai_pipeline(
                 tmp_path=tmp_path,
                 extraction_result=extraction_result,
-                organization_id=request.organization_id,
-                ai_config=request.ai_config,
+                organization_id=body.organization_id,
+                ai_config=body.ai_config,
             )
             
             processing_time = int((time.time() - start_time) * 1000)
             
             logger.info(
                 "Extraction completed",
-                organization_id=request.organization_id,
-                invoice_id=request.invoice_id,
+                organization_id=body.organization_id,
+                invoice_id=body.invoice_id,
                 confidence=invoice_data.confidence_score,
                 method=extraction_method,
                 ai_tier=ai_meta.get("ai_tier_used"),
@@ -566,7 +674,7 @@ async def extract_invoice_from_url(request: ExtractFromUrlRequest):
                 os.unlink(tmp_path)
                 
     except httpx.HTTPError as e:
-        logger.error("Failed to download PDF", error=str(e), url=request.file_url[:100])
+        logger.error("Failed to download PDF", error=str(e), url=body.file_url[:100])
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to download PDF from URL: {str(e)}"
@@ -574,7 +682,7 @@ async def extract_invoice_from_url(request: ExtractFromUrlRequest):
     except Exception as e:
         logger.exception(
             "Error extracting invoice",
-            organization_id=request.organization_id,
+            organization_id=body.organization_id,
             error=str(e)
         )
         raise HTTPException(
@@ -626,9 +734,10 @@ async def save_invoice(request: SaveInvoiceRequest):
 
 @app.get("/invoices", tags=["Database"])
 async def get_invoices(
-    status_filter: Optional[str] = Query(None, alias="status", description="Filter by status"),
-    vendor: Optional[str] = Query(None, description="Filter by vendor name"),
-    limit: int = Query(default=100, le=500, description="Maximum results"),
+    status_filter: Optional[str] = Query(None, alias="status", description="Filter by status",
+                                         pattern="^(PENDING|UNDER_REVIEW|APPROVED|SYNCED|REJECTED)$"),
+    vendor: Optional[str] = Query(None, description="Filter by vendor name", min_length=1, max_length=255),
+    limit: int = Query(default=100, ge=1, le=500, description="Maximum results"),
     offset: int = Query(default=0, ge=0, description="Offset for pagination")
 ):
     """
@@ -741,7 +850,9 @@ async def get_invoice(invoice_id: int):
 
 
 @app.post("/extract/batch", response_model=BatchProcessResponse, tags=["Extraction"])
+@limiter.limit("10/minute")
 async def batch_extract(
+    request: Request,
     files: List[UploadFile] = File(..., description="PDF files to process"),
     save_to_db: bool = Query(default=True, description="Save to database")
 ):
@@ -847,13 +958,9 @@ async def extract_from_folder(
     """
     import glob
     
-    if not os.path.isdir(folder_path):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Folder not found: {folder_path}"
-        )
+    safe_path = _validate_folder_path(folder_path)
     
-    pdf_files = glob.glob(os.path.join(folder_path, "*.pdf"))
+    pdf_files = glob.glob(str(safe_path / "*.pdf"))
     
     if not pdf_files:
         return {

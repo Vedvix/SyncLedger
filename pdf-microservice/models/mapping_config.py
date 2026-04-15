@@ -7,12 +7,13 @@ Different invoice formats can have different mapping configurations.
 Author: vedvix
 """
 
+import re
 from datetime import date, timedelta
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class MappingSourceField(str, Enum):
@@ -222,6 +223,16 @@ class InvoiceMappingProfile(BaseModel):
         None, 
         description="Regex pattern to auto-match this profile to a vendor name"
     )
+    
+    @field_validator("vendor_pattern")
+    @classmethod
+    def validate_vendor_regex(cls, v):
+        if v is not None:
+            try:
+                re.compile(v)
+            except re.error as e:
+                raise ValueError(f"Invalid regex pattern: {e}")
+        return v
     match_conditions: List[ProfileMatchCondition] = Field(
         default_factory=list,
         description=(

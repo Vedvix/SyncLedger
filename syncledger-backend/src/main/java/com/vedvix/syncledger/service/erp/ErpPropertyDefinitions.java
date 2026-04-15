@@ -171,6 +171,28 @@ public final class ErpPropertyDefinitions {
                         "select", false, false, "true", 5)
         ));
 
+        // ─── Zoho Books (OAuth2 REST) ───────────────────────────────────────
+        DEFINITIONS.put(ErpType.ZOHO, List.of(
+                new PropertyDef("client_id", "Client ID",
+                        "OAuth2 Client ID from Zoho API Console (https://api-console.zoho.com)",
+                        "text", true, false, null, 1),
+                new PropertyDef("client_secret", "Client Secret",
+                        "OAuth2 Client Secret",
+                        "password", true, true, null, 2),
+                new PropertyDef("organization_id", "Organization ID",
+                        "Zoho Books Organization ID — found in Settings → Organization Profile",
+                        "text", true, false, null, 3),
+                new PropertyDef("refresh_token", "Refresh Token",
+                        "OAuth2 refresh token obtained after authorization flow",
+                        "password", true, true, null, 4),
+                new PropertyDef("region", "Data Center Region",
+                        "Zoho data center: US (.com), EU (.eu), IN (.in), AU (.com.au), JP (.jp)",
+                        "select", false, false, "US", 5),
+                new PropertyDef("auto_sync", "Auto-Sync on Approval",
+                        "Automatically sync invoices when approved",
+                        "select", false, false, "true", 6)
+        ));
+
         // ─── Custom API ─────────────────────────────────────────────────────
         DEFINITIONS.put(ErpType.CUSTOM, List.of(
                 new PropertyDef("base_url", "API Base URL",

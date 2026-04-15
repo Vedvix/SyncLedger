@@ -35,10 +35,12 @@ class DatabaseService:
         Args:
             database_url: PostgreSQL connection URL. If not provided, uses env var.
         """
-        self.database_url = database_url or os.getenv(
-            "DATABASE_URL",
-            "postgresql+asyncpg://syncledger:syncledger123@localhost:5432/syncledger"
-        )
+        self.database_url = database_url or os.getenv("DATABASE_URL")
+        if not self.database_url:
+            raise RuntimeError(
+                "DATABASE_URL environment variable is required. "
+                "Example: postgresql+asyncpg://user:pass@host:5432/dbname"
+            )
         
         # Convert postgres:// to postgresql+asyncpg:// if needed
         if self.database_url.startswith("postgres://"):
@@ -46,11 +48,15 @@ class DatabaseService:
         elif self.database_url.startswith("postgresql://") and "+asyncpg" not in self.database_url:
             self.database_url = self.database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
         
+        pool_size = int(os.getenv("DB_POOL_SIZE", "5"))
+        max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "5"))
+        
         self.engine = create_async_engine(
             self.database_url,
             echo=os.getenv("DB_ECHO", "false").lower() == "true",
-            pool_size=5,
-            max_overflow=10,
+            pool_size=pool_size,
+            max_overflow=max_overflow,
+            pool_recycle=3600,
             pool_pre_ping=True
         )
         

@@ -13,6 +13,7 @@ public enum ErpType {
     QUICKBOOKS("QuickBooks", "Intuit QuickBooks"),
     SAP("SAP", "SAP S/4HANA or Business One"),
     XERO("Xero", "Xero accounting platform"),
+    ZOHO("Zoho Books", "Zoho Books cloud accounting"),
     CUSTOM("Custom", "Custom API integration");
 
     private final String displayName;

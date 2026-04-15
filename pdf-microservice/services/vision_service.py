@@ -19,6 +19,7 @@ from typing import List, Optional, Tuple
 import structlog
 from PIL import Image
 from pdf2image import convert_from_path
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from services.ai_models import (
     AIInvoiceExtraction,
@@ -133,19 +134,10 @@ class VisionExtractionService:
                 *image_contents,
             ]
             
-            # Step 4: Call GPT-4o Vision
+            # Step 4: Call GPT-4o Vision with retry for transient failures
             logger.info("Calling GPT-4o Vision API", pages=pages_to_send)
             
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": VISION_SYSTEM_PROMPT},
-                    {"role": "user", "content": user_content},
-                ],
-                max_tokens=4096,
-                temperature=0.1,  # Low temperature for accurate extraction
-                response_format={"type": "json_object"},
-            )
+            response = await self._call_openai_with_retry(user_content)
             
             # Step 5: Parse response
             raw_response = response.choices[0].message.content
@@ -177,6 +169,24 @@ class VisionExtractionService:
             logger.exception("Vision extraction failed", error=str(e))
             metadata["error"] = str(e)
             return None, metadata
+    
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        reraise=True,
+    )
+    async def _call_openai_with_retry(self, user_content):
+        """Call OpenAI API with automatic retry on transient failures."""
+        return await self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": VISION_SYSTEM_PROMPT},
+                {"role": "user", "content": user_content},
+            ],
+            max_tokens=4096,
+            temperature=0.1,
+            response_format={"type": "json_object"},
+        )
     
     def _convert_pdf_to_images(self, pdf_path: str) -> List[Image.Image]:
         """Convert PDF pages to PIL images optimized for vision API."""

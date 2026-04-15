@@ -15,6 +15,7 @@ import time
 from typing import Optional, Tuple
 
 import structlog
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from services.ai_models import (
     AIInvoiceExtraction,
@@ -56,6 +57,24 @@ class TextLLMExtractionService:
     def set_client(self, client):
         """Set the OpenAI client (allows lazy initialization)."""
         self.client = client
+    
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        reraise=True,
+    )
+    async def _call_openai_with_retry(self, user_message: str):
+        """Call OpenAI API with automatic retry on transient failures."""
+        return await self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": TEXT_SYSTEM_PROMPT},
+                {"role": "user", "content": user_message},
+            ],
+            max_tokens=4096,
+            temperature=0.1,
+            response_format={"type": "json_object"},
+        )
     
     async def extract(self, raw_text: str) -> Tuple[Optional[AIInvoiceExtraction], dict]:
         """
@@ -101,19 +120,10 @@ class TextLLMExtractionService:
                 f"Return ONLY the JSON object. No markdown, no code fences."
             )
             
-            # Call GPT-4o
+            # Call GPT-4o with retry for transient failures
             logger.info("Calling GPT-4o Text API", text_length=len(text_to_send))
             
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": TEXT_SYSTEM_PROMPT},
-                    {"role": "user", "content": user_message},
-                ],
-                max_tokens=4096,
-                temperature=0.1,
-                response_format={"type": "json_object"},
-            )
+            response = await self._call_openai_with_retry(user_message)
             
             # Parse response
             raw_response = response.choices[0].message.content
