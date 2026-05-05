@@ -409,7 +409,7 @@ jobs:
           ENVEOF
           chmod 600 .env
           
-          # Re-login to GHCR
+          # Re-login to GHCR (required for pulling private images)
           GHCR_SECRET=$(aws secretsmanager get-secret-value \
             --secret-id "syncledger/ENVNAME/ghcr" \
             --region AWSREGION \
@@ -418,6 +418,11 @@ jobs:
           GHCR_USER=$(echo "$GHCR_SECRET" | jq -r '.username // empty')
           if [ -n "$GHCR_TOKEN" ]; then
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            echo "GHCR login successful."
+          else
+            echo "ERROR: GHCR token is empty. Cannot pull images from ghcr.io."
+            echo "Re-run deploy with update_secrets=true and ensure GHCR_PAT secret is set."
+            exit 1
           fi
           
           # Pull and deploy

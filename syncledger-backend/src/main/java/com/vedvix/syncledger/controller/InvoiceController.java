@@ -293,10 +293,11 @@ public class InvoiceController {
             @AuthenticationPrincipal UserPrincipal currentUser) {
         InputStream fileStream = invoiceService.downloadInvoiceFile(id, currentUser);
         String fileName = invoiceService.getInvoiceFileName(id, currentUser);
-        
+        MediaType mediaType = resolveMediaType(fileName);
+
         return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_PDF)
-                .header(HttpHeaders.CONTENT_DISPOSITION, 
+                .contentType(mediaType)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"" + (fileName != null ? fileName : "invoice.pdf") + "\"")
                 .body(new InputStreamResource(fileStream));
     }
@@ -318,10 +319,11 @@ public class InvoiceController {
         try {
             InputStream fileStream = invoiceService.downloadInvoiceFile(id, currentUser);
             String fileName = invoiceService.getInvoiceFileName(id, currentUser);
-            
+            MediaType mediaType = resolveMediaType(fileName);
+
             return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_PDF)
-                    .header(HttpHeaders.CONTENT_DISPOSITION, 
+                    .contentType(mediaType)
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
                             "inline; filename=\"" + (fileName != null ? fileName : "invoice.pdf") + "\"")
                     .body(new InputStreamResource(fileStream));
         } catch (Exception e) {
@@ -330,11 +332,31 @@ public class InvoiceController {
                     + "justify-content:center;height:100vh;margin:0;color:#666'>"
                     + "<div style='text-align:center'>"
                     + "<p style='font-size:48px;margin:0'>&#128196;</p>"
-                    + "<p>PDF preview unavailable</p></div></body></html>";
+                    + "<p>Document preview unavailable</p></div></body></html>";
             return ResponseEntity.status(404)
                     .contentType(MediaType.TEXT_HTML)
                     .body(html);
         }
+    }
+
+    /**
+     * Resolves the HTTP Content-Type for an invoice file based on its filename
+     * extension. Defaults to application/pdf when the extension is unknown so
+     * legacy invoices (which were always PDFs) continue to render correctly.
+     */
+    private static MediaType resolveMediaType(String fileName) {
+        if (fileName == null) {
+            return MediaType.APPLICATION_PDF;
+        }
+        String lower = fileName.toLowerCase(java.util.Locale.ROOT);
+        if (lower.endsWith(".pdf")) return MediaType.APPLICATION_PDF;
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return MediaType.IMAGE_JPEG;
+        if (lower.endsWith(".png")) return MediaType.IMAGE_PNG;
+        if (lower.endsWith(".gif")) return MediaType.IMAGE_GIF;
+        if (lower.endsWith(".tif") || lower.endsWith(".tiff")) return MediaType.parseMediaType("image/tiff");
+        if (lower.endsWith(".bmp")) return MediaType.parseMediaType("image/bmp");
+        if (lower.endsWith(".webp")) return MediaType.parseMediaType("image/webp");
+        return MediaType.APPLICATION_PDF;
     }
 
     // ── Audit Trail ──────────────────────────────────────────────────────
